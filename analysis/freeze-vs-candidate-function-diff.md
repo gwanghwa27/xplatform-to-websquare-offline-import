@@ -2152,3 +2152,126 @@ PAGE_JS 136/136 PASS, standalone JS 15/15 PASS, id-map(source->target 전체 라
 UNRESOLVED_LAYOUT] 전부 흡수), `ROOT_FORM_LAYOUT_NOT_A_TABLE_TARGET=121`(무변경).
 
 **Status**: `FIX_CANDIDATE` / `STATIC_VERIFIED`.
+
+## 후속 라운드 -- Absolute Component Clipping Quick Fix
+
+### Clipping chain 실측 trace
+
+Button 2건(root Form Layout 직계 -- `btn`/`btnSave`), Calendar 1건(`cal`), Combo 1건
+(`cbo`)은 이 corpus에서 전부 root Form Layout의 직계 자식으로, 이미 basis=Form 자신의
+width/height라 clipping 재현 대상이 아니었다(round14에서 이미 검증된 정상 경로). 반면
+container(Div/GroupBox/PopupDiv) 안에 있는 leaf 자식 2건을 실측한 결과, 둘 다 명확한
+`WRONG_PERCENT_BASIS`가 확인됐다:
+
+**A. `divA_grpA_edt`(Edit, GroupBox 자식)** -- source: `GroupBox grpA left=10 top=10
+width=250 height=100`(Div `divA`의 내부 Layout 300x150 기준) 안에 `Edit edt left=5 top=5
+width=100 height=24`(GroupBox 자신의 로컬 좌표계 기준, GroupBox는 내부 Layouts/Layout
+wrapper가 없음).
+- BEFORE(round13 output): `left:1.7%;top:3.3%;width:33.3%;height:16.0%;` -- 역산하면
+  5/300=1.67%, 5/150=3.33%, 100/300=33.3%, 24/150=16.0% -- **GroupBox를 감싸는 바깥
+  Layout(300x150)을 basis로 잘못 사용**. GroupBox 실제 렌더링 크기(83.3%*66.7% of
+  divA ≈ 250x100)보다 훨씬 큰 기준으로 나눠 자식이 실제보다 작게(33.3%/16.0%) 계산됨.
+- AFTER: `left:2.0%;top:5.0%;width:40.0%;height:24.0%;` -- 5/250=2.0%, 5/100=5.0%,
+  100/250=40.0%, 24/100=24.0% -- source와 정확히 일치.
+
+**B. `pop_popSta`(Static, PopupDiv 자식)** -- source: `PopupDiv pop left=10 top=320
+width=220 height=120`(root Form Layout 900x650 기준) 안에 `Static popSta left=5 top=5
+width=120 height=24`(PopupDiv 자신의 로컬 좌표계 기준, PopupDiv도 내부 Layouts/Layout
+wrapper 없음).
+- BEFORE: `left:0.6%;top:0.8%;width:13.3%;height:3.7%;` -- 5/900=0.56%, 5/650=0.77%,
+  120/900=13.3%, 24/650=3.7% -- **PopupDiv를 감싸는 root Form Layout(900x650)을 basis로
+  잘못 사용**.
+- AFTER: `left:2.3%;top:4.2%;width:54.5%;height:20.0%;` -- 5/220=2.27%, 5/120=4.17%,
+  120/220=54.5%, 24/120=20.0% -- source와 정확히 일치.
+
+**COMPONENT_CLIPPING_ROOT_CAUSE = WRONG_PERCENT_BASIS.** Div는 자식을 자기 내부
+`<Layouts><Layout width=.. height=..>`로 다시 감싸는 경우가 많아(그 경우
+`convertLayoutAsTable`이 그 내부 Layout 자신의 geometry로 basis를 재계산하므로 정상),
+GroupBox/PopupDiv처럼 자식을 직접 갖는(내부 Layout 래핑이 없는) container에서만 이 버그가
+드러난다. 이전 라운드까지는 이런 container가 Table 1x1 cell로 감싸질 때 cell 자신의 px
+크기가 우연히 basis로 재계산돼(`resolveCellBasisWidth`/`resolveRowBasisHeight`) 이 버그가
+가려져 있었는데, `GENERAL_LAYOUT_TABLE_HEURISTIC_PAUSED`(직전 라운드)로 그 table wrapper가
+사라지면서 원래부터 있던 이 basis 버그가 그대로 노출된 것이다. 실제 렌더링 관점에서는
+자식의 width/height%가 의도보다 작게 계산되므로, 특히 Calendar/Combo처럼 native 위젯이
+내부 최소 렌더링 크기(아이콘/화살표 등)를 필요로 하는 컴포넌트는 지정된 박스가 그보다
+작아지면 시각적으로 잘려 보이게 된다.
+
+### 변경 -- `[WebSquareGenerator] convertChildren`(container 재귀 분기)
+
+**목적**: Div/GroupBox/PopupDiv 같은 container의 직계 자식이 자기 내부 Layouts/Layout으로
+다시 감싸여 있지 않으면, 그 자식들의 percentage basis를 container 자신의 width/height로
+재계산한다(`PERCENT_GEOMETRY_PARENT = SOURCE_IMMEDIATE_CONTAINER` 원칙을 non-Layout
+container에도 동일 적용). 기존 `resolveLayoutBasis`(범용, "Layout" 태그 전용이 아니라 임의
+Element의 width/height를 읽는 generic 함수) 하나만 재사용, 신규 함수 없음.
+
+**BEFORE**:
+```java
+if (isContainerComponent(sourceTag)) {
+    convertChildren(
+            out,
+            src,
+            target,
+            sourcePath,
+            analysis,
+            depth + 1,
+            null,
+            basisWidth,
+            basisHeight,
+            true);
+}
+```
+
+**AFTER**:
+```java
+if (isContainerComponent(sourceTag)) {
+    // COMPONENT_CLIPPING fix: Div/GroupBox/PopupDiv/Tab/Tabpage 같은 container의
+    // 직계 자식이 자기 내부 Layouts/Layout으로 다시 감싸여 있지 않은 경우(예:
+    // GroupBox가 Edit을 직접 자식으로 가짐), 그 자식들은 이 container 자신의
+    // width/height를 기준(PERCENT_GEOMETRY_PARENT = SOURCE_IMMEDIATE_CONTAINER)
+    // 으로 삼아야 한다 -- 이전에는 container를 감싸던 바깥 Layout의 basis를 그대로
+    // 물려받아, container 자신보다 basis가 커서 자식이 실제보다 작게 계산되고
+    // (Calendar/Combo 등 native 위젯의 최소 렌더링 크기보다 작아져) clipping으로
+    // 보이는 문제가 있었다. container에 자기 width/height가 없으면(예: 위치만
+    // 있고 크기가 없는 특수 케이스) 기존처럼 물려받은 basis를 그대로 쓴다. 자식이
+    // 실제로 내부 Layout을 갖는 경우(Div의 일반적 구조)는 convertLayoutAsTable이
+    // 그 Layout 자신의 geometry로 다시 basis를 갱신하므로 이 값과 무관하게 정확하다.
+    double[] ownBasis = layoutConverter.resolveLayoutBasis(src);
+    double childBasisWidth = ownBasis != null ? ownBasis[0] : basisWidth;
+    double childBasisHeight = ownBasis != null ? ownBasis[1] : basisHeight;
+    convertChildren(
+            out,
+            src,
+            target,
+            sourcePath,
+            analysis,
+            depth + 1,
+            null,
+            childBasisWidth,
+            childBasisHeight,
+            true);
+}
+```
+
+**Full Unified Diff**: 위 BEFORE/AFTER 블록이 실제 hunk 전체(`git diff` HEAD~1..HEAD,
+`WebSquareGenerator.java`, 다른 함수 변경 없음).
+
+**Caller/Callee**: caller는 `convertChildren` 자기 자신(재귀, 무변경). callee
+`layoutConverter.resolveLayoutBasis`(기존 함수 재사용, `ComponentLayoutConverter` 무변경
+-- "Layout" 태그 전용이 아니라 `resolveGeometry(Element)` 기반 범용 함수이므로 Div/GroupBox/
+PopupDiv/Tab 어떤 Element를 넘겨도 그대로 동작).
+
+Tab/Tabpage는 이 분기 이전(`convertChildren` 상단)에서 별도 `convertTab`으로 처리되어
+`continue`하므로 이 변경의 영향을 받지 않는다(회귀 없음, 무변경 확인).
+
+**Generated XML BEFORE/AFTER**: 위 clipping chain trace의 A(`divA_grpA_edt`), B
+(`pop_popSta`) 참고 -- 실제 corpus 값.
+
+**영향 output 수**: 2개 파일(`Form/NestedContainer.xml`, `Form/ControlPropertyMatrix.xml`)
+-- 136개 corpus 파일 전체 대조 결과 이 2개만 변경, 나머지 134개는 byte-identical.
+
+**Regression**: clean compile 0 errors, 149/149 변환 성공, XML well-formed 136/136,
+PAGE_JS 136/136 PASS, standalone JS 15/15 PASS, id-map(source->target 전체 라인) diff 0,
+`btn_cm=12`/`wq_gvw=3` invariant 무변경, percent format 무변경(1012/1012 XFDL-derived
+one-decimal 준수, placeholder 예외 2건 그대로).
+
+**Status**: `FIX_CANDIDATE` / `STATIC_VERIFIED`.

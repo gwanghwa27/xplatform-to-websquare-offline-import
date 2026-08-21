@@ -614,6 +614,20 @@ public class WebSquareGenerator {
                                 + " -> " + targetTag + " id=" + targetId);
 
                 if (isContainerComponent(sourceTag)) {
+                    // COMPONENT_CLIPPING fix: Div/GroupBox/PopupDiv/Tab/Tabpage 같은 container의
+                    // 직계 자식이 자기 내부 Layouts/Layout으로 다시 감싸여 있지 않은 경우(예:
+                    // GroupBox가 Edit을 직접 자식으로 가짐), 그 자식들은 이 container 자신의
+                    // width/height를 기준(PERCENT_GEOMETRY_PARENT = SOURCE_IMMEDIATE_CONTAINER)
+                    // 으로 삼아야 한다 -- 이전에는 container를 감싸던 바깥 Layout의 basis를 그대로
+                    // 물려받아, container 자신보다 basis가 커서 자식이 실제보다 작게 계산되고
+                    // (Calendar/Combo 등 native 위젯의 최소 렌더링 크기보다 작아져) clipping으로
+                    // 보이는 문제가 있었다. container에 자기 width/height가 없으면(예: 위치만
+                    // 있고 크기가 없는 특수 케이스) 기존처럼 물려받은 basis를 그대로 쓴다. 자식이
+                    // 실제로 내부 Layout을 갖는 경우(Div의 일반적 구조)는 convertLayoutAsTable이
+                    // 그 Layout 자신의 geometry로 다시 basis를 갱신하므로 이 값과 무관하게 정확하다.
+                    double[] ownBasis = layoutConverter.resolveLayoutBasis(src);
+                    double childBasisWidth = ownBasis != null ? ownBasis[0] : basisWidth;
+                    double childBasisHeight = ownBasis != null ? ownBasis[1] : basisHeight;
                     convertChildren(
                             out,
                             src,
@@ -622,8 +636,8 @@ public class WebSquareGenerator {
                             analysis,
                             depth + 1,
                             null,
-                            basisWidth,
-                            basisHeight,
+                            childBasisWidth,
+                            childBasisHeight,
                             true);
                 }
 

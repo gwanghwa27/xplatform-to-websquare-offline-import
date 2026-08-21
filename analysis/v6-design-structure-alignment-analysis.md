@@ -969,3 +969,51 @@ FAILED`/`STUDIO_DESIGN_REPRODUCED`가 이 수정만으로 해결됐다고 선언
 `STUDIO_DESIGN_REQUIRED` 유지. 상세는 `analysis/freeze-vs-candidate-function-diff.md`
 의 "후속 라운드 -- Visual Parity Quick Fix (GENERAL_LAYOUT_TABLE_HEURISTIC_PAUSED)"
 섹션, raw diff는 `analysis/git-baseline-vs-candidate-production.diff` 참고.
+
+## 후속 라운드 -- Absolute Component Clipping Quick Fix
+
+직전 라운드(Layout->Table heuristic pause)로 위치는 개선됐으나, 폐쇄망에서 Button/Combo/
+Calendar가 잘려 보이는 새 증상이 보고됐다. Production 실측 trace 결과
+`COMPONENT_CLIPPING_ROOT_CAUSE = WRONG_PERCENT_BASIS`로 확정됐다: Div는 보통 자식을
+자기 내부 `<Layouts><Layout>`으로 다시 감싸므로 `convertLayoutAsTable`이 그 내부 Layout
+자신의 geometry로 basis를 정확히 재계산하지만, GroupBox/PopupDiv처럼 자식을 직접
+갖는(내부 Layout 래핑이 없는) container는 이 재계산 경로를 타지 않아 바깥 Layout의(더 큰)
+basis를 그대로 물려받고 있었다. 실측 결과 GroupBox 자식 Edit(`divA_grpA_edt`)은
+33.3%/16.0%(잘못된 basis)로 계산돼야 할 값이 실제로는 40.0%/24.0%(올바른 basis)여야 했고,
+PopupDiv 자식 Static(`pop_popSta`)도 동일 패턴으로 13.3%/3.7% -> 54.5%/20.0%로 축소돼
+있었다. 이 축소가 Calendar/Combo처럼 내부 최소 렌더링 크기가 필요한 native 위젯에서
+clipping으로 나타난 것으로 판단된다. 이 버그는 직전까지 GroupBox/PopupDiv가 1x1 table
+cell로 감싸질 때 cell 자신의 실제 px 크기가 우연히 정확한 basis로 재계산돼(이전 라운드의
+NESTED_PERCENT_DOUBLE_SCALING fix) 가려져 있었으나, Table heuristic을 pause하면서 원래
+있던 버그가 그대로 드러났다.
+
+`[WebSquareGenerator] convertChildren`의 container 재귀 분기에서, 기존 범용 함수
+`resolveLayoutBasis`(Element의 width/height를 읽는 generic 함수, "Layout" 태그 전용
+아님)를 재사용해 container 자신의 width/height를 자식의 basis로 재계산하도록 최소
+수정했다(container에 자기 geometry가 없으면 기존처럼 물려받은 basis 유지, fallback
+보존). Tab/Tabpage는 이 분기 이전에 별도 `convertTab`으로 처리돼 영향받지 않는다.
+
+corpus 실측 결과 이 fix로 2개 파일(`Form/NestedContainer.xml`,
+`Form/ControlPropertyMatrix.xml`)만 변경, 나머지 134개는 byte-identical
+(`UNEXPECTED_GENERATED_DIFF = 0`). 두 사례 모두 AFTER 값이 source geometry와 정확히
+일치함을 손계산으로 재확인(`CHILD_GEOMETRY_ROUNDTRIP = PASS`). container 자신의 geometry
+(`PARENT_GEOMETRY_ROUNDTRIP`)는 이번 라운드에서 건드리지 않았으며 기존 값 그대로 PASS.
+container 자신에 이미 `position:absolute`가 emit되고 있어(기존 `buildComponentStyle`
+로직 무변경) 자식의 containing block이 실제로 그 container와 일치함을 확인했다
+(`ABSOLUTE_CONTAINING_BLOCK_MATCH = PASS`). Production 전체에서 `overflow` 관련 CSS는
+어디에서도 emit되지 않음을 재확인(`CLIPPING_BY_OVERFLOW_COUNT = 0`, 이번 라운드도
+overflow 관련 스타일 추가 없음 -- 전역 `overflow:visible` 적용 금지 규칙 준수). basis
+체인이 항상 "container 자신의 실제 px 크기"를 다음 단계 기준으로 넘기는 단일 방향
+구조라 이중 스케일링 위험이 없다(`NESTED_PERCENT_DOUBLE_SCALING_COUNT = 0`).
+
+Grid(`GridFormatConverter.java`)와 percentage formatter(`ComponentLayoutConverter.java`)
+는 이번 라운드 `git diff` 0줄로 완전히 무변경 확인(`GRID_IMPLEMENTATION_CHANGE = 0`,
+`PERCENT_PRECISION_CHANGE = 0`). 149/149 변환 성공, XML well-formed 136/136, PAGE_JS
+136/136 PASS, standalone JS 15/15 PASS, id-map diff 0, `btn_cm=12`/`wq_gvw=3` invariant
+무변경.
+
+최종 `XPLATFORM_VISUAL_PARITY = FIX_CANDIDATE`, `STATIC_VERIFIED`. `STUDIO_DESIGN_
+FAILED`/`STUDIO_DESIGN_REPRODUCED`가 이 수정만으로 해결됐다고 선언하지 않는다 --
+`STUDIO_DESIGN_REQUIRED` 유지. 상세는 `analysis/freeze-vs-candidate-function-diff.md`의
+"후속 라운드 -- Absolute Component Clipping Quick Fix" 섹션, raw diff는
+`analysis/git-baseline-vs-candidate-production.diff` 참고.

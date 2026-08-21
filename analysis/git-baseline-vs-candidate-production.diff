@@ -756,7 +756,7 @@ index 677cdd9..a0437b7 100644
          String value = trim(raw).toLowerCase();
          if (value.endsWith("px")) {
 diff --git a/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java b/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java
-index 3e52c8b..7773751 100644
+index 3e52c8b..07a813d 100644
 --- a/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java
 +++ b/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java
 @@ -401,49 +401,54 @@ public class WebSquareGenerator {
@@ -904,7 +904,7 @@ index 3e52c8b..7773751 100644
                  applyComponentSpecificProperties(src, target, sourceTag, sourcePath);
                  applyBindings(src, target, sourcePath, localId, targetId, sourceTag);
                  bindEvents(target, sourcePath, localId, analysis);
-@@ -543,7 +572,43 @@ public class WebSquareGenerator {
+@@ -543,19 +572,73 @@ public class WebSquareGenerator {
                                      + layoutConverter.describeLayoutSource(src) + ")");
                  }
  
@@ -949,20 +949,38 @@ index 3e52c8b..7773751 100644
                  System.out.println(
                          "[UI 변환] " + sourceTag + " " + sourcePath
                                  + " -> " + targetTag + " id=" + targetId);
-@@ -555,7 +620,11 @@ public class WebSquareGenerator {
+ 
+                 if (isContainerComponent(sourceTag)) {
++                    // COMPONENT_CLIPPING fix: Div/GroupBox/PopupDiv/Tab/Tabpage 같은 container의
++                    // 직계 자식이 자기 내부 Layouts/Layout으로 다시 감싸여 있지 않은 경우(예:
++                    // GroupBox가 Edit을 직접 자식으로 가짐), 그 자식들은 이 container 자신의
++                    // width/height를 기준(PERCENT_GEOMETRY_PARENT = SOURCE_IMMEDIATE_CONTAINER)
++                    // 으로 삼아야 한다 -- 이전에는 container를 감싸던 바깥 Layout의 basis를 그대로
++                    // 물려받아, container 자신보다 basis가 커서 자식이 실제보다 작게 계산되고
++                    // (Calendar/Combo 등 native 위젯의 최소 렌더링 크기보다 작아져) clipping으로
++                    // 보이는 문제가 있었다. container에 자기 width/height가 없으면(예: 위치만
++                    // 있고 크기가 없는 특수 케이스) 기존처럼 물려받은 basis를 그대로 쓴다. 자식이
++                    // 실제로 내부 Layout을 갖는 경우(Div의 일반적 구조)는 convertLayoutAsTable이
++                    // 그 Layout 자신의 geometry로 다시 basis를 갱신하므로 이 값과 무관하게 정확하다.
++                    double[] ownBasis = layoutConverter.resolveLayoutBasis(src);
++                    double childBasisWidth = ownBasis != null ? ownBasis[0] : basisWidth;
++                    double childBasisHeight = ownBasis != null ? ownBasis[1] : basisHeight;
+                     convertChildren(
+                             out,
+                             src,
                              target,
                              sourcePath,
                              analysis,
 -                            depth + 1);
 +                            depth + 1,
 +                            null,
-+                            basisWidth,
-+                            basisHeight,
++                            childBasisWidth,
++                            childBasisHeight,
 +                            true);
                  }
  
                  continue;
-@@ -573,15 +642,217 @@ public class WebSquareGenerator {
+@@ -573,15 +656,217 @@ public class WebSquareGenerator {
                                      + sourceTag + " id=" + wrapperId
                                      + " (자식 좌표 기준 수동 확인 필요)");
                  }
@@ -1186,7 +1204,7 @@ index 3e52c8b..7773751 100644
      }
  
      /** Phase 3: XPlatform Tab/Tabpage tree -> WebSquare tabControl tabs/content pairs. */
-@@ -592,7 +863,10 @@ public class WebSquareGenerator {
+@@ -592,7 +877,10 @@ public class WebSquareGenerator {
              String parentPath,
              XfdlAnalysisResult analysis,
              int depth,
@@ -1198,7 +1216,7 @@ index 3e52c8b..7773751 100644
  
          String localId = sanitizeXml10(src.getAttribute("id"));
          if (localId.length() == 0) {
-@@ -608,11 +882,10 @@ public class WebSquareGenerator {
+@@ -608,11 +896,10 @@ public class WebSquareGenerator {
          Element tabControl = createTargetElement(out, "w2:tabControl");
          tabControl.setAttribute("id", targetId);
          targetComponentTypeMap.put(targetId, "Tab");
@@ -1212,7 +1230,7 @@ index 3e52c8b..7773751 100644
          applyComponentSpecificProperties(src, tabControl, "Tab", sourcePath);
          applyBindings(src, tabControl, sourcePath, localId, targetId, "Tab");
          bindEvents(tabControl, sourcePath, localId, analysis);
-@@ -651,7 +924,10 @@ public class WebSquareGenerator {
+@@ -651,7 +938,10 @@ public class WebSquareGenerator {
              Element content = createTargetElement(out, "w2:content");
              content.setAttribute("id", contentId);
              targetComponentTypeMap.put(contentId, "Tabpage");
@@ -1224,7 +1242,7 @@ index 3e52c8b..7773751 100644
              tabControl.appendChild(content);
  
              String canonicalPagePath = canonicalizePath(pagePath);
-@@ -677,14 +953,15 @@ public class WebSquareGenerator {
+@@ -677,14 +967,15 @@ public class WebSquareGenerator {
                  continue;
              }
              if (isRuntimeSetUrlTarget(localId, pageLocalId)) {
@@ -1244,7 +1262,7 @@ index 3e52c8b..7773751 100644
          }
      }
  
-@@ -934,39 +1211,42 @@ public class WebSquareGenerator {
+@@ -934,39 +1225,42 @@ public class WebSquareGenerator {
          return normalized.startsWith("@") ? normalized.substring(1) : normalized;
      }
  
@@ -1308,7 +1326,7 @@ index 3e52c8b..7773751 100644
                  String checkboxValue = sanitizeXml10(src.getAttribute("value"));
                  if (checkboxValue.length() == 0) checkboxValue = text;
                  String targetId = target.getAttribute("id");
-@@ -978,7 +1258,24 @@ public class WebSquareGenerator {
+@@ -978,7 +1272,24 @@ public class WebSquareGenerator {
              }
          }
  
@@ -1334,7 +1352,7 @@ index 3e52c8b..7773751 100644
          if (style.length() > 0) {
              target.setAttribute("style", style);
          }
-@@ -1224,14 +1521,21 @@ public class WebSquareGenerator {
+@@ -1224,14 +1535,21 @@ public class WebSquareGenerator {
          return found;
      }
  
@@ -1359,7 +1377,7 @@ index 3e52c8b..7773751 100644
          }
      }
  
-@@ -1298,12 +1602,9 @@ public class WebSquareGenerator {
+@@ -1298,12 +1616,9 @@ public class WebSquareGenerator {
              System.out.println("[BINDING 변환] " + sourcePath + " -> data:"
                      + valueBinding.getDatasetId() + "." + valueBinding.getColumnId());
  
