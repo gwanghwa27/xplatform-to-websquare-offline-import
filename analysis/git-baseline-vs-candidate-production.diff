@@ -1,5 +1,5 @@
 diff --git a/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java b/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java
-index 29f635a..61728f0 100644
+index 29f635a..5dc9319 100644
 --- a/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java
 +++ b/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java
 @@ -5,7 +5,9 @@ import org.w3c.dom.Element;
@@ -64,7 +64,7 @@ index 29f635a..61728f0 100644
  
          Geometry geometry = findFormGeometry(source);
          if (geometry != null) {
-@@ -60,33 +77,353 @@ public class ComponentLayoutConverter {
+@@ -60,37 +77,428 @@ public class ComponentLayoutConverter {
          }
  
          if (style.indexOf("width:") < 0) {
@@ -132,7 +132,7 @@ index 29f635a..61728f0 100644
 +        ParsedLength h = parseLength(g.height);
 +        if (w == null || h == null || w.value <= 0.0 || h.value <= 0.0) {
 +            return null;
-         }
++        }
 +        return new double[] {w.value, h.value};
 +    }
 +
@@ -152,7 +152,7 @@ index 29f635a..61728f0 100644
 +            StringBuilder style = new StringBuilder();
 +            appendVisualStyle(source, style);
 +            return style.toString();
-+        }
+         }
 +        if (basisWidth <= 0.0 || basisHeight <= 0.0) {
 +            return null;
 +        }
@@ -427,6 +427,81 @@ index 29f635a..61728f0 100644
          appendCssLength(style, "height", geometry.height);
          return style.toString();
      }
+ 
++    /**
++     * grp_main의 style을 생성한다. NESTED_PERCENT_HEIGHT_REINTERPRETATION 라운드: grp_main은
++     * grp_resultArea(Form 선언 height 그대로, {@link #buildMainAreaStyle})와 달리 Form 선언
++     * height를 그대로 물려받지 않고, 실제 authored content extent({@link
++     * #resolveContentExtentHeight(Document)} -- 최상위 Layout 직계 자식들의 max(top+height))를
++     * 우선 사용한다(VERTICAL_CONTAINER_PERCENT_NESTING = DISALLOWED 원칙 -- root 기준 고정값을
++     * 하위로 그대로 반복 적용하지 않는다). content extent를 계산할 수 없으면(최상위 Layout을
++     * 못 찾거나 자식 geometry를 읽을 수 없는 경우) 기존 {@link #buildMainAreaStyle}(Form 선언
++     * height 기반)로 fallback한다(신규 fallback 로직 없이 기존 함수 재사용).
++     */
++    public String buildMainContentAreaStyle(Document source) {
++        double contentHeight = resolveContentExtentHeight(source);
++        if (contentHeight <= 0.0) {
++            return buildMainAreaStyle(source);
++        }
++        StringBuilder style = new StringBuilder();
++        style.append("width:").append(formatPercent(100.0)).append(";");
++        style.append("height:").append(formatNumber(contentHeight)).append("px;");
++        return style.toString();
++    }
++
++    /**
++     * source Form의 최상위 Layout 직계 자식들의 실제 content extent(px)를 계산한다: source 좌표
++     * 원점(0) 기준 max(child.top + child.height). 최상위 Layout을 찾을 수 없으면 -1({@link
++     * #findFirstElement} 재사용, {@link #findFormGeometry}와 동일한 "첫 Layout" 판정 방식).
++     */
++    public double resolveContentExtentHeight(Document source) {
++        if (source == null) {
++            return -1.0;
++        }
++        Element layout = findFirstElement(source, "Layout");
++        if (layout == null) {
++            return -1.0;
++        }
++        List<Element> children = new ArrayList<Element>();
++        NodeList nodeList = layout.getChildNodes();
++        for (int i = 0; i < nodeList.getLength(); i++) {
++            Node node = nodeList.item(i);
++            if (node instanceof Element) {
++                children.add((Element) node);
++            }
++        }
++        return resolveContentExtentHeight(children);
++    }
++
++    /**
++     * {@link #resolveContentExtentHeight(Document)}와 동일 계산을 이미 확보한 children
++     * 목록으로 바로 수행한다(호출부가 {@code directElementChildren}으로 이미 자식 목록을 가진
++     * 경우 중복 탐색 방지 -- {@link WebSquareGenerator#convertLayoutAsTable}에서 재사용).
++     * top/height를 읽을 수 없는 자식은 집계에서 제외한다. 집계 대상이 없으면 -1.
++     */
++    public double resolveContentExtentHeight(List<Element> children) {
++        if (children == null || children.isEmpty()) {
++            return -1.0;
++        }
++        double maxBottom = -1.0;
++        for (Element child : children) {
++            Geometry g = resolveGeometry(child);
++            ParsedLength top = isEmpty(g.top) ? null : parseLength(g.top);
++            ParsedLength height = isEmpty(g.height) ? null : parseLength(g.height);
++            if (top == null || height == null) {
++                continue;
++            }
++            double bottom = top.value + height.value;
++            if (bottom > maxBottom) {
++                maxBottom = bottom;
++            }
++        }
++        return maxBottom;
++    }
++
+     /** 어떤 XPlatform 위치 속성을 사용했는지 진단용 문자열로 반환한다. */
+     public String describeLayoutSource(Element source) {
+         if (source == null) {
 diff --git a/src/main/java/com/example/xfdltracker/converter/GridFormatConverter.java b/src/main/java/com/example/xfdltracker/converter/GridFormatConverter.java
 index 677cdd9..a0437b7 100644
 --- a/src/main/java/com/example/xfdltracker/converter/GridFormatConverter.java
@@ -756,10 +831,10 @@ index 677cdd9..a0437b7 100644
          String value = trim(raw).toLowerCase();
          if (value.endsWith("px")) {
 diff --git a/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java b/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java
-index 3e52c8b..4f905a8 100644
+index 3e52c8b..785c52e 100644
 --- a/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java
 +++ b/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java
-@@ -401,49 +401,59 @@ public class WebSquareGenerator {
+@@ -401,49 +401,65 @@ public class WebSquareGenerator {
  
          bindFormLifecycle(body, source, analysis);
  
@@ -807,9 +882,16 @@ index 3e52c8b..4f905a8 100644
 +        resultArea.setAttribute("style", layoutConverter.buildMainAreaStyle(source));
          body.appendChild(resultArea);
  
++        // NESTED_PERCENT_HEIGHT_REINTERPRETATION fix: grp_main은 grp_resultArea(Form 선언
++        // height 고정)와 달리 실제 authored content extent를 height로 사용한다(아래
++        // buildMainContentAreaStyle -- VERTICAL_CONTAINER_PERCENT_NESTING = DISALLOWED 원칙).
++        // convertLayoutAsTable의 root Layout basisHeight 산정도 동일 값을 공유하므로(같은
++        // resolveContentExtentHeight 재사용), 여기서 emit하는 height와 그 아래 percentage
++        // 자식들의 분모가 항상 일치한다.
          Element main = out.createElementNS(NS_XF, "xf:group");
          main.setAttribute("id", "grp_main");
-         main.setAttribute("style", layoutConverter.buildMainAreaStyle(source));
+-        main.setAttribute("style", layoutConverter.buildMainAreaStyle(source));
++        main.setAttribute("style", layoutConverter.buildMainContentAreaStyle(source));
          resultArea.appendChild(main);
 -
 -        Element root = out.createElementNS(NS_XF, "xf:group");
@@ -845,7 +927,7 @@ index 3e52c8b..4f905a8 100644
  
          finalizePageLoadBinding(body);
          logUnmappedEventBindings(analysis);
-@@ -451,13 +461,32 @@ public class WebSquareGenerator {
+@@ -451,13 +467,32 @@ public class WebSquareGenerator {
                  "[UI 변환 완료] component count=" + componentIdMap.size());
      }
  
@@ -879,7 +961,7 @@ index 3e52c8b..4f905a8 100644
  
          if (depth > 200) {
              throw new IllegalStateException(
-@@ -472,6 +501,9 @@ public class WebSquareGenerator {
+@@ -472,6 +507,9 @@ public class WebSquareGenerator {
              }
  
              Element src = (Element) node;
@@ -889,7 +971,7 @@ index 3e52c8b..4f905a8 100644
              String sourceTag = getSourceTagName(src);
  
              if ("Layouts".equals(getSourceTagName(sourceParent))
-@@ -490,7 +522,9 @@ public class WebSquareGenerator {
+@@ -490,7 +528,9 @@ public class WebSquareGenerator {
              }
  
              if ("Tab".equals(sourceTag) && componentMapping != null && targetTag != null) {
@@ -900,7 +982,7 @@ index 3e52c8b..4f905a8 100644
                  continue;
              }
  
-@@ -516,7 +550,7 @@ public class WebSquareGenerator {
+@@ -516,7 +556,7 @@ public class WebSquareGenerator {
                  target.setAttribute("id", targetId);
                  targetComponentTypeMap.put(targetId, sourceTag);
                  logPartialComponentMapping(componentMapping, sourcePath);
@@ -909,7 +991,7 @@ index 3e52c8b..4f905a8 100644
                  applyComponentSpecificProperties(src, target, sourceTag, sourcePath);
                  applyBindings(src, target, sourcePath, localId, targetId, sourceTag);
                  bindEvents(target, sourcePath, localId, analysis);
-@@ -543,19 +577,73 @@ public class WebSquareGenerator {
+@@ -543,19 +583,73 @@ public class WebSquareGenerator {
                                      + layoutConverter.describeLayoutSource(src) + ")");
                  }
  
@@ -985,7 +1067,7 @@ index 3e52c8b..4f905a8 100644
                  }
  
                  continue;
-@@ -573,15 +661,240 @@ public class WebSquareGenerator {
+@@ -573,15 +667,254 @@ public class WebSquareGenerator {
                                      + sourceTag + " id=" + wrapperId
                                      + " (자식 좌표 기준 수동 확인 필요)");
                  }
@@ -1121,6 +1203,20 @@ index 3e52c8b..4f905a8 100644
 +        }
 +        double basisWidth = basis == null ? -1.0 : basis[0];
 +        double basisHeight = basis == null ? -1.0 : basis[1];
++        // NESTED_PERCENT_HEIGHT_REINTERPRETATION fix: 최상위 Form Layout은 grp_main의 height를
++        // 더 이상 Form 선언 height 그대로 쓰지 않고 실제 authored content extent(children의
++        // max(top+height))로 산정한다(appendBody의 grp_main style도 동일 값을 사용 --
++        // resolveContentExtentHeight 하나만 공유). children의 percentage basis도 반드시 이
++        // 값과 일치해야 grp_main의 실제 렌더링 height와 percentage 분모가 어긋나지 않는다
++        // (width는 이번 라운드 범위 밖이라 basisWidth는 무변경). content extent가 기존
++        // basisHeight보다 작을 때만 축소 적용한다(더 크게 만들지 않음 -- SOURCE_INTENTIONAL_
++        // OVERFLOW 케이스를 억지로 줄이지 않기 위함).
++        if (isRootFormLayout) {
++            double contentExtentHeight = layoutConverter.resolveContentExtentHeight(children);
++            if (contentExtentHeight > 0.0 && (basisHeight <= 0.0 || contentExtentHeight < basisHeight)) {
++                basisHeight = contentExtentHeight;
++            }
++        }
 +        System.out.println(
 +                "[UI TABLE] Layout " + (parentPath.length() == 0 ? "(root)" : parentPath)
 +                        + " children=" + children.size() + " classification=" + classification
@@ -1200,9 +1296,9 @@ index 3e52c8b..4f905a8 100644
 +                        out, layout, cellGroup, parentPath, analysis, depth, cell,
 +                        childBasisWidth, childBasisHeight, false);
 +                colIndex++;
-+            }
+             }
 +            rowIndex++;
-+        }
+         }
 +
 +        System.out.println(
 +                "[UI TABLE] Layout " + (parentPath.length() == 0 ? "(root)" : parentPath)
@@ -1226,13 +1322,13 @@ index 3e52c8b..4f905a8 100644
 +            Node node = children.item(i);
 +            if (node.getNodeType() == Node.ELEMENT_NODE) {
 +                result.add((Element) node);
-             }
-         }
++            }
++        }
 +        return result;
      }
  
      /** Phase 3: XPlatform Tab/Tabpage tree -> WebSquare tabControl tabs/content pairs. */
-@@ -592,7 +905,10 @@ public class WebSquareGenerator {
+@@ -592,7 +925,10 @@ public class WebSquareGenerator {
              String parentPath,
              XfdlAnalysisResult analysis,
              int depth,
@@ -1244,7 +1340,7 @@ index 3e52c8b..4f905a8 100644
  
          String localId = sanitizeXml10(src.getAttribute("id"));
          if (localId.length() == 0) {
-@@ -608,11 +924,10 @@ public class WebSquareGenerator {
+@@ -608,11 +944,10 @@ public class WebSquareGenerator {
          Element tabControl = createTargetElement(out, "w2:tabControl");
          tabControl.setAttribute("id", targetId);
          targetComponentTypeMap.put(targetId, "Tab");
@@ -1258,7 +1354,7 @@ index 3e52c8b..4f905a8 100644
          applyComponentSpecificProperties(src, tabControl, "Tab", sourcePath);
          applyBindings(src, tabControl, sourcePath, localId, targetId, "Tab");
          bindEvents(tabControl, sourcePath, localId, analysis);
-@@ -651,7 +966,10 @@ public class WebSquareGenerator {
+@@ -651,7 +986,10 @@ public class WebSquareGenerator {
              Element content = createTargetElement(out, "w2:content");
              content.setAttribute("id", contentId);
              targetComponentTypeMap.put(contentId, "Tabpage");
@@ -1270,7 +1366,7 @@ index 3e52c8b..4f905a8 100644
              tabControl.appendChild(content);
  
              String canonicalPagePath = canonicalizePath(pagePath);
-@@ -677,14 +995,15 @@ public class WebSquareGenerator {
+@@ -677,14 +1015,15 @@ public class WebSquareGenerator {
                  continue;
              }
              if (isRuntimeSetUrlTarget(localId, pageLocalId)) {
@@ -1290,7 +1386,7 @@ index 3e52c8b..4f905a8 100644
          }
      }
  
-@@ -934,39 +1253,42 @@ public class WebSquareGenerator {
+@@ -934,39 +1273,42 @@ public class WebSquareGenerator {
          return normalized.startsWith("@") ? normalized.substring(1) : normalized;
      }
  
@@ -1354,7 +1450,7 @@ index 3e52c8b..4f905a8 100644
                  String checkboxValue = sanitizeXml10(src.getAttribute("value"));
                  if (checkboxValue.length() == 0) checkboxValue = text;
                  String targetId = target.getAttribute("id");
-@@ -978,7 +1300,24 @@ public class WebSquareGenerator {
+@@ -978,7 +1320,24 @@ public class WebSquareGenerator {
              }
          }
  
@@ -1380,7 +1476,7 @@ index 3e52c8b..4f905a8 100644
          if (style.length() > 0) {
              target.setAttribute("style", style);
          }
-@@ -1224,14 +1563,21 @@ public class WebSquareGenerator {
+@@ -1224,14 +1583,21 @@ public class WebSquareGenerator {
          return found;
      }
  
@@ -1405,7 +1501,7 @@ index 3e52c8b..4f905a8 100644
          }
      }
  
-@@ -1298,12 +1644,9 @@ public class WebSquareGenerator {
+@@ -1298,12 +1664,9 @@ public class WebSquareGenerator {
              System.out.println("[BINDING 변환] " + sourcePath + " -> data:"
                      + valueBinding.getDatasetId() + "." + valueBinding.getColumnId());
  

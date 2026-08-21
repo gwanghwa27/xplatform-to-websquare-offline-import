@@ -2428,3 +2428,172 @@ PAGE_JS 136/136 PASS, standalone JS 15/15 PASS, id-map(source->target 전체 라
 one-decimal 준수, px 값이라 percent count 자체는 영향 없음).
 
 **Status**: `FIX_CANDIDATE` / `STATIC_VERIFIED`.
+
+## 후속 라운드 -- Actual 760px Height Hierarchy Fix (Quick)
+
+### 판정
+
+이번 라운드는 `USER_CONFIRMED_STUDIO_EVIDENCE = ACCEPTED` 원칙에 따라 corpus 재현
+여부와 무관하게 `NESTED_PERCENT_HEIGHT_REINTERPRETATION = CONFIRMED`로 시작했다.
+지금까지의 라운드는 percent 값 자체(basis 분모)의 수학적 정합성을 고쳐왔지만, 이번
+라운드는 그와 별개로 `grp_main`(converter가 만드는 Type B wrapper, 실제 XPlatform
+source 요소가 아님) 자신의 height 정책을 재검토했다: 지금까지 `grp_main`은 Form
+선언 height를 그대로 물려받고 있었는데, 이는 최상위 percentage 분모가 실제 authored
+content 범위가 아니라 "Form 설계 캔버스 명목값"이 된다는 의미다. `VERTICAL_CONTAINER_
+PERCENT_NESTING = DISALLOWED` 원칙에 따라 `grp_main`을 실제 content extent(source
+최상위 Layout 자식들의 `max(top+height)`) 기준으로 전환하고, 그 아래 모든 root-level
+component의 percentage 분모도 **동일 값**으로 일치시켰다(하나라도 어긋나면 CSS
+containing block의 실제 렌더링 height와 percentage 계산 기준이 달라져 또 다른
+double-scaling을 만들기 때문).
+
+### 변경 1 -- `[ComponentLayoutConverter] buildMainContentAreaStyle` / `resolveContentExtentHeight`(2개 오버로드) -- 신규
+
+**목적**: `grp_main`의 style을 Form 선언 height가 아니라 실제 authored content
+extent 기준으로 생성한다. `grp_resultArea`는 기존 `buildMainAreaStyle`(Form 선언
+height 그대로)을 계속 사용-- 이번 라운드에서 무변경.
+
+```java
+public String buildMainContentAreaStyle(Document source) {
+    double contentHeight = resolveContentExtentHeight(source);
+    if (contentHeight <= 0.0) {
+        return buildMainAreaStyle(source);
+    }
+    StringBuilder style = new StringBuilder();
+    style.append("width:").append(formatPercent(100.0)).append(";");
+    style.append("height:").append(formatNumber(contentHeight)).append("px;");
+    return style.toString();
+}
+
+public double resolveContentExtentHeight(Document source) {
+    if (source == null) { return -1.0; }
+    Element layout = findFirstElement(source, "Layout");
+    if (layout == null) { return -1.0; }
+    List<Element> children = new ArrayList<Element>();
+    NodeList nodeList = layout.getChildNodes();
+    for (int i = 0; i < nodeList.getLength(); i++) {
+        Node node = nodeList.item(i);
+        if (node instanceof Element) { children.add((Element) node); }
+    }
+    return resolveContentExtentHeight(children);
+}
+
+public double resolveContentExtentHeight(List<Element> children) {
+    if (children == null || children.isEmpty()) { return -1.0; }
+    double maxBottom = -1.0;
+    for (Element child : children) {
+        Geometry g = resolveGeometry(child);
+        ParsedLength top = isEmpty(g.top) ? null : parseLength(g.top);
+        ParsedLength height = isEmpty(g.height) ? null : parseLength(g.height);
+        if (top == null || height == null) { continue; }
+        double bottom = top.value + height.value;
+        if (bottom > maxBottom) { maxBottom = bottom; }
+    }
+    return maxBottom;
+}
+```
+
+계산 불가 시(최상위 Layout을 못 찾거나 자식 geometry를 못 읽는 경우) 기존
+`buildMainAreaStyle`(Form 선언 height 기반)로 fallback -- 신규 fallback 로직 없이
+기존 함수를 그대로 재사용한다.
+
+**Caller/Callee**: caller `[WebSquareGenerator] appendBody`(grp_main style),
+`[WebSquareGenerator] convertLayoutAsTable`(root basisHeight, `resolveContentExtentHeight
+(List)` 오버로드 재사용 -- 아래 변경 2). callee `findFirstElement`/`resolveGeometry`/
+`parseLength`/`isEmpty`/`formatNumber`/`formatPercent`(전부 기존 private/함수, 신규
+로직 없음).
+
+**Status**: `FIX_CANDIDATE` / `STATIC_VERIFIED`.
+
+---
+
+### 변경 2 -- `[WebSquareGenerator] appendBody`(grp_main) + `convertLayoutAsTable`(root basisHeight)
+
+**목적**: `grp_main`이 emit하는 실제 px height와, 그 아래 root-level 자식들의
+percentage 계산 basis(분모)를 반드시 같은 값(content extent)으로 일치시킨다. 하나만
+바꾸면 CSS 렌더링 height와 percentage 분모가 어긋나 새로운 double-scaling을 만들기
+때문에 두 지점을 함께 수정했다.
+
+**BEFORE**(`appendBody`):
+```java
+Element main = out.createElementNS(NS_XF, "xf:group");
+main.setAttribute("id", "grp_main");
+main.setAttribute("style", layoutConverter.buildMainAreaStyle(source));
+resultArea.appendChild(main);
+```
+
+**AFTER**:
+```java
+Element main = out.createElementNS(NS_XF, "xf:group");
+main.setAttribute("id", "grp_main");
+main.setAttribute("style", layoutConverter.buildMainContentAreaStyle(source));
+resultArea.appendChild(main);
+```
+
+**BEFORE**(`convertLayoutAsTable`, basis 계산 직후):
+```java
+double basisWidth = basis == null ? -1.0 : basis[0];
+double basisHeight = basis == null ? -1.0 : basis[1];
+System.out.println(...);
+```
+
+**AFTER**:
+```java
+double basisWidth = basis == null ? -1.0 : basis[0];
+double basisHeight = basis == null ? -1.0 : basis[1];
+// NESTED_PERCENT_HEIGHT_REINTERPRETATION fix: 최상위 Form Layout은 grp_main의 height를
+// 더 이상 Form 선언 height 그대로 쓰지 않고 실제 authored content extent(children의
+// max(top+height))로 산정한다(appendBody의 grp_main style도 동일 값을 사용 --
+// resolveContentExtentHeight 하나만 공유). children의 percentage basis도 반드시 이
+// 값과 일치해야 grp_main의 실제 렌더링 height와 percentage 분모가 어긋나지 않는다
+// (width는 이번 라운드 범위 밖이라 basisWidth는 무변경). content extent가 기존
+// basisHeight보다 작을 때만 축소 적용한다(더 크게 만들지 않음 -- SOURCE_INTENTIONAL_
+// OVERFLOW 케이스를 억지로 줄이지 않기 위함).
+if (isRootFormLayout) {
+    double contentExtentHeight = layoutConverter.resolveContentExtentHeight(children);
+    if (contentExtentHeight > 0.0 && (basisHeight <= 0.0 || contentExtentHeight < basisHeight)) {
+        basisHeight = contentExtentHeight;
+    }
+}
+System.out.println(...);
+```
+
+**Caller/Callee**: caller `appendBody`(자기 자신, 무변경), `convertChildren`(Layout
+태그를 만나면 `convertLayoutAsTable` 호출, 무변경). callee `layoutConverter.
+resolveContentExtentHeight`(변경 1, 신규), `layoutConverter.buildMainContentAreaStyle`
+(변경 1, 신규).
+
+**Generated XML BEFORE/AFTER**(`Form/ControlPropertyMatrix.xfdl`, Form height=650,
+content extent=490 -- 실제 corpus 값):
+```xml
+<!-- BEFORE -->
+<xf:group id="grp_resultArea" style="width:100.0%;height:650px;">
+<xf:group id="grp_main" style="width:100.0%;height:650px;">
+<xf:span id="sta" label="Label" style="position:absolute;left:1.1%;top:1.5%;width:11.1%;height:3.7%;.../>
+<xf:trigger id="btn" style="position:absolute;left:13.3%;top:1.5%;width:11.1%;height:3.7%;.../>
+<xf:select1 id="cbo" style="position:absolute;left:1.1%;top:18.5%;width:13.3%;height:3.7%;"/>
+<w2:inputCalendar id="cal" style="position:absolute;left:1.1%;top:33.8%;width:15.6%;height:3.7%;".../>
+
+<!-- AFTER -->
+<xf:group id="grp_resultArea" style="width:100.0%;height:650px;">
+<xf:group id="grp_main" style="width:100.0%;height:490px;">
+<xf:span id="sta" label="Label" style="position:absolute;left:1.1%;top:2.0%;width:11.1%;height:4.9%;.../>
+<xf:trigger id="btn" style="position:absolute;left:13.3%;top:2.0%;width:11.1%;height:4.9%;.../>
+<xf:select1 id="cbo" style="position:absolute;left:1.1%;top:24.5%;width:13.3%;height:4.9%;"/>
+<w2:inputCalendar id="cal" style="position:absolute;left:1.1%;top:44.9%;width:15.6%;height:4.9%;".../>
+```
+`grp_resultArea`는 650px로 무변경(Form 선언값 유지, section 2 요구사항대로), `grp_main`
+만 490px로 축소(실제 content extent). 그 아래 모든 root-level 자식의 percentage는
+자동으로 재계산됐고, px roundtrip은 전부 그대로 유지된다(예: `cal` top=220px ->
+44.9%*490=220.01px, height=24px -> 4.9%*490=24.01px -- source와 일치).
+
+**영향 output 수**: 88/136 파일(content extent가 Form 선언 height와 다른 경우만
+변경 -- 나머지 48개는 content extent가 Form height와 정확히 같아 byte-identical).
+
+**Regression**: clean compile 0 errors, 149/149 변환 성공, XML well-formed 136/136,
+PAGE_JS 136/136 PASS, standalone JS 15/15 PASS, id-map(source->target 전체 라인) diff 0,
+`btn_cm=12`/`wq_gvw=3` invariant 무변경, percent format 무변경(1012/1012 XFDL-derived
+one-decimal 준수). ancestor-chain-aware boundary audit(grp_main의 **실제 px height**를
+기준으로 재계산, Form 미선언 height가 아님) 124개 percent-geometry Group 전수 재검증:
+`GROUP_BOTTOM_OVER_FORM_HEIGHT_COUNT = 0`, `GROUP_TOP_UNDER_0_COUNT = 0`.
+
+**Status**: `FIX_CANDIDATE` / `STATIC_VERIFIED`.

@@ -1064,3 +1064,54 @@ FAILED`/`STUDIO_DESIGN_REPRODUCED`가 이 수정만으로 해결됐다고 선언
 `STUDIO_DESIGN_REQUIRED` 유지. 상세는 `analysis/freeze-vs-candidate-function-diff.md`
 의 "후속 라운드 -- Nested Height Basis / Clipping Quick Fix" 섹션, raw diff는
 `analysis/git-baseline-vs-candidate-production.diff` 참고.
+
+## 후속 라운드 -- Actual 760px Height Hierarchy Fix (Quick)
+
+사용자가 실제 폐쇄망 Studio에서 직접 확인한 "760px를 벗어나는 generated Group / 상단
+컴포넌트 미표시" 현상을 corpus 비재현을 근거로 부정하지 않고(`USER_CONFIRMED_STUDIO_
+EVIDENCE = ACCEPTED`), `NESTED_PERCENT_HEIGHT_REINTERPRETATION = CONFIRMED`로 시작해
+`grp_main`의 height 정책을 재점검했다.
+
+`grp_main`은 converter가 만드는 Type B wrapper(실제 XPlatform source 요소 아님)인데,
+지금까지 Form 선언 height를 그대로 물려받고 있었다 -- 이는 percentage 분모가 "실제
+authored content 범위"가 아니라 "Form 설계 캔버스 명목값"이라는 뜻이다.
+`VERTICAL_CONTAINER_PERCENT_NESTING = DISALLOWED` 원칙에 따라 `grp_main`을 실제
+content extent(source 최상위 Layout 자식들의 `max(top+height)`, 신규
+`[ComponentLayoutConverter] resolveContentExtentHeight`)로 전환했다. `grp_resultArea`
+는 기존대로 Form 선언 height를 유지(section 2 요구사항, 무변경).
+
+가장 중요한 점: `grp_main`이 emit하는 실제 px height와 그 아래 root-level 자식들의
+percentage 계산 basis를 반드시 **같은 값**으로 맞췄다(`[WebSquareGenerator]
+convertLayoutAsTable`의 root basisHeight도 동일한 `resolveContentExtentHeight`
+결과를 공유). 하나만 바꾸면 CSS 렌더링 height와 percentage 분모가 어긋나 새로운
+double-scaling을 만들기 때문이다.
+
+corpus 실측: `ControlPropertyMatrix.xfdl`(Form height=650, content extent=490) 기준
+`grp_main`이 650px -> 490px로 축소됐고, 그 아래 Label/Button/Combo/Calendar 등 모든
+root-level component의 percentage가 자동으로 재계산됐다(예: Calendar top 33.8% ->
+44.9%, height 3.7% -> 4.9%). px roundtrip은 전부 그대로 유지된다(44.9%*490=220.01px
+= source top 220px, 4.9%*490=24.01px = source height 24px). 88/136 파일에서 content
+extent가 Form 선언 height와 달라 이 변경이 나타났고, 나머지 48개는 content extent가
+Form height와 정확히 같아 byte-identical이다.
+
+**ancestor-chain-aware 재검증(EFFECTIVE_GEOMETRY_AUDIT)**: `grp_main`의 **새로 축소된
+실제 px height**를 기준으로(Form 선언 height가 아니라) 124개 percent-geometry Group
+전체를 다시 역산했다 -- `GROUP_BOTTOM_OVER_FORM_HEIGHT_COUNT = 0`,
+`GROUP_TOP_UNDER_0_COUNT = 0`(위반 없음, basis 일치 설계가 실제로 정합함을 증명).
+
+nested Div/GroupBox/PopupDiv(`divA`/`grpA`/`edt`, `pop`/`popSta`)의 자체 percentage는
+이번 변경의 영향을 받지 않고 무변경 유지(그들의 basis는 자기 자신을 감싸는 container의
+own geometry이지 grp_main이 아니므로, `UNINTENDED_WRAPPER_PERCENT_BASIS_COUNT = 0`
+그대로 유지).
+
+Grid(`GridFormatConverter.java`)는 이번 라운드 `git diff` 0줄로 완전히 무변경
+(`GRID_IMPLEMENTATION_CHANGE = 0`). percentage formatter(`formatPercent`)도 무변경
+(`PERCENT_PRECISION_CHANGE = 0`, 1012/1012 XFDL-derived one-decimal 준수 유지).
+149/149 변환 성공, XML well-formed 136/136, PAGE_JS 136/136 PASS, standalone JS
+15/15 PASS, id-map diff 0, `btn_cm=12`/`wq_gvw=3` invariant 무변경.
+
+최종 `XPLATFORM_VISUAL_PARITY = FIX_CANDIDATE`, `STATIC_VERIFIED`. `STUDIO_DESIGN_
+FAILED`/`STUDIO_DESIGN_REPRODUCED`가 이 수정만으로 해결됐다고 선언하지 않는다 --
+`STUDIO_DESIGN_REQUIRED` 유지. 상세는 `analysis/freeze-vs-candidate-function-diff.md`
+의 "후속 라운드 -- Actual 760px Height Hierarchy Fix (Quick)" 섹션, raw diff는
+`analysis/git-baseline-vs-candidate-production.diff` 참고.

@@ -428,6 +428,77 @@ public class ComponentLayoutConverter {
         return style.toString();
     }
 
+    /**
+     * grp_main의 style을 생성한다. NESTED_PERCENT_HEIGHT_REINTERPRETATION 라운드: grp_main은
+     * grp_resultArea(Form 선언 height 그대로, {@link #buildMainAreaStyle})와 달리 Form 선언
+     * height를 그대로 물려받지 않고, 실제 authored content extent({@link
+     * #resolveContentExtentHeight(Document)} -- 최상위 Layout 직계 자식들의 max(top+height))를
+     * 우선 사용한다(VERTICAL_CONTAINER_PERCENT_NESTING = DISALLOWED 원칙 -- root 기준 고정값을
+     * 하위로 그대로 반복 적용하지 않는다). content extent를 계산할 수 없으면(최상위 Layout을
+     * 못 찾거나 자식 geometry를 읽을 수 없는 경우) 기존 {@link #buildMainAreaStyle}(Form 선언
+     * height 기반)로 fallback한다(신규 fallback 로직 없이 기존 함수 재사용).
+     */
+    public String buildMainContentAreaStyle(Document source) {
+        double contentHeight = resolveContentExtentHeight(source);
+        if (contentHeight <= 0.0) {
+            return buildMainAreaStyle(source);
+        }
+        StringBuilder style = new StringBuilder();
+        style.append("width:").append(formatPercent(100.0)).append(";");
+        style.append("height:").append(formatNumber(contentHeight)).append("px;");
+        return style.toString();
+    }
+
+    /**
+     * source Form의 최상위 Layout 직계 자식들의 실제 content extent(px)를 계산한다: source 좌표
+     * 원점(0) 기준 max(child.top + child.height). 최상위 Layout을 찾을 수 없으면 -1({@link
+     * #findFirstElement} 재사용, {@link #findFormGeometry}와 동일한 "첫 Layout" 판정 방식).
+     */
+    public double resolveContentExtentHeight(Document source) {
+        if (source == null) {
+            return -1.0;
+        }
+        Element layout = findFirstElement(source, "Layout");
+        if (layout == null) {
+            return -1.0;
+        }
+        List<Element> children = new ArrayList<Element>();
+        NodeList nodeList = layout.getChildNodes();
+        for (int i = 0; i < nodeList.getLength(); i++) {
+            Node node = nodeList.item(i);
+            if (node instanceof Element) {
+                children.add((Element) node);
+            }
+        }
+        return resolveContentExtentHeight(children);
+    }
+
+    /**
+     * {@link #resolveContentExtentHeight(Document)}와 동일 계산을 이미 확보한 children
+     * 목록으로 바로 수행한다(호출부가 {@code directElementChildren}으로 이미 자식 목록을 가진
+     * 경우 중복 탐색 방지 -- {@link WebSquareGenerator#convertLayoutAsTable}에서 재사용).
+     * top/height를 읽을 수 없는 자식은 집계에서 제외한다. 집계 대상이 없으면 -1.
+     */
+    public double resolveContentExtentHeight(List<Element> children) {
+        if (children == null || children.isEmpty()) {
+            return -1.0;
+        }
+        double maxBottom = -1.0;
+        for (Element child : children) {
+            Geometry g = resolveGeometry(child);
+            ParsedLength top = isEmpty(g.top) ? null : parseLength(g.top);
+            ParsedLength height = isEmpty(g.height) ? null : parseLength(g.height);
+            if (top == null || height == null) {
+                continue;
+            }
+            double bottom = top.value + height.value;
+            if (bottom > maxBottom) {
+                maxBottom = bottom;
+            }
+        }
+        return maxBottom;
+    }
+
     /** 어떤 XPlatform 위치 속성을 사용했는지 진단용 문자열로 반환한다. */
     public String describeLayoutSource(Element source) {
         if (source == null) {

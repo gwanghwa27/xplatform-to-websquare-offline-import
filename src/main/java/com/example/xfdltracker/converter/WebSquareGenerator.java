@@ -426,9 +426,15 @@ public class WebSquareGenerator {
         resultArea.setAttribute("style", layoutConverter.buildMainAreaStyle(source));
         body.appendChild(resultArea);
 
+        // NESTED_PERCENT_HEIGHT_REINTERPRETATION fix: grp_main은 grp_resultArea(Form 선언
+        // height 고정)와 달리 실제 authored content extent를 height로 사용한다(아래
+        // buildMainContentAreaStyle -- VERTICAL_CONTAINER_PERCENT_NESTING = DISALLOWED 원칙).
+        // convertLayoutAsTable의 root Layout basisHeight 산정도 동일 값을 공유하므로(같은
+        // resolveContentExtentHeight 재사용), 여기서 emit하는 height와 그 아래 percentage
+        // 자식들의 분모가 항상 일치한다.
         Element main = out.createElementNS(NS_XF, "xf:group");
         main.setAttribute("id", "grp_main");
-        main.setAttribute("style", layoutConverter.buildMainAreaStyle(source));
+        main.setAttribute("style", layoutConverter.buildMainContentAreaStyle(source));
         resultArea.appendChild(main);
         registerFormRootMapping(source);
 
@@ -793,6 +799,20 @@ public class WebSquareGenerator {
         }
         double basisWidth = basis == null ? -1.0 : basis[0];
         double basisHeight = basis == null ? -1.0 : basis[1];
+        // NESTED_PERCENT_HEIGHT_REINTERPRETATION fix: 최상위 Form Layout은 grp_main의 height를
+        // 더 이상 Form 선언 height 그대로 쓰지 않고 실제 authored content extent(children의
+        // max(top+height))로 산정한다(appendBody의 grp_main style도 동일 값을 사용 --
+        // resolveContentExtentHeight 하나만 공유). children의 percentage basis도 반드시 이
+        // 값과 일치해야 grp_main의 실제 렌더링 height와 percentage 분모가 어긋나지 않는다
+        // (width는 이번 라운드 범위 밖이라 basisWidth는 무변경). content extent가 기존
+        // basisHeight보다 작을 때만 축소 적용한다(더 크게 만들지 않음 -- SOURCE_INTENTIONAL_
+        // OVERFLOW 케이스를 억지로 줄이지 않기 위함).
+        if (isRootFormLayout) {
+            double contentExtentHeight = layoutConverter.resolveContentExtentHeight(children);
+            if (contentExtentHeight > 0.0 && (basisHeight <= 0.0 || contentExtentHeight < basisHeight)) {
+                basisHeight = contentExtentHeight;
+            }
+        }
         System.out.println(
                 "[UI TABLE] Layout " + (parentPath.length() == 0 ? "(root)" : parentPath)
                         + " children=" + children.size() + " classification=" + classification
