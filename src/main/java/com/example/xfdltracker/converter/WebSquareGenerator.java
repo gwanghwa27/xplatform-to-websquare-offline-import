@@ -409,9 +409,16 @@ public class WebSquareGenerator {
         // TabRuntimeScriptGenerator/XPlatformProjectConverter/registerFormRootMapping의 관련
         // literal은 전부 grp_content -> grp_main으로 함께 이동(EXPECTED_SOURCE_TO_TARGET_MAP_DIFF).
         // 상세: analysis/v6-design-structure-alignment-analysis.md.
+        //
+        // ROOT_PERCENT_CONTAINING_BLOCK_DEFECT fix: grp_content 제거 이후 percentage 자식들의
+        // containing block chain(body -> grp_resultArea -> grp_main -> child%) 어디에도 명시적
+        // width가 없어, 실제 폐쇄망 Studio에서 업무 영역이 좌측 좁은 영역으로 collapse함을
+        // 재현/확인(STUDIO_DESIGN_FAILED/STUDIO_DESIGN_REPRODUCED). grp_resultArea에도
+        // width:100%(구조 상수, 화면별 계산값 아님)를 명시해 체인을 끊지 않는다. height/position/
+        // overflow는 여전히 emit하지 않는다.
         Element resultArea = out.createElementNS(NS_XF, "xf:group");
         resultArea.setAttribute("id", "grp_resultArea");
-        resultArea.setAttribute("style", "");
+        resultArea.setAttribute("style", "width:100%;");
         body.appendChild(resultArea);
 
         Element main = out.createElementNS(NS_XF, "xf:group");

@@ -704,3 +704,28 @@ basis가 영원히 미확보되어 전체 화면이 px fallback으로 떨어졌�
 `analysis/freeze-vs-candidate-function-diff.md`의 "후속 라운드 — 실제 Studio 실패 기반
 Percentage Geometry Root Cause Fix" 섹션, raw diff는
 `analysis/git-baseline-vs-candidate-production.diff` 참고.
+
+## 후속 라운드 — Root Percentage Containing Block Width Fix
+
+사용자가 실제 폐쇄망 Studio 증거(원본 대비 압축된 Design/Preview 스크린샷 + 실제 생성 Source XML)를
+제공. 생성 XML의 자식 percentage 값은 이미 정확했으나 `grp_resultArea`(style=""), `grp_main`
+(style="height:Npx;" — width 없음)에 명시적 width가 없어 CSS containing block chain이 끊어져,
+그 아래 모든 `%` 자식이 사실상 폭 0에 가까운 containing block을 기준으로 렌더링되며 화면이 좌측에
+압축됨을 확인(`ROOT_PERCENT_CONTAINING_BLOCK_WIDTH_DEFECT`). 이전 라운드의 "root wrapper는 width를
+갖지 않는다" 불변식은 `grp_content`(px width 보유)가 아직 존재하던 구조를 관찰해 세운 것으로,
+`grp_content` 제거 이후에는 더 이상 유효하지 않음을 사용자가 명시적으로 지적, 재검토.
+
+수정: `[ComponentLayoutConverter] buildMainAreaStyle`이 항상 `width:100%;`를 접두로 반환하도록
+변경, `[WebSquareGenerator] appendBody`의 `grp_resultArea` style 리터럴을 `""` → `"width:100%;"`로
+변경. 자식 percentage 계산 코드는 전혀 건드리지 않음(자식 값 BEFORE=AFTER 완전 동일, 실측 확인).
+
+corpus 실측: `grp_resultArea`/`grp_main` 둘 다 `width:100%` 135/136(제외 1건은 무관 placeholder),
+`grp_content` 잔존 0, `position:relative`/`overflow:hidden`(root wrapper) 0, 하드코딩 px width
+0, `INVALID_PERCENT_STYLE_COUNT`/`NaN%`/`Infinity%` 전부 0. `SOURCE_TO_TARGET_ID_MAP_EXPECTED_
+ONLY`/invariant class/QName/Phase1 SHA 전부 무변경 재확인. 대표 3건(Form-direct-child 컴포넌트,
+Grid Group, Table cell) percentage 역산 전부 일치.
+
+최종 `ROOT_PERCENT_CONTAINING_BLOCK = FIX_CANDIDATE` / `STATIC_VERIFIED` / `STUDIO_DESIGN_
+REQUIRED`. 상세는 `analysis/freeze-vs-candidate-function-diff.md`의 "후속 라운드 — Root
+Percentage Containing Block Width Fix" 섹션, raw diff는
+`analysis/git-baseline-vs-candidate-production.diff` 참고.

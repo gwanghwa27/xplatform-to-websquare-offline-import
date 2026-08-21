@@ -730,3 +730,175 @@ XPlatform Layout 자신의 width/height" 우선, 없을 때만 Form 전체로 fa
 모든 변경 함수: `STATIC_VERIFIED`(compile/conversion/canonical map/invariant 실측 완료).
 `STUDIO_DESIGN_VERIFIED`는 선언하지 않음 — 사용자의 실제 폐쇄망 Studio 확인 필요
 (`STUDIO_DESIGN_REQUIRED`). 최종 `PERCENT_GEOMETRY = FIX_CANDIDATE`.
+
+---
+
+## 후속 라운드 — Root Percentage Containing Block Width Fix
+
+### 배경/증거
+
+사용자가 실제 폐쇄망 Studio 스크린샷 5장을 제공: (1) 원본 XPlatform Design(전체 폭 ~1200px+
+정상 레이아웃), (2)(3) 변환된 WebSquare Design/Preview 둘 다 좌측 좁은 영역에 압축, (4)(5) 실제
+생성된 WebSquare Source XML에서 `grp_resultArea style=""`, `grp_main style="height:760px;"`이고
+그 자식들은 이미 `left:...%;top:...%;width:98...%;height:...%;` 형태로 percentage가 정확히
+계산되어 있음을 확인. 즉 percentage 산술 자체는 맞는데, 그 percentage가 기준으로 삼는 containing
+block(`grp_resultArea`/`grp_main`)에 명시적 `width`가 없어 CSS 상 containing block width가
+사실상 0에 가까운 값(또는 브라우저/WebSquare 렌더러의 fallback 값)이 되어 화면이 압축된 것으로
+진단(`ROOT_PERCENT_CONTAINING_BLOCK_WIDTH_DEFECT`).
+
+사용자는 이전 라운드에서 세운 "`grp_resultArea`/`grp_main`은 width를 갖지 않는다"는 불변식이
+`grp_content`(명시적 px width/height를 가진 호환 wrapper)가 아직 존재하던 구조를 관찰해 세운
+것이며, `grp_content` 제거 이후에는 재검토 대상이라고 명시적으로 지적. 이번 라운드는 그 지적에
+따라 root containing block에만 `width:100%`를 추가하고, 자식 percentage 계산 로직은 전혀
+건드리지 않는다.
+
+### 변경 함수
+
+**[ComponentLayoutConverter] buildMainAreaStyle(Document source)**
+
+BEFORE:
+```java
+public String buildMainAreaStyle(Document source) {
+    Geometry geometry = findFormGeometry(source);
+    if (geometry == null || isEmpty(geometry.height)) {
+        return "";
+    }
+    ParsedLength parsed = parseLength(geometry.height);
+    if (parsed == null || parsed.value <= 0.0) {
+        return "";
+    }
+    StringBuilder style = new StringBuilder();
+    appendCssLength(style, "height", geometry.height);
+    return style.toString();
+}
+```
+
+AFTER:
+```java
+public String buildMainAreaStyle(Document source) {
+    StringBuilder style = new StringBuilder();
+    style.append("width:100%;");
+
+    Geometry geometry = findFormGeometry(source);
+    if (geometry == null || isEmpty(geometry.height)) {
+        return style.toString();
+    }
+    ParsedLength parsed = parseLength(geometry.height);
+    if (parsed == null || parsed.value <= 0.0) {
+        return style.toString();
+    }
+
+    appendCssLength(style, "height", geometry.height);
+    return style.toString();
+}
+```
+
+Caller: `WebSquareGenerator.appendBody` — `main.setAttribute("style", layoutConverter.buildMainAreaStyle(source));`
+(호출부 자체는 무변경, 반환값만 항상 `width:100%;` 접두를 포함하도록 바뀜).
+
+**[WebSquareGenerator] appendBody(...)** — `grp_resultArea` style 리터럴
+
+BEFORE: `resultArea.setAttribute("style", "");`
+AFTER: `resultArea.setAttribute("style", "width:100%;");`
+
+### Full Unified Diff
+
+전체 unified diff: [analysis/git-baseline-vs-candidate-production.diff](git-baseline-vs-candidate-production.diff)
+(GIT-BASELINE-XPWS-OFFLINE-FREEZE-20260820-02, commit `549a998` 대비 누적. 이번 라운드분은 그
+diff 파일의 마지막 두 hunk — `buildMainAreaStyle`, `grp_resultArea` style 리터럴).
+
+### Generated XML BEFORE/AFTER (실제 corpus 값, `Form/ComponentMethodConversion.xml`)
+
+BEFORE (라운드5 이전 출력, `corpus-output-round4`):
+```xml
+<xf:group id="grp_resultArea" style="">
+    <xf:group id="grp_main" style="height:300px;">
+        <xf:select1 ... id="cbo" style="position:absolute;left:1.6667%;top:3.3333%;width:16.6667%;height:8%;"/>
+```
+
+AFTER (이번 라운드 출력, `corpus-output-round5`):
+```xml
+<xf:group id="grp_resultArea" style="width:100%;">
+    <xf:group id="grp_main" style="width:100%;height:300px;">
+        <xf:select1 ... id="cbo" style="position:absolute;left:1.6667%;top:3.3333%;width:16.6667%;height:8%;"/>
+        <xf:group id="grd_gridGroup" style="position:absolute;left:1.6667%;top:16.6667%;width:50%;height:40%;">
+```
+
+`cbo`/`grd_gridGroup`의 percentage 값은 BEFORE=AFTER 완전 동일 — 이번 라운드가 root wrapper의
+`width`만 추가하고 자식 percentage 계산에는 손대지 않았음을 실측으로 확인.
+
+### 영향 범위
+
+전체 corpus 149개 화면 변환(성공 149/149), XML 출력 136개 중:
+- `grp_resultArea style="width:100%;"` : 135/136 (제외된 1건은 변환 화면이 아닌 사전 존재
+  placeholder `runtime/xplatform-tab-empty.xml` — 이번 라운드 미접촉, grep으로 확인)
+- `grp_main` style에 `width:100%` 포함 : 135/136(동일 예외)
+- `grp_content` 잔존 : 0건
+- 자식 percentage geometry 값 변경 : 0건(전수 diff 확인)
+
+### 대표 3건 percentage 산술 검증
+
+**1) 단상위(Form-direct-child) 컴포넌트 — `cbo`, `Form/ComponentMethodConversion.xfdl`**
+
+소스: `<Form ... width="600" height="300">` (Layout 없이 Form 직계 자식, basis=Form 전체),
+`<Combo id="cbo" left="10" top="10" width="100" height="24"/>`
+
+계산: left=10/600=1.6667%, top=10/300=3.3333%, width=100/600=16.6667%, height=24/300=8%
+생성 결과: `left:1.6667%;top:3.3333%;width:16.6667%;height:8%;` — 일치.
+
+**2) Grid Group — `grd`/`grd_gridGroup`, `Form/ComponentMethodConversion.xfdl`**
+
+소스: 동일 Form(basis 600x300), `<Grid id="grd" ... left="10" top="50" width="300" height="120">`
+
+계산: left=10/600=1.6667%, top=50/300=16.6667%, width=300/600=50%, height=120/300=40%
+생성 결과: `grd`와 `grd_gridGroup` 둘 다 `left:1.6667%;top:16.6667%;width:50%;height:40%;` — 일치
+(Grid Group wrapper와 내부 `w2:gridView`가 같은 basis를 공유하는 기존 동작도 무변경 확인).
+
+**3) Table(TABLE_LAYOUT_HIGH_CONFIDENCE) — `divWrap_layoutTableRow0Col0`, `Form/Main/TabExternalRelativePath.xfdl`**
+
+소스: `<Div id="divWrap" left="0" top="0" width="580" height="380"><Layouts><Layout width="580" height="380">`
+(basis=580x380), `<Tab id="tabNested" left="10" top="10" width="550" height="340">`
+
+계산: row height=340/380=89.4737%, col width=550/580=94.8276%
+생성 결과: `divWrap_layoutTableRow0` style=`width:100%;height:89.4737%;`,
+`divWrap_layoutTableRow0Col0` style=`width:94.8276%;height:100%;` — 일치
+(Table row는 항상 width:100%, 자기 자신의 height%만 계산하는 기존 규칙도 무변경 확인).
+
+### 회귀 결과
+
+| 항목 | 결과 |
+|---|---|
+| 컴파일 | 0 errors |
+| 전체 corpus 변환 | 149/149 성공 |
+| XML parse | 136/136 well-formed |
+| standalone JS | 15/15(무변경) |
+| Phase1 SHA | 2/2 PASS(Sample, CommentProtection — `<script>` CDATA만 hash하므로 root/body style 변경과 무관, 무변경 재확인) |
+| `SOURCE_TO_TARGET_ID_MAP_EXPECTED_ONLY` | PASS(403/403 key, `<` 135건=`grp_content` 전용, `>` 0건 unexpected, id 생성 로직 이번 라운드 미접촉) |
+| invariant class/QName | `btn_cm=12`, `wq_gvw=3` 전부 무변경 |
+| `grp_resultArea width:100%` | 135/136(placeholder 1건 제외) |
+| `grp_main width:100%` | 135/136(동일 예외) |
+| `grp_content` 잔존 | 0건 |
+| `position:relative`(root wrapper) | 0건(전체 1 match는 무관 placeholder 파일) |
+| `overflow:hidden`(root wrapper) | 0건 |
+| `INVALID_PERCENT_STYLE_COUNT` | 0(NaN%/Infinity%/음수% 없음) |
+| 하드코딩 px width | 0건(root wrapper는 전부 `width:100%` — 구조 상수, source 계산값 아님) |
+
+### Completion Gate
+
+`ROOT_PERCENT_CONTAINING_BLOCK_AUDIT = PASS`(root cause 확인: `grp_resultArea`/`grp_main`
+containing block에 명시적 width 부재). `ROOT_PERCENT_WIDTH_CHAIN = PASS`(body -> grp_resultArea
+(`width:100%`) -> grp_main(`width:100%`) -> child(`%`) 체인 전부 명시적 width 보유, 실측
+135/136). `STRUCTURE_TOPOLOGY_PRESERVED = PASS`(Div/Table/Grid Group 계층 자체 무변경).
+`PERCENT_ARITHMETIC = PASS`(대표 3건 역산 일치). `DIV_PERCENT_GEOMETRY = PASS`,
+`TABLE_PERCENT_GEOMETRY = PASS`, `GRID_GROUP_PERCENT_GEOMETRY = PASS`(전부 자식 값 무변경
+실측). `COMPONENT_QNAME_PRESERVED = PASS`, `EXISTING_CLASS_PRESERVED = PASS`,
+`BODY_LIFECYCLE_ATTRIBUTES_PRESERVED = PASS`(이번 라운드 미접촉 영역). `INVALID_PERCENT_STYLE_
+COUNT = 0`, `NaN% = 0`, `Infinity% = 0`, `UNEXPECTED_GENERATED_DIFF = 0`(root wrapper style
+2곳 외 XML 구조 diff 없음, 전수 확인).
+
+## Status
+
+`ComponentLayoutConverter.buildMainAreaStyle`, `WebSquareGenerator.appendBody`(grp_resultArea
+style literal) 모두 `STATIC_VERIFIED`(compile/corpus 변환/canonical map/invariant/percentage
+역산 실측 완료). `STUDIO_DESIGN_VERIFIED`는 선언하지 않음 — 사용자의 실제 폐쇄망 Studio
+재확인 필요(`STUDIO_DESIGN_REQUIRED`). 최종 `ROOT_PERCENT_CONTAINING_BLOCK = FIX_CANDIDATE`.

@@ -1,7 +1,5 @@
-warning: in the working copy of 'src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java', LF will be replaced by CRLF the next time Git touches it
 diff --git a/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java b/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java
-index 29f635a..70b5fdf 100644
+index 29f635a..fbd8099 100644
 --- a/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java
 +++ b/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java
 @@ -5,7 +5,9 @@ import org.w3c.dom.Element;
@@ -66,7 +64,7 @@ index 29f635a..70b5fdf 100644
  
          Geometry geometry = findFormGeometry(source);
          if (geometry != null) {
-@@ -68,6 +85,281 @@ public class ComponentLayoutConverter {
+@@ -68,25 +85,308 @@ public class ComponentLayoutConverter {
          return style.toString();
      }
  
@@ -348,11 +346,45 @@ index 29f635a..70b5fdf 100644
      /**
       * WebSquare AI v6 grp_main wrapper(V6_STRUCTURE_PARTIAL_ALIGNMENT)의 style을 생성한다.
       * buildRootStyle과 동일한 geometry resolution(findFormGeometry)을 재사용하며, 유효한 양수
+-     * height를 얻은 경우에만 height만 반환한다(width/position/overflow는 절대 emit하지 않음).
+-     * 유효한 height를 얻지 못하면 height:0px; 같은 placeholder 없이 빈 문자열을 반환한다.
+-     * height-only/no-width convention은 단일 real v6 화면 관찰(video evidence) 기반이며 아직
+-     * universal rule로 검증된 것은 아니다.
++     * height를 얻은 경우에만 height를 추가로 반환한다(position/overflow는 절대 emit하지 않음).
++     *
++     * <p>ROOT_PERCENT_CONTAINING_BLOCK_DEFECT fix: 이전까지는 height-only(width 미emit)였다
++     * (단일 real v6 화면 관찰 기반, universal rule로 검증된 적 없다고 자체 명시돼 있었음). 그
++     * 관찰은 global {@code grp_content}(px width/height를 가진 compatibility wrapper)가 아직
++     * 존재하던 시점의 것이다 -- {@code grp_content} 제거 이후에는 {@code grp_main} 직계 자식들이
++     * 전부 percentage width로 바뀌었고, 실제 폐쇄망 Studio 재현(STUDIO_DESIGN_FAILED,
++     * STUDIO_DESIGN_REPRODUCED -- 업무 영역이 좌측 좁은 영역에 collapse)으로 percentage 자식이
++     * 참조할 containing block에 명시적 width가 반드시 필요함이 확인됐다. {@code width:100%;}는
++     * source geometry에서 계산한 값이 아니라 구조적 상수이므로 특정 화면 px 하드코딩이 아니다.
+      */
+     public String buildMainAreaStyle(Document source) {
++        StringBuilder style = new StringBuilder();
++        style.append("width:100%;");
++
+         Geometry geometry = findFormGeometry(source);
+         if (geometry == null || isEmpty(geometry.height)) {
+-            return "";
++            return style.toString();
+         }
+         ParsedLength parsed = parseLength(geometry.height);
+         if (parsed == null || parsed.value <= 0.0) {
+-            return "";
++            return style.toString();
+         }
+ 
+-        StringBuilder style = new StringBuilder();
+         appendCssLength(style, "height", geometry.height);
+         return style.toString();
+     }
 diff --git a/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java b/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java
-index 3e52c8b..db64b4b 100644
+index 3e52c8b..54f4245 100644
 --- a/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java
 +++ b/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java
-@@ -401,25 +401,14 @@ public class WebSquareGenerator {
+@@ -401,49 +401,54 @@ public class WebSquareGenerator {
  
          bindFormLifecycle(body, source, analysis);
  
@@ -365,7 +397,15 @@ index 3e52c8b..db64b4b 100644
 -        // Tab-runtime-scope subset) is unverified in a real v5 engine. Full chronology/evidence:
 -        // work/closed-network-support/issues/ISSUE-20260818-001-studio-design-blank/analysis/root-container-fix-chronology.md
 -        // and ISSUE.md.
--        //
++        // Root container(grp_resultArea/grp_main): STUDIO_DESIGN_VERIFIED, 폐쇄망 실측 완료.
++        // 잔여 gap: V5_RUNTIME_REGRESSION_REQUIRED(xf:group의 getScope() 실제 v5 엔진 지원 여부
++        // 미검증) -- 상세: analysis/root-container-fix-chronology.md, ISSUE.md.
++        // grp_content wrapper는 이번 라운드에 제거(GLOBAL_GRP_CONTENT_XFDL_COUNT=0), 변환된
++        // Div/Layout/Grid 구조가 grp_main 바로 아래 위치. id 예약은 충돌 방지용으로 유지하되
++        // TabRuntimeScriptGenerator/XPlatformProjectConverter/registerFormRootMapping의 관련
++        // literal은 전부 grp_content -> grp_main으로 함께 이동(EXPECTED_SOURCE_TO_TARGET_MAP_DIFF).
++        // 상세: analysis/v6-design-structure-alignment-analysis.md.
+         //
 -        // V6_STRUCTURE_PARTIAL_ALIGNMENT (this round): real closed-network v6 evidence shows
 -        // body > grp_resultArea > grp_main > (content directly) -- one id level shallower than
 -        // this converter's output. grp_content is kept as-is (id/namespace/style/semantics
@@ -375,18 +415,19 @@ index 3e52c8b..db64b4b 100644
 -        // .getScope()/w.grp_content, whose real-engine behavior stays V5_RUNTIME_REGRESSION_REQUIRED
 -        // and must not be additionally risked this round. Two new outer wrappers are added instead
 -        // of renaming/removing grp_content. See analysis/v6-root-body-structure-analysis.md.
-+        // Root container(grp_resultArea/grp_main): STUDIO_DESIGN_VERIFIED, 폐쇄망 실측 완료.
-+        // 잔여 gap: V5_RUNTIME_REGRESSION_REQUIRED(xf:group의 getScope() 실제 v5 엔진 지원 여부
-+        // 미검증) -- 상세: analysis/root-container-fix-chronology.md, ISSUE.md.
-+        // grp_content wrapper는 이번 라운드에 제거(GLOBAL_GRP_CONTENT_XFDL_COUNT=0), 변환된
-+        // Div/Layout/Grid 구조가 grp_main 바로 아래 위치. id 예약은 충돌 방지용으로 유지하되
-+        // TabRuntimeScriptGenerator/XPlatformProjectConverter/registerFormRootMapping의 관련
-+        // literal은 전부 grp_content -> grp_main으로 함께 이동(EXPECTED_SOURCE_TO_TARGET_MAP_DIFF).
-+        // 상세: analysis/v6-design-structure-alignment-analysis.md.
++        // ROOT_PERCENT_CONTAINING_BLOCK_DEFECT fix: grp_content 제거 이후 percentage 자식들의
++        // containing block chain(body -> grp_resultArea -> grp_main -> child%) 어디에도 명시적
++        // width가 없어, 실제 폐쇄망 Studio에서 업무 영역이 좌측 좁은 영역으로 collapse함을
++        // 재현/확인(STUDIO_DESIGN_FAILED/STUDIO_DESIGN_REPRODUCED). grp_resultArea에도
++        // width:100%(구조 상수, 화면별 계산값 아님)를 명시해 체인을 끊지 않는다. height/position/
++        // overflow는 여전히 emit하지 않는다.
          Element resultArea = out.createElementNS(NS_XF, "xf:group");
          resultArea.setAttribute("id", "grp_resultArea");
-         resultArea.setAttribute("style", "");
-@@ -429,21 +418,30 @@ public class WebSquareGenerator {
+-        resultArea.setAttribute("style", "");
++        resultArea.setAttribute("style", "width:100%;");
+         body.appendChild(resultArea);
+ 
+         Element main = out.createElementNS(NS_XF, "xf:group");
          main.setAttribute("id", "grp_main");
          main.setAttribute("style", layoutConverter.buildMainAreaStyle(source));
          resultArea.appendChild(main);
@@ -424,7 +465,7 @@ index 3e52c8b..db64b4b 100644
  
          finalizePageLoadBinding(body);
          logUnmappedEventBindings(analysis);
-@@ -451,13 +449,32 @@ public class WebSquareGenerator {
+@@ -451,13 +456,32 @@ public class WebSquareGenerator {
                  "[UI 변환 완료] component count=" + componentIdMap.size());
      }
  
@@ -458,7 +499,7 @@ index 3e52c8b..db64b4b 100644
  
          if (depth > 200) {
              throw new IllegalStateException(
-@@ -472,6 +489,9 @@ public class WebSquareGenerator {
+@@ -472,6 +496,9 @@ public class WebSquareGenerator {
              }
  
              Element src = (Element) node;
@@ -468,7 +509,7 @@ index 3e52c8b..db64b4b 100644
              String sourceTag = getSourceTagName(src);
  
              if ("Layouts".equals(getSourceTagName(sourceParent))
-@@ -490,7 +510,9 @@ public class WebSquareGenerator {
+@@ -490,7 +517,9 @@ public class WebSquareGenerator {
              }
  
              if ("Tab".equals(sourceTag) && componentMapping != null && targetTag != null) {
@@ -479,7 +520,7 @@ index 3e52c8b..db64b4b 100644
                  continue;
              }
  
-@@ -516,7 +538,7 @@ public class WebSquareGenerator {
+@@ -516,7 +545,7 @@ public class WebSquareGenerator {
                  target.setAttribute("id", targetId);
                  targetComponentTypeMap.put(targetId, sourceTag);
                  logPartialComponentMapping(componentMapping, sourcePath);
@@ -488,7 +529,7 @@ index 3e52c8b..db64b4b 100644
                  applyComponentSpecificProperties(src, target, sourceTag, sourcePath);
                  applyBindings(src, target, sourcePath, localId, targetId, sourceTag);
                  bindEvents(target, sourcePath, localId, analysis);
-@@ -543,7 +565,40 @@ public class WebSquareGenerator {
+@@ -543,7 +572,40 @@ public class WebSquareGenerator {
                                      + layoutConverter.describeLayoutSource(src) + ")");
                  }
  
@@ -530,7 +571,7 @@ index 3e52c8b..db64b4b 100644
                  System.out.println(
                          "[UI 변환] " + sourceTag + " " + sourcePath
                                  + " -> " + targetTag + " id=" + targetId);
-@@ -555,7 +610,11 @@ public class WebSquareGenerator {
+@@ -555,7 +617,11 @@ public class WebSquareGenerator {
                              target,
                              sourcePath,
                              analysis,
@@ -543,7 +584,7 @@ index 3e52c8b..db64b4b 100644
                  }
  
                  continue;
-@@ -573,15 +632,142 @@ public class WebSquareGenerator {
+@@ -573,15 +639,142 @@ public class WebSquareGenerator {
                                      + sourceTag + " id=" + wrapperId
                                      + " (자식 좌표 기준 수동 확인 필요)");
                  }
@@ -692,7 +733,7 @@ index 3e52c8b..db64b4b 100644
      }
  
      /** Phase 3: XPlatform Tab/Tabpage tree -> WebSquare tabControl tabs/content pairs. */
-@@ -592,7 +778,10 @@ public class WebSquareGenerator {
+@@ -592,7 +785,10 @@ public class WebSquareGenerator {
              String parentPath,
              XfdlAnalysisResult analysis,
              int depth,
@@ -704,7 +745,7 @@ index 3e52c8b..db64b4b 100644
  
          String localId = sanitizeXml10(src.getAttribute("id"));
          if (localId.length() == 0) {
-@@ -608,11 +797,10 @@ public class WebSquareGenerator {
+@@ -608,11 +804,10 @@ public class WebSquareGenerator {
          Element tabControl = createTargetElement(out, "w2:tabControl");
          tabControl.setAttribute("id", targetId);
          targetComponentTypeMap.put(targetId, "Tab");
@@ -718,7 +759,7 @@ index 3e52c8b..db64b4b 100644
          applyComponentSpecificProperties(src, tabControl, "Tab", sourcePath);
          applyBindings(src, tabControl, sourcePath, localId, targetId, "Tab");
          bindEvents(tabControl, sourcePath, localId, analysis);
-@@ -677,14 +865,15 @@ public class WebSquareGenerator {
+@@ -677,14 +872,15 @@ public class WebSquareGenerator {
                  continue;
              }
              if (isRuntimeSetUrlTarget(localId, pageLocalId)) {
@@ -738,7 +779,7 @@ index 3e52c8b..db64b4b 100644
          }
      }
  
-@@ -934,39 +1123,42 @@ public class WebSquareGenerator {
+@@ -934,39 +1130,42 @@ public class WebSquareGenerator {
          return normalized.startsWith("@") ? normalized.substring(1) : normalized;
      }
  
@@ -802,7 +843,7 @@ index 3e52c8b..db64b4b 100644
                  String checkboxValue = sanitizeXml10(src.getAttribute("value"));
                  if (checkboxValue.length() == 0) checkboxValue = text;
                  String targetId = target.getAttribute("id");
-@@ -978,7 +1170,24 @@ public class WebSquareGenerator {
+@@ -978,7 +1177,24 @@ public class WebSquareGenerator {
              }
          }
  
@@ -828,7 +869,7 @@ index 3e52c8b..db64b4b 100644
          if (style.length() > 0) {
              target.setAttribute("style", style);
          }
-@@ -1224,14 +1433,21 @@ public class WebSquareGenerator {
+@@ -1224,14 +1440,21 @@ public class WebSquareGenerator {
          return found;
      }
  
@@ -853,7 +894,7 @@ index 3e52c8b..db64b4b 100644
          }
      }
  
-@@ -1298,12 +1514,9 @@ public class WebSquareGenerator {
+@@ -1298,12 +1521,9 @@ public class WebSquareGenerator {
              System.out.println("[BINDING 변환] " + sourcePath + " -> data:"
                      + valueBinding.getDatasetId() + "." + valueBinding.getColumnId());
  

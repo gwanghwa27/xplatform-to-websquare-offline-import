@@ -363,22 +363,30 @@ public class ComponentLayoutConverter {
     /**
      * WebSquare AI v6 grp_main wrapper(V6_STRUCTURE_PARTIAL_ALIGNMENT)의 style을 생성한다.
      * buildRootStyle과 동일한 geometry resolution(findFormGeometry)을 재사용하며, 유효한 양수
-     * height를 얻은 경우에만 height만 반환한다(width/position/overflow는 절대 emit하지 않음).
-     * 유효한 height를 얻지 못하면 height:0px; 같은 placeholder 없이 빈 문자열을 반환한다.
-     * height-only/no-width convention은 단일 real v6 화면 관찰(video evidence) 기반이며 아직
-     * universal rule로 검증된 것은 아니다.
+     * height를 얻은 경우에만 height를 추가로 반환한다(position/overflow는 절대 emit하지 않음).
+     *
+     * <p>ROOT_PERCENT_CONTAINING_BLOCK_DEFECT fix: 이전까지는 height-only(width 미emit)였다
+     * (단일 real v6 화면 관찰 기반, universal rule로 검증된 적 없다고 자체 명시돼 있었음). 그
+     * 관찰은 global {@code grp_content}(px width/height를 가진 compatibility wrapper)가 아직
+     * 존재하던 시점의 것이다 -- {@code grp_content} 제거 이후에는 {@code grp_main} 직계 자식들이
+     * 전부 percentage width로 바뀌었고, 실제 폐쇄망 Studio 재현(STUDIO_DESIGN_FAILED,
+     * STUDIO_DESIGN_REPRODUCED -- 업무 영역이 좌측 좁은 영역에 collapse)으로 percentage 자식이
+     * 참조할 containing block에 명시적 width가 반드시 필요함이 확인됐다. {@code width:100%;}는
+     * source geometry에서 계산한 값이 아니라 구조적 상수이므로 특정 화면 px 하드코딩이 아니다.
      */
     public String buildMainAreaStyle(Document source) {
+        StringBuilder style = new StringBuilder();
+        style.append("width:100%;");
+
         Geometry geometry = findFormGeometry(source);
         if (geometry == null || isEmpty(geometry.height)) {
-            return "";
+            return style.toString();
         }
         ParsedLength parsed = parseLength(geometry.height);
         if (parsed == null || parsed.value <= 0.0) {
-            return "";
+            return style.toString();
         }
 
-        StringBuilder style = new StringBuilder();
         appendCssLength(style, "height", geometry.height);
         return style.toString();
     }
