@@ -196,22 +196,10 @@ public class ComponentLayoutConverter {
      * stacking)로 대체하므로 emit하지 않는다(20번 규칙). 계산 불가면 null.
      */
     public String buildTableRowStyle(List<Element> row, double basisHeight) {
-        if (basisHeight <= 0.0 || row == null || row.isEmpty()) {
+        if (basisHeight <= 0.0) {
             return null;
         }
-        double minTop = Double.MAX_VALUE;
-        double maxBottom = -Double.MAX_VALUE;
-        for (Element cell : row) {
-            Geometry g = resolveGeometry(cell);
-            ParsedLength top = isEmpty(g.top) ? null : parseLength(g.top);
-            ParsedLength height = isEmpty(g.height) ? null : parseLength(g.height);
-            if (top == null || height == null) {
-                return null;
-            }
-            minTop = Math.min(minTop, top.value);
-            maxBottom = Math.max(maxBottom, top.value + height.value);
-        }
-        double rowHeight = maxBottom - minTop;
+        double rowHeight = resolveRowBasisHeight(row);
         if (rowHeight <= 0.0) {
             return null;
         }
@@ -223,15 +211,64 @@ public class ComponentLayoutConverter {
      * 규칙). height는 row를 100% 채운다(structural placement). 계산 불가면 null.
      */
     public String buildTableCellStyle(Element cell, double basisWidth) {
-        if (basisWidth <= 0.0 || cell == null) {
+        if (basisWidth <= 0.0) {
             return null;
+        }
+        double cellWidth = resolveCellBasisWidth(cell);
+        if (cellWidth <= 0.0) {
+            return null;
+        }
+        return "width:" + formatPercent(cellWidth / basisWidth * 100.0) + ";height:100%;";
+    }
+
+    /**
+     * NESTED_PERCENT_DOUBLE_SCALING fix: table cell 내부의 실제 XPlatform 컴포넌트는
+     * cell/row 자신을 채우는 것이지, 원래 Div/Layout 전체 basis를 다시 기준으로 삼지 않는다
+     * (PERCENT_GEOMETRY_PARENT = IMMEDIATE_GENERATED_CONTAINER -- 4번 규칙). {@link
+     * #buildTableCellStyle}이 cell의 width를 "cell 자신의 source width / Layout basisWidth"로
+     * 계산하는 것과 동일한 px 값을 여기서 반환해, 그 cell에 들어가는 컴포넌트의 percent 계산
+     * 기준(basis)으로 재사용할 수 있게 한다. 현재 구조상 한 cell에는 정확히 1개의 XPlatform
+     * component만 들어가며 cell의 width는 그 컴포넌트 자신의 width와 같으므로, 이 값을 basis로
+     * 쓰면 컴포넌트의 width%는 자동으로 100%가 된다(하드코딩이 아니라 "컴포넌트 자신의 px 값 /
+     * 컴포넌트 자신의 px 값"이라는 항등 계산의 결과 -- 여러 컴포넌트를 담는 cell로 확장되어도
+     * 동일한 나눗셈 공식이 그대로 유효하다). 계산 불가면 -1.
+     */
+    public double resolveCellBasisWidth(Element cell) {
+        if (cell == null) {
+            return -1.0;
         }
         Geometry g = resolveGeometry(cell);
         ParsedLength width = isEmpty(g.width) ? null : parseLength(g.width);
-        if (width == null) {
-            return null;
+        if (width == null || width.value <= 0.0) {
+            return -1.0;
         }
-        return "width:" + formatPercent(width.value / basisWidth * 100.0) + ";height:100%;";
+        return width.value;
+    }
+
+    /**
+     * NESTED_PERCENT_DOUBLE_SCALING fix: {@link #resolveCellBasisWidth}와 동일한 목적으로, row
+     * 안 셀들의 실제 top/height 분포(min top ~ max bottom)로 row 자신의 세로 footprint(px)를
+     * 구한다. {@link #buildTableRowStyle}의 rowHeight 계산과 동일 로직을 공유한다(중복 계산
+     * 방지). 계산 불가면 -1.
+     */
+    public double resolveRowBasisHeight(List<Element> row) {
+        if (row == null || row.isEmpty()) {
+            return -1.0;
+        }
+        double minTop = Double.MAX_VALUE;
+        double maxBottom = -Double.MAX_VALUE;
+        for (Element cell : row) {
+            Geometry g = resolveGeometry(cell);
+            ParsedLength top = isEmpty(g.top) ? null : parseLength(g.top);
+            ParsedLength height = isEmpty(g.height) ? null : parseLength(g.height);
+            if (top == null || height == null) {
+                return -1.0;
+            }
+            minTop = Math.min(minTop, top.value);
+            maxBottom = Math.max(maxBottom, top.value + height.value);
+        }
+        double rowHeight = maxBottom - minTop;
+        return rowHeight > 0.0 ? rowHeight : -1.0;
     }
 
     /**

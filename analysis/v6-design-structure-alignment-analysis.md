@@ -769,3 +769,38 @@ gap 하나에 대한 최소 수정, 전체 문제의 완전한 해결이라고 �
 `analysis/freeze-vs-candidate-function-diff.md`의 "후속 라운드 -- Native v6 Layout Structure
 Gap Root-Cause Audit + Minimal Alignment" 섹션, raw diff는
 `analysis/git-baseline-vs-candidate-production.diff` 참고.
+
+## 후속 라운드 -- 실제 Studio 재실패: Nested Percentage Double-Scaling + Grid Width 조사
+
+사용자가 지난 라운드(Native v6 Layout Structure Gap 최소 정렬) 적용 이후에도 폐쇄망 재변환에서
+동일 증상(`STUDIO_DESIGN_FAILED`/`STUDIO_DESIGN_REPRODUCED`)을 확인, 실제 generated Source
+스크린샷을 근거로 제시. 확인 결과:
+
+- `NESTED_PERCENT_DOUBLE_SCALING = CONFIRMED` -- Table cell(`[ComponentLayoutConverter]
+  buildTableCellStyle`)이 cell 자신을 컴포넌트 자신의 width/basisWidth 비율로 정확히 계산해
+  두었는데, `[WebSquareGenerator] convertLayoutAsTable`이 cell 내부 컴포넌트 변환 시 **같은
+  basisWidth/basisHeight를 그대로 재사용**해 동일 비율을 또 계산 -- CSS 상 자식 % width는
+  실제 렌더링된 부모(cell) 폭 기준이므로 실효 폭이 제곱으로 축소됨(실측 예: cell/child 둘 다
+  6.0345% -> 실효 약 0.36%). 사용자가 제공한 실제 화면 스크린샷 수치와 정확히 일치.
+- `GRID_COLUMN_WIDTH_MISMATCH = EVIDENCE_INSUFFICIENT` -- `w2:gridView` column width(px)
+  convention에 대한 native evidence가 이 세션에 전혀 없어(영상에서 grid 내부 column 폭까지
+  판독한 기록 없음) 추측 없이 미수정.
+
+수정: `[WebSquareGenerator] convertLayoutAsTable`이 cell 내부 컴포넌트 변환 시 원래 Div/Layout
+basis 대신 그 cell/row 자신의 실제 px 크기(신규 `resolveCellBasisWidth`/`resolveRowBasisHeight`)
+를 기준으로 재계산하도록 수정. 결과적으로 cell 내부 컴포넌트는 (구조상 cell == 그 컴포넌트
+자신의 geometry이므로) `width:100%;height:100%`가 되며, 하드코딩이 아니라 "자기 자신의 px
+값/자기 자신의 px 값" 항등 계산의 결과다. 중첩 컨테이너(cell 안에 다시 컨테이너가 있는 경우)의
+손자 컴포넌트에도 기존 재귀 basis 전달 방식이 그대로 올바르게 cascading됨을 실제 corpus 사례로
+역산 검증(source px 값과 정확히 일치).
+
+corpus 실측: 149/149 변환 성공, 실제 diff 4개 파일(round6과 동일 대상, Table 판정 경로에만
+영향), 나머지 132개 XML byte-identical. `SOURCE_TO_TARGET_ID_MAP_EXPECTED_ONLY`/invariant
+class/QName/Phase1 SHA/top-level percentage 전부 무변경 재확인.
+
+최종 `DESIGN_STRUCTURE = FIX_CANDIDATE` / `STATIC_VERIFIED` / `STUDIO_DESIGN_REQUIRED`. 이번
+결함은 사용자가 실제로 제공한 화면 스크린샷의 수치와 코드 추적이 정확히 일치해, 지금까지의
+라운드 중 가장 직접적인 근거를 가진 수정이다. 상세는
+`analysis/freeze-vs-candidate-function-diff.md`의 "후속 라운드 -- 실제 Studio 재실패: Nested
+Percentage Double-Scaling + Grid Width 조사" 섹션, raw diff는
+`analysis/git-baseline-vs-candidate-production.diff` 참고.

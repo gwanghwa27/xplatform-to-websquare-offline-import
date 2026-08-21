@@ -1094,3 +1094,299 @@ ABSOLUTE_PERCENT_LAYOUT_STRATEGY가 절대좌표 % 경로 전체(130/135)에 대
 EVIDENCE_INSUFFICIENT로 남으며, 최종 DESIGN_STRUCTURE = FIX_CANDIDATE / STATIC_VERIFIED /
 STUDIO_DESIGN_REQUIRED(전체 문제의 완전한 해결이 아닌, 확인된 구조적 gap 하나에 대한 최소
 수정).
+
+---
+
+## 후속 라운드 -- 실제 Studio 재실패: Nested Percentage Double-Scaling + Grid Width 조사
+
+### 배경/증거
+
+사용자가 지난 라운드(Native v6 Layout Structure Gap 최소 정렬) 적용 이후 폐쇄망에서 실제 업무
+화면(STT00030, BCI01M0000)을 재변환/확인했으나 여전히 `STUDIO_DESIGN_FAILED`/
+`STUDIO_DESIGN_REPRODUCED`. 이번에는 사용자가 직접 촬영한 실제 generated Source 코드 스크린샷
+(WebSquare Studio 소스 탭)을 근거로, 다음 두 구체적 패턴을 지목했다:
+
+```xml
+<xf:group class="w2tb_td" id="Div00_layoutTableRow0Col0" style="width:6.0345%;height:100%;" tagname="td">
+    <xf:trigger class="btn_cm" ev:onclick="scwin.btn_excel_onclick" id="Div00_btn_excel"
+                style="width:6.0345%;height:2.6316%;" tabIndex="6" value="엑셀"/>
+</xf:group>
+```
+
+Cell 자신의 width(`6.0345%`)와 그 안의 실제 컴포넌트(trigger)의 width(`6.0345%`)가 **동일한
+값**으로 중복 계산되어 있음을 확인.
+
+### 1. NESTED_PERCENT_DOUBLE_SCALING 원인 추적
+
+`[WebSquareGenerator] convertLayoutAsTable`(지난 라운드까지 수정된 함수)에서 cell 내부
+컴포넌트 변환 호출부:
+
+```java
+convertChildren(
+        out, layout, cellGroup, parentPath, analysis, depth, cell,
+        basisWidth, basisHeight, false);
+```
+
+`basisWidth`/`basisHeight`는 이 Layout(Div 내부) **전체**의 basis(예: `ComponentMethodConversion`
+Form 기준 600x300 같은 원래 Div/Layout 크기)다. 이 값을 그대로 cell 내부 컴포넌트 변환에도
+전달하면, `[WebSquareGenerator] copyBasicProperties`(1176줄) -> `[ComponentLayoutConverter]
+buildPercentComponentStyle`이 **컴포넌트 자신의 px width/height를 같은 basisWidth/basisHeight로
+다시 나눠** percentage를 계산한다.
+
+그런데 `[ComponentLayoutConverter] buildTableCellStyle`은 이미 "cell 자신의 width = 그
+컴포넌트 자신의 source width / 같은 basisWidth"로 cell의 폭을 정확히 그 컴포넌트 크기에 맞춰
+계산해 놓은 상태다(cell에는 정확히 1개의 XPlatform 컴포넌트만 들어간다 -- `buildTableRows`가
+Layout 직계 자식 1개당 정확히 1개의 cell을 만드는 구조, 재확인). 즉:
+
+- cell width% = `component_px_width / basisWidth * 100`
+- (수정 전) child width% = `component_px_width / basisWidth * 100` (cell width%와 **동일**)
+
+CSS에서 자식의 `width:N%`는 **자신의 실제 렌더링된 부모(cell)의 폭**을 기준으로 계산되므로,
+실제 렌더링 폭 = `cell_render_width * (child_percent/100)` = `(basis 대비 cell%) x (basis 대비
+child%, 동일값)` = 원래 의도한 폭의 제곱 비율로 축소된다(예: 6.0345% -> 실효 약 0.364%).
+height도 동일 패턴(row height% x child height% 이중 곱).
+
+**판정**: `NESTED_PERCENT_DOUBLE_SCALING = CONFIRMED`(코드 추적 + 사용자 제공 실제 generated
+XML 스크린샷 수치 일치로 실증).
+
+### 2. TABLE_PERCENT_BASIS_TRACE
+
+| source component path | generated Table | Row | Cell | Child | basis(각 단계) | generated % |
+|---|---|---|---|---|---|---|
+| `Div00.btn_excel`(XPlatform Button) | `Div00_layoutTable` | `Div00_layoutTableRow0`(row) | `Div00_layoutTableRow0Col0` | `Div00_btn_excel`(xf:trigger) | Row/Cell: Div00 자신의 Layout basisWidth/basisHeight(수정 전과 후 동일, 무변경) / **Child(수정 전)**: 동일 Div00 basisWidth/basisHeight(cell과 동일 basis 재사용 -- 결함) / **Child(수정 후)**: cell 자신의 px 크기(`resolveCellBasisWidth`)와 row 자신의 px 크기(`resolveRowBasisHeight`) | 수정 전: cell=6.0345%, child=6.0345%(중복) / 수정 후: cell=6.0345%(무변경), child=100%/100% |
+
+(사용자가 제공한 실제 화면의 정확한 source px 값은 화면 자체가 폐쇄망 로컬 파일이라 이 문서에
+직접 반입하지 않았다 -- 아래 "Generated XML BEFORE/AFTER"는 동일 구조를 재현하는 로컬 corpus
+실제 사례(`Form/TabContainer.xml`)로 대체 검증했다. 구조/수치 패턴은 사용자가 제공한 스크린샷과
+동일함을 코드 경로 추적으로 확인.)
+
+### 3. GRID_COLUMN_WIDTH_MISMATCH 조사 결과
+
+`[GridFormatConverter]`(`getSingleColumnWidth`/`calculateCellWidth` 등)는 XPlatform Grid
+Format의 `Column size="N"`을 `w2:column width="N"`(고정 px)으로 그대로 매핑한다. 이는
+WebSquare `w2:gridView`의 표준 column-width API(px 기준)이며, 이번 세션의 native v6 evidence
+(`v6-video-source-analysis.md`, `v6-video-source-components.csv`)에는 grid **내부 column
+width**에 대한 직접 판독 기록이 전혀 없다(영상에서 column 개별 폭까지 확대/판독한 적 없음 --
+grid 전체 wrapper의 `width:100%`만 기록됨). 즉:
+
+- w2:gridView가 column width 합계를 client 폭에 맞춰 자동 scale하는지
+- percentage column width를 지원하는지
+- 아니면 합계가 초과하면 정상적으로 가로 스크롤되는(의도된) 동작인지
+
+를 판별할 local/native evidence가 전혀 없다. 이 세 시나리오 중 어느 것이 맞는지 추측하면
+`w2:gridView`의 실제 렌더링 계약(다른 corpus 화면 -- 특히 의도적으로 넓은 grid를 가진 화면 --
+을 깨뜨릴 위험)을 무근거로 바꾸는 것이 된다.
+
+**판정**: `GRID_COLUMN_WIDTH_MISMATCH = EVIDENCE_INSUFFICIENT`. Production 미수정
+(`GridFormatConverter` 무변경 -- diff 0 확인). 사용자가 실제 폐쇄망 Studio에서 grid 폭이
+column 합계보다 큰 경우 실제로 어떻게 렌더링되는지(가로 스크롤 정상 동작인지, 아니면 확대/축소가
+필요한지) 직접 관찰해 알려주면 다음 라운드에서 재조사 가능.
+
+### 4. Production 변경
+
+**[ComponentLayoutConverter] buildTableRowStyle/buildTableCellStyle(기존 함수, 리팩터링)**
++ **resolveCellBasisWidth/resolveRowBasisHeight(신규 함수, private 계산 로직을 public 재사용
+가능한 형태로 추출)**
+
+BEFORE(`buildTableRowStyle`/`buildTableCellStyle`, 라운드 내부에 계산 로직 인라인):
+```java
+public String buildTableRowStyle(List<Element> row, double basisHeight) {
+    if (basisHeight <= 0.0 || row == null || row.isEmpty()) {
+        return null;
+    }
+    double minTop = Double.MAX_VALUE;
+    double maxBottom = -Double.MAX_VALUE;
+    for (Element cell : row) {
+        Geometry g = resolveGeometry(cell);
+        ParsedLength top = isEmpty(g.top) ? null : parseLength(g.top);
+        ParsedLength height = isEmpty(g.height) ? null : parseLength(g.height);
+        if (top == null || height == null) {
+            return null;
+        }
+        minTop = Math.min(minTop, top.value);
+        maxBottom = Math.max(maxBottom, top.value + height.value);
+    }
+    double rowHeight = maxBottom - minTop;
+    if (rowHeight <= 0.0) {
+        return null;
+    }
+    return "width:100%;height:" + formatPercent(rowHeight / basisHeight * 100.0) + ";";
+}
+
+public String buildTableCellStyle(Element cell, double basisWidth) {
+    if (basisWidth <= 0.0 || cell == null) {
+        return null;
+    }
+    Geometry g = resolveGeometry(cell);
+    ParsedLength width = isEmpty(g.width) ? null : parseLength(g.width);
+    if (width == null) {
+        return null;
+    }
+    return "width:" + formatPercent(width.value / basisWidth * 100.0) + ";height:100%;";
+}
+```
+
+AFTER(계산 로직을 `resolveRowBasisHeight`/`resolveCellBasisWidth`로 추출, 두 곳에서 재사용):
+```java
+public String buildTableRowStyle(List<Element> row, double basisHeight) {
+    if (basisHeight <= 0.0) {
+        return null;
+    }
+    double rowHeight = resolveRowBasisHeight(row);
+    if (rowHeight <= 0.0) {
+        return null;
+    }
+    return "width:100%;height:" + formatPercent(rowHeight / basisHeight * 100.0) + ";";
+}
+
+public String buildTableCellStyle(Element cell, double basisWidth) {
+    if (basisWidth <= 0.0) {
+        return null;
+    }
+    double cellWidth = resolveCellBasisWidth(cell);
+    if (cellWidth <= 0.0) {
+        return null;
+    }
+    return "width:" + formatPercent(cellWidth / basisWidth * 100.0) + ";height:100%;";
+}
+
+public double resolveCellBasisWidth(Element cell) { /* cell 자신의 px width, 계산 불가시 -1 */ }
+public double resolveRowBasisHeight(List<Element> row) { /* row 자신의 px height, 계산 불가시 -1 */ }
+```
+
+`buildTableRowStyle`/`buildTableCellStyle`의 실제 반환값(퍼센트 문자열)은 이 리팩터링으로
+전혀 바뀌지 않는다(동일 계산을 함수 추출만 한 것) -- corpus diff로 실측 확인(row/cell 자신의
+style은 132/136 파일에서 byte-identical, 4개 대상 파일에서도 row/cell style 값 자체는
+무변경).
+
+**[WebSquareGenerator] convertLayoutAsTable(기존 함수 수정)** -- cell 내부 컴포넌트 변환 시
+basis 교체
+
+BEFORE:
+```java
+convertChildren(
+        out, layout, cellGroup, parentPath, analysis, depth, cell,
+        basisWidth, basisHeight, false);
+```
+
+AFTER:
+```java
+double rowBasisHeightPx = layoutConverter.resolveRowBasisHeight(row);
+...
+double cellBasisWidthPx = layoutConverter.resolveCellBasisWidth(cell);
+double childBasisWidth = cellBasisWidthPx > 0.0 ? cellBasisWidthPx : basisWidth;
+double childBasisHeight = rowBasisHeightPx > 0.0 ? rowBasisHeightPx : basisHeight;
+convertChildren(
+        out, layout, cellGroup, parentPath, analysis, depth, cell,
+        childBasisWidth, childBasisHeight, false);
+```
+
+계산 불가(`-1`) 시 기존 `basisWidth`/`basisHeight`로 fallback -- 기존 UNRESOLVED 처리 경로와
+동일하게 동작(퇴행 없음).
+
+Full Unified Diff: [analysis/git-baseline-vs-candidate-production.diff](git-baseline-vs-candidate-production.diff)
+(누적, 이번 라운드분은 파일 마지막 hunk).
+
+Caller: `convertLayoutAsTable`(row/cell 루프, 무변경 호출 구조). Callee: `resolveCellBasisWidth`/
+`resolveRowBasisHeight`(신규, `resolveGeometry`/`parseLength` 등 기존 private helper 재사용,
+새 클래스 없음).
+
+### Generated XML BEFORE/AFTER(실제 corpus, `Form/TabContainer.xml`)
+
+BEFORE(`corpus-output-round6`):
+```xml
+<xf:group class="w2tb_td" id="tabMain_pageB_layoutTableRow0Col0" style="width:14.8148%;height:100%;" tagname="td">
+    <xf:trigger class="btn_cm" id="tabMain_pageB_btnB" style="width:14.8148%;height:8.2759%;" value="B"/>
+</xf:group>
+```
+
+AFTER(`corpus-output-round7`):
+```xml
+<xf:group class="w2tb_td" id="tabMain_pageB_layoutTableRow0Col0" style="width:14.8148%;height:100%;" tagname="td">
+    <xf:trigger class="btn_cm" id="tabMain_pageB_btnB" style="width:100%;height:100%;" value="B"/>
+</xf:group>
+```
+
+cell 자신의 style(`width:14.8148%;height:100%;`)은 완전 동일 -- 오직 그 내부 child의 style만
+`width:14.8148%;height:8.2759%;` -> `width:100%;height:100%;`로 수정됨을 실측 확인. 4개 대상
+파일 중 `NestedContainer.xml`은 cell 내부가 컨테이너(`w2:group`)라 그 자식(`xf:input`)까지
+연쇄적으로 재계산됐다(구조가 아니라 값만 -- 아래 "중첩 컨테이너 케이스" 참고).
+
+**중첩 컨테이너 케이스**(`Form/NestedContainer.xml`, `divA_grpA`가 cell의 유일한 내용이면서
+그 자신도 컨테이너):
+
+BEFORE:
+```xml
+<w2:group id="divA_grpA" style="width:83.3333%;height:66.6667%;" value="Group">
+    <xf:input id="divA_grpA_edt" style="position:absolute;left:1.6667%;top:3.3333%;width:33.3333%;height:16%;"/>
+</w2:group>
+```
+
+AFTER:
+```xml
+<w2:group id="divA_grpA" style="width:100%;height:100%;" value="Group">
+    <xf:input id="divA_grpA_edt" style="position:absolute;left:2%;top:5%;width:40%;height:24%;"/>
+</w2:group>
+```
+
+`divA_grpA`(cell의 직접 컴포넌트) 자신은 예상대로 100%/100%가 됐고, 그 자식 `divA_grpA_edt`도
+연쇄적으로 재계산됐다 -- `divA_grpA`의 기존(수정 전) basis(px 300x150 Div 전체)가 아니라
+`divA_grpA` 자신의 실제 px 크기(250x100, cell/row basis와 동일)를 기준으로 다시 계산되어
+`left:1.6667%->2%`(5px/250=2%), `top:3.3333%->5%`(5px/100=5%), `width:33.3333%->40%`
+(100px/250=40%), `height:16%->24%`(24px/100=24%). 이는 `PERCENT_GEOMETRY_PARENT =
+IMMEDIATE_SOURCE_CONTAINER` 원칙(자식은 자신을 직접 담는 컨테이너 자신의 geometry를 기준으로
+계산)이 cell 내부 재귀에도 올바르게 전파된 결과이며, 별도 코드 추가 없이 기존 `convertChildren`의
+재귀 basis 전달 방식만으로 자동으로 correct하게 cascading됨을 확인했다(의도한 부작용, 결함
+아님 -- 수치를 XPlatform source 원본(`left=5,top=5,width=100,height=24px`, `divA_grpA=
+250x100px`)과 직접 역산해 검증 완료).
+
+### 영향 범위
+
+corpus 149개 화면 변환 성공 149/149, 136개 XML 중 실제 diff 발생 4개 파일(round6과 동일 -- 이번
+fix도 `TABLE_LAYOUT_HIGH_CONFIDENCE` 5건이 속한 파일에만 영향), 나머지 132개 XML은
+byte-identical. 4개 파일의 diff는 전부 cell 내부 child(및 그 자손)의 percentage 값 재계산뿐이며,
+cell/row/table wrapper 자신의 style, id, tagname, class는 전혀 변경되지 않았다(line-by-line
+diff 확인).
+
+### 회귀 결과
+
+| 항목 | 결과 |
+|---|---|
+| 컴파일(clean build, `build/classes` 재생성 후) | 0 errors |
+| 전체 corpus 변환 | 149/149 성공 |
+| XML parse | 136/136 well-formed |
+| standalone JS | 15/15(무변경) |
+| Phase1 SHA | 2/2 PASS(무변경) |
+| `SOURCE_TO_TARGET_ID_MAP_EXPECTED_ONLY` | PASS(403/403 key, diff 0) |
+| invariant class/QName | `btn_cm=12`, `wq_gvw=3` 전부 무변경 |
+| `grp_resultArea`/`grp_main` width | 135/136(무변경, 이번 라운드 미접촉) |
+| top-level(non-table) percentage(`cbo`/`grd_gridGroup` 등) | 무변경 재확인(`TOP_LEVEL_PERCENT_ARITHMETIC = PASS`, 재설계 없음) |
+| 실제 diff 발생 XML | 4/136(round6과 동일 대상), 나머지 132개 byte-identical |
+| diff 내용 | 전부 cell 내부 child(및 컨테이너 자손) percentage 값 변경만(cell/row/table 자신은 무변경) |
+
+### Completion Gate
+
+`TABLE_CELL_CHILD_PARENT_BASIS = PASS`(cell 내부 child가 이제 cell/row 자신의 px 크기를
+기준으로 계산됨, 실측 4/4 대상 파일). `NESTED_PERCENT_DOUBLE_SCALING = 0`(수정 후 cell
+width%와 child width%가 더 이상 동일 값으로 중복되지 않음, 전부 100%/100%로 정규화 확인).
+`STRUCTURE_TOPOLOGY_PRESERVED = PASS`(id/tagname/class/구조 전부 무변경, style 값만 변경).
+`ROOT_STRUCTURE_UNCHANGED_THIS_ROUND = PASS`(`grp_resultArea`/`grp_main` 완전 무변경).
+`COMPONENT_QNAME_PRESERVED = PASS`, `EXISTING_CLASS_PRESERVED = PASS`(`btn_cm`/`wq_gvw`
+무변경). `BODY_LIFECYCLE_ATTRIBUTES_PRESERVED = PASS`(미접촉). `SOURCE_TO_TARGET_ID_MAP_
+EXPECTED_ONLY = PASS`. `UNEXPECTED_GENERATED_DIFF = 0`(4개 파일의 diff 전부 의도한 cell
+child basis 재계산으로 설명됨, 그 외 132개 파일 byte-identical).
+
+## Status
+
+`[ComponentLayoutConverter] buildTableRowStyle/buildTableCellStyle`(기존 함수, 리팩터링),
+`resolveCellBasisWidth`/`resolveRowBasisHeight`(신규 함수), `[WebSquareGenerator]
+convertLayoutAsTable`(기존 함수 수정) -- `STATIC_VERIFIED`(compile/corpus 변환/canonical
+map/invariant/4개 대상 파일 line-by-line diff + 역산 검증 완료). `GridFormatConverter`는
+`GRID_COLUMN_WIDTH_MISMATCH = EVIDENCE_INSUFFICIENT`로 미수정(diff 0). `STUDIO_DESIGN_
+VERIFIED`는 선언하지 않음 -- 사용자의 실제 폐쇄망 Studio 확인 필요(`STUDIO_DESIGN_REQUIRED`).
+
+최종 `DESIGN_STRUCTURE = FIX_CANDIDATE` / `STATIC_VERIFIED` / `STUDIO_DESIGN_REQUIRED`. 이번
+fix는 corpus의 Table 판정 경로(5/135)에 존재하던 명확한 이중 축소 결함을 제거했다 -- 사용자가
+제공한 실제 화면 스크린샷의 수치 패턴과 정확히 일치하는 결함이었으므로, 이번에는 이전 라운드들과
+달리 사용자가 보고한 실패 증상과 직접 대응되는 근거가 있다. 다만 Grid 자체의 column width 문제는
+evidence 부족으로 이번에도 미해결로 남는다.

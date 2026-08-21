@@ -762,6 +762,17 @@ public class WebSquareGenerator {
             }
             tableWrapper.appendChild(rowGroup);
 
+            // NESTED_PERCENT_DOUBLE_SCALING fix: cell 내부 컴포넌트의 percentage는 원래
+            // Div/Layout basis(basisWidth/basisHeight)가 아니라, 그 컴포넌트를 담기 위해 이미
+            // 그 컴포넌트 자신의 geometry로 계산된 cell/row 자신의 크기(px)를 기준으로 다시
+            // 계산해야 한다 -- 그렇지 않으면 "cell width% (basis 기준) x child width% (같은
+            // basis 기준)"이 이중으로 곱해져 실제 렌더링 폭/높이가 제곱으로 축소된다(실제 폐쇄망
+            // Studio 재현: cell width:6.0345%, child width:6.0345% -> 렌더링 실효 폭 약 0.36%).
+            // resolveRowBasisHeight/resolveCellBasisWidth는 buildTableRowStyle/
+            // buildTableCellStyle과 완전히 동일한 px 계산을 재사용하므로, 계산 불가 시 null을
+            // 반환한 케이스와도 항상 일관된다.
+            double rowBasisHeightPx = layoutConverter.resolveRowBasisHeight(row);
+
             int colIndex = 0;
             for (Element cell : row) {
                 Element cellGroup = out.createElementNS(NS_XF, "xf:group");
@@ -779,9 +790,12 @@ public class WebSquareGenerator {
                 }
                 rowGroup.appendChild(cellGroup);
 
+                double cellBasisWidthPx = layoutConverter.resolveCellBasisWidth(cell);
+                double childBasisWidth = cellBasisWidthPx > 0.0 ? cellBasisWidthPx : basisWidth;
+                double childBasisHeight = rowBasisHeightPx > 0.0 ? rowBasisHeightPx : basisHeight;
                 convertChildren(
                         out, layout, cellGroup, parentPath, analysis, depth, cell,
-                        basisWidth, basisHeight, false);
+                        childBasisWidth, childBasisHeight, false);
                 colIndex++;
             }
             rowIndex++;
