@@ -2041,3 +2041,114 @@ placeholder, 과거 모든 라운드와 동일 문서화된 예외), `NaN%=0`, `
 
 **Status**: `PERCENT_ROUNDING_POLICY = ONE_DECIMAL_PLACE` / `FIX_CANDIDATE` /
 `STATIC_VERIFIED`.
+
+## 후속 라운드 -- Visual Parity Quick Fix (GENERAL_LAYOUT_TABLE_HEURISTIC_PAUSED)
+
+### 배경 / 증상 재현
+
+실제 폐쇄망 재현에서 이전 라운드 이후로도: Grid 2개+중간 Span만 정상 노출, 엑셀/조회
+Button이 5:5로 강제 분할, 서로 다른 Div의 우측 Button이 겹쳐 보임, Calendar/Combo
+비노출이 보고됐다. 이전 라운드(`TABLE_CONVERSION_SEMANTIC_MISMATCH`)는 container child
+(Div/GroupBox/Tab)가 있는 Layout만 table 변환에서 제외했으나, **leaf-only Layout**(Button
+2개, Label+Calendar 등)은 여전히 `TABLE_LAYOUT_HIGH_CONFIDENCE`로 판정되어 table row/cell
+구조(`includePosition=false`, structural placement)로 변환되고 있었다 -- 실제 corpus
+재현(`Form/TabContainer.xfdl`의 단일 Edit/단일 Button 1x1 Layout, `Form/TabInlineContent.xfdl`
+의 단일 Button 1x1 Layout)으로 이 leaf-only 케이스가 여전히 남아 있음을 확인했다. 이런
+1x1(또는 N열) table cell 안의 컴포넌트는 원래 source left/top이 사라지고 cell의 flow
+위치(0,0)+100% 채움으로 강제되므로, 사용자가 보고한 "Button 균등폭 강제 분할", "위치가
+겹쳐 보임" 증상과 정확히 일치하는 매커니즘이다.
+
+### 변경 -- `[WebSquareGenerator] convertLayoutAsTable` (+ 신규 상수 `GENERAL_LAYOUT_TABLE_HEURISTIC_PAUSED`)
+
+**목적**: `GENERAL_LAYOUT_TABLE_HEURISTIC = PAUSED_FOR_VISUAL_PARITY`. root가 아닌 모든
+Layout을 이제 일괄적으로 table 미변환(절대좌표 pass-through) 대상으로 둔다. 기존
+table 생성 코드(`buildTableRows`/`buildTableRowStyle`/`buildTableCellStyle`/tagname·class
+부여 등)는 삭제하지 않고 `boolean` 상수 하나로 우회한다(재활성화 시 상수만 되돌리면 됨).
+Grid 자체 구조(`w2:gridView`/`wq_gvw` wrapper)는 이 함수와 무관해 무변경.
+
+**BEFORE**:
+```java
+List<Element> children = directElementChildren(layout);
+boolean isRootFormLayout = parentPath.length() == 0;
+String classification = isRootFormLayout
+        ? "ROOT_FORM_LAYOUT_NOT_A_TABLE_TARGET"
+        : layoutConverter.classifyLayoutGeometry(children);
+// XPLATFORM_VISUAL_PARITY: Div/GroupBox/PopupDiv/Tab/Tabpage처럼 그 자체로 독립된
+// 좌표계를 가진 container child는 table row/cell 구조(structural placement, position
+// 제거)로 병합하지 않는다 -- 원래 XPlatform sibling Div의 left/top/width/height와
+// overlap 관계를 그대로 보존하기 위해 절대좌표 pass-through로 처리한다
+// (TABLE_CONVERSION_SEMANTIC_MISMATCH). label/input 등 leaf component만으로 구성된
+// Layout(실제 검증된 native table 사례)은 이 override 대상이 아니다.
+if (!isRootFormLayout
+        && "TABLE_LAYOUT_HIGH_CONFIDENCE".equals(classification)
+        && hasContainerChild(children)) {
+    classification = "TABLE_CONVERSION_SEMANTIC_MISMATCH";
+}
+```
+
+**AFTER**:
+```java
+private static final boolean GENERAL_LAYOUT_TABLE_HEURISTIC_PAUSED = true;
+
+...
+List<Element> children = directElementChildren(layout);
+boolean isRootFormLayout = parentPath.length() == 0;
+String classification;
+if (isRootFormLayout) {
+    classification = "ROOT_FORM_LAYOUT_NOT_A_TABLE_TARGET";
+} else if (GENERAL_LAYOUT_TABLE_HEURISTIC_PAUSED) {
+    classification = "GENERAL_LAYOUT_TABLE_HEURISTIC_PAUSED_FOR_VISUAL_PARITY";
+} else {
+    classification = layoutConverter.classifyLayoutGeometry(children);
+    // XPLATFORM_VISUAL_PARITY 라운드: Div/GroupBox/PopupDiv/Tab/Tabpage처럼 그 자체로
+    // 독립된 좌표계를 가진 container child는 table row/cell 구조(structural placement,
+    // position 제거)로 병합하지 않는다(TABLE_CONVERSION_SEMANTIC_MISMATCH). 현재는
+    // 위 PAUSED 분기가 우선하므로 이 판정은 실행되지 않지만, heuristic을 다시 켜는
+    // 경우를 위해 로직은 보존한다.
+    if ("TABLE_LAYOUT_HIGH_CONFIDENCE".equals(classification) && hasContainerChild(children)) {
+        classification = "TABLE_CONVERSION_SEMANTIC_MISMATCH";
+    }
+}
+```
+
+**Full Unified Diff**: `git diff` (HEAD~1..HEAD, `src/main/java/.../WebSquareGenerator.java`)
+-- 위 BEFORE/AFTER 블록이 실제 hunk 전체(다른 함수 변경 없음).
+
+**Caller/Callee**: caller `convertChildren`(Layout 태그를 만나면 호출, 무변경). callee
+`layoutConverter.classifyLayoutGeometry`/`hasContainerChild`(이제 `else` 분기에서만
+호출, 로직 자체는 무수정 보존).
+
+**Generated XML BEFORE/AFTER** (`Form/TabInlineContent.xfdl`, `tabMain.pageInline.btnInline`
+Button, source: 단일 Button Layout, basis로 계산):
+```xml
+<!-- BEFORE -->
+<xf:group class="w2tb_tb" id="tabMain_pageInline_layoutTable" style="width:100.0%;" tagname="table">
+    <xf:group id="tabMain_pageInline_layoutTableRow0" style="width:100.0%;height:8.3%;" tagname="tr">
+        <xf:group class="w2tb_td" id="tabMain_pageInline_layoutTableRow0Col0" style="width:14.8%;height:100.0%;" tagname="td">
+            <xf:trigger class="btn_cm" id="tabMain_pageInline_btnInline" style="width:100.0%;height:100.0%;" value="Inline"/>
+        </xf:group>
+    </xf:group>
+</xf:group>
+
+<!-- AFTER -->
+<xf:trigger class="btn_cm" id="tabMain_pageInline_btnInline" style="position:absolute;left:1.9%;top:3.4%;width:14.8%;height:8.3%;" value="Inline"/>
+```
+BEFORE는 table cell로 감싸져 원래 left/top이 사라지고 flow 위치(암묵적 0,0)+강제
+100% 채움이었다. AFTER는 source의 실제 left/top/width/height를 그대로 percentage로
+보존한다(`class="btn_cm"` 등 기존 class/QName은 무변경).
+
+같은 패턴이 `Form/TabContainer.xfdl`의 `tabMain.pageA.edtA`(Edit), `tabMain.pageB.btnB`
+(Button)에도 동일하게 적용됨(위 diff 결과와 동일 구조 -- 상세는 corpus diff 참고).
+
+**영향 output 수**: 2개 파일(`Form/TabContainer.xml`, `Form/TabInlineContent.xml`) --
+136개 corpus 파일 전체 대조 결과 이 2개만 구조 변경, 나머지 134개는 byte-identical
+(percent formatter는 이번 라운드 무변경이므로 percent 텍스트도 전혀 바뀌지 않음).
+
+**Regression**: clean compile 0 errors, 149/149 변환 성공, XML well-formed 136/136,
+PAGE_JS 136/136 PASS, standalone JS 15/15 PASS, id-map(source->target 전체 라인) diff 0,
+`btn_cm=12`/`wq_gvw=3` invariant 무변경, classification 카운트
+`TABLE_LAYOUT_HIGH_CONFIDENCE=0`(이전 3), `TABLE_CONVERSION_SEMANTIC_MISMATCH=0`(이전
+2), `GENERAL_LAYOUT_TABLE_HEURISTIC_PAUSED_FOR_VISUAL_PARITY=7`(신규, 3+2+2[구
+UNRESOLVED_LAYOUT] 전부 흡수), `ROOT_FORM_LAYOUT_NOT_A_TABLE_TARGET=121`(무변경).
+
+**Status**: `FIX_CANDIDATE` / `STATIC_VERIFIED`.

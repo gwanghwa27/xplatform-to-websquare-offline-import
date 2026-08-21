@@ -706,10 +706,17 @@ public class WebSquareGenerator {
      * 담은 cell)가 존재해 안전하게 일반화할 수 없으므로(evidence 부족), 모든 cell을 동일하게
      * {@code td}/{@code w2tb_td}로만 표시한다(th는 미적용, UNRESOLVED로 유지).
      *
-     * <p>XPLATFORM_VISUAL_PARITY 라운드: children에 container 컴포넌트(Div 등)가 하나라도
-     * 있으면 {@code TABLE_CONVERSION_SEMANTIC_MISMATCH}로 재분류해 table 변환을 하지 않는다
-     * (아래 {@link #hasContainerChild}).
+     * <p>XPLATFORM_VISUAL_PARITY(Quick Fix) 라운드: 실제 폐쇄망 Studio 재현에서 Table 변환이
+     * container child뿐 아니라 leaf-only Layout(Button 2개가 나란한 검색조건 바 등)에도
+     * 적용되면서 균등폭 강제 분할/Calendar·Combo 비노출 등 광범위한 렌더링 실패가 재현됐다
+     * ({@code GENERAL_LAYOUT_TABLE_HEURISTIC = PAUSED_FOR_VISUAL_PARITY}). 이전 라운드의
+     * container-only 예외({@link #hasContainerChild})로는 leaf-only 케이스를 못 막으므로,
+     * 이번 라운드는 root가 아닌 모든 Layout을 일괄적으로 table 미변환(절대좌표 pass-through)
+     * 대상으로 둔다. table 생성 코드 자체는 삭제하지 않고 아래 {@code PAUSED} 상수로만
+     * 우회한다(원복 시 상수만 되돌리면 됨).
      */
+    private static final boolean GENERAL_LAYOUT_TABLE_HEURISTIC_PAUSED = true;
+
     private void convertLayoutAsTable(
             Document out,
             Element layout,
@@ -720,19 +727,21 @@ public class WebSquareGenerator {
 
         List<Element> children = directElementChildren(layout);
         boolean isRootFormLayout = parentPath.length() == 0;
-        String classification = isRootFormLayout
-                ? "ROOT_FORM_LAYOUT_NOT_A_TABLE_TARGET"
-                : layoutConverter.classifyLayoutGeometry(children);
-        // XPLATFORM_VISUAL_PARITY: Div/GroupBox/PopupDiv/Tab/Tabpage처럼 그 자체로 독립된
-        // 좌표계를 가진 container child는 table row/cell 구조(structural placement, position
-        // 제거)로 병합하지 않는다 -- 원래 XPlatform sibling Div의 left/top/width/height와
-        // overlap 관계를 그대로 보존하기 위해 절대좌표 pass-through로 처리한다
-        // (TABLE_CONVERSION_SEMANTIC_MISMATCH). label/input 등 leaf component만으로 구성된
-        // Layout(실제 검증된 native table 사례)은 이 override 대상이 아니다.
-        if (!isRootFormLayout
-                && "TABLE_LAYOUT_HIGH_CONFIDENCE".equals(classification)
-                && hasContainerChild(children)) {
-            classification = "TABLE_CONVERSION_SEMANTIC_MISMATCH";
+        String classification;
+        if (isRootFormLayout) {
+            classification = "ROOT_FORM_LAYOUT_NOT_A_TABLE_TARGET";
+        } else if (GENERAL_LAYOUT_TABLE_HEURISTIC_PAUSED) {
+            classification = "GENERAL_LAYOUT_TABLE_HEURISTIC_PAUSED_FOR_VISUAL_PARITY";
+        } else {
+            classification = layoutConverter.classifyLayoutGeometry(children);
+            // XPLATFORM_VISUAL_PARITY 라운드: Div/GroupBox/PopupDiv/Tab/Tabpage처럼 그 자체로
+            // 독립된 좌표계를 가진 container child는 table row/cell 구조(structural placement,
+            // position 제거)로 병합하지 않는다(TABLE_CONVERSION_SEMANTIC_MISMATCH). 현재는
+            // 위 PAUSED 분기가 우선하므로 이 판정은 실행되지 않지만, heuristic을 다시 켜는
+            // 경우를 위해 로직은 보존한다.
+            if ("TABLE_LAYOUT_HIGH_CONFIDENCE".equals(classification) && hasContainerChild(children)) {
+                classification = "TABLE_CONVERSION_SEMANTIC_MISMATCH";
+            }
         }
         double[] basis = layoutConverter.resolveLayoutBasis(layout);
         if (basis == null) {

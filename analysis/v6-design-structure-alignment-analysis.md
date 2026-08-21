@@ -920,3 +920,52 @@ PLACE`, `STATIC_VERIFIED`. `STUDIO_DESIGN_FAILED`/`STUDIO_DESIGN_REPRODUCED`가 
 `analysis/freeze-vs-candidate-function-diff.md`의 "후속 라운드 -- XPlatform Visual
 Parity Quick Fix + Percentage Precision 통일" 섹션, raw diff는
 `analysis/git-baseline-vs-candidate-production.diff` 참고.
+
+## 후속 라운드 -- Visual Parity Quick Fix (GENERAL_LAYOUT_TABLE_HEURISTIC_PAUSED)
+
+이전 라운드(container child만 table 변환 제외) 이후에도 폐쇄망 재현에서 Button 5:5
+강제 분할, 서로 다른 Div의 우측 Button 겹침, Calendar/Combo 비노출, Grid 2개+중간
+Span만 정상 노출이 계속 보고됐다. Production 재추적 결과 leaf-only Layout(Button
+2개, 단일 Edit/Button 등)은 여전히 `TABLE_LAYOUT_HIGH_CONFIDENCE`로 판정되어 table
+row/cell 구조로 변환되고 있었다 -- container child 여부와 무관하게, table cell로
+편입되면 `includePosition=false`로 원래 left/top이 사라지고 cell의 flow 위치+100%
+채움으로 대체되는 동일한 매커니즘이 leaf 컴포넌트에도 그대로 적용되고 있었다.
+
+`[WebSquareGenerator] convertLayoutAsTable`에 `GENERAL_LAYOUT_TABLE_HEURISTIC_PAUSED`
+상수를 추가해, root가 아닌 모든 Layout을 일괄적으로 table 미변환(절대좌표 pass-through)
+대상으로 뒀다. 기존 table 생성 코드와 container-only 예외 로직은 삭제하지 않고 `else`
+분기로 보존해(재활성화 시 상수만 되돌리면 됨), Grid 자체 구조(`w2:gridView`)와
+percentage formatter는 이번 라운드에서 전혀 건드리지 않았다.
+
+corpus 실측 결과 이전에 `TABLE_LAYOUT_HIGH_CONFIDENCE`였던 3건(`Form/TabContainer.xfdl`
+의 `tabMain.pageA.edtA`/`tabMain.pageB.btnB`, `Form/TabInlineContent.xfdl`의
+`tabMain.pageInline.btnInline`)이 모두 원래 source left/top/width/height를 보존한
+절대좌표(`position:absolute`)로 전환됐다(예: `btnInline`이 table cell의 flow
+위치(암묵적 0,0)+100% 채움에서 `left:1.9%;top:3.4%;width:14.8%;height:8.3%;`로
+source geometry와 정확히 일치하도록 복원). 136개 corpus 파일 중 이 2개 파일만
+구조 변경, 나머지 134개는 byte-identical(percent formatter 무변경이므로 percent
+텍스트도 전혀 바뀌지 않음, `UNEXPECTED_GENERATED_DIFF = 0`).
+
+Calendar/Combo는 이 corpus의 실제 사례(`ControlPropertyMatrix.xfdl`)에서 이미 root
+Layout(leaf-only, table 대상 아님) 소속이라 이번 변경으로 영향받지 않았으나, 생성된
+`<w2:inputCalendar>`/`<xf:select1>` 모두 `display:none` 등 숨김 스타일 없이
+`position:absolute`와 양수 width/height로 정상 생성됨을 재확인했다
+(`CALENDAR_GENERATED_ELEMENT_EXISTS = PASS`, `COMBO_GENERATED_ELEMENT_EXISTS = PASS`,
+`CALENDAR_VISIBILITY_STATIC_GATE = PASS`, `COMBO_VISIBILITY_STATIC_GATE = PASS`).
+실제 폐쇄망 화면에서 Calendar/Combo가 검색조건 Layout(leaf-only, 이번 라운드 이전에는
+table 변환 대상) 안에 있었다면 이번 fix로 함께 절대좌표로 복원됐을 것으로 추정되나,
+그 화면 자체를 이 corpus로 재현할 수는 없어 Studio 재확인이 필요하다.
+
+percentage formatter(`formatPercent`)는 이번 라운드 무변경(`PERCENT_FORMATTER_BYPASS_
+COUNT = 0`, `PERCENT_BASIS_CHANGED_BY_PRECISION_UPDATE = 0` -- 애초에 건드리지 않았으므로
+자명). Grid 구조(`GridFormatConverter.java`)도 이번 라운드 `git diff` 0줄로 무변경
+확인(`GRID_IMPLEMENTATION_CHANGE = 0`).
+
+149/149 변환 성공, XML well-formed 136/136, PAGE_JS 136/136 PASS, standalone JS 15/15
+PASS, id-map(source->target) diff 0, `btn_cm=12`/`wq_gvw=3` invariant 무변경.
+
+최종 `XPLATFORM_VISUAL_PARITY = FIX_CANDIDATE`, `STATIC_VERIFIED`. `STUDIO_DESIGN_
+FAILED`/`STUDIO_DESIGN_REPRODUCED`가 이 수정만으로 해결됐다고 선언하지 않는다 --
+`STUDIO_DESIGN_REQUIRED` 유지. 상세는 `analysis/freeze-vs-candidate-function-diff.md`
+의 "후속 라운드 -- Visual Parity Quick Fix (GENERAL_LAYOUT_TABLE_HEURISTIC_PAUSED)"
+섹션, raw diff는 `analysis/git-baseline-vs-candidate-production.diff` 참고.
