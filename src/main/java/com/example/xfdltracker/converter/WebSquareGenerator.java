@@ -418,7 +418,7 @@ public class WebSquareGenerator {
         // overflow는 여전히 emit하지 않는다.
         Element resultArea = out.createElementNS(NS_XF, "xf:group");
         resultArea.setAttribute("id", "grp_resultArea");
-        resultArea.setAttribute("style", "width:100%;");
+        resultArea.setAttribute("style", "width:" + layoutConverter.formatPercent(100.0) + ";");
         body.appendChild(resultArea);
 
         Element main = out.createElementNS(NS_XF, "xf:group");
@@ -597,7 +597,10 @@ public class WebSquareGenerator {
                                 "[UI PERCENT] 적용 id=" + wrapperId + " style=" + wrapperStyle);
                     }
                     gridWrapper.setAttribute("style", sanitizeXml10(wrapperStyle));
-                    target.setAttribute("style", "width:100%;height:100%;");
+                    target.setAttribute(
+                            "style",
+                            "width:" + layoutConverter.formatPercent(100.0)
+                                    + ";height:" + layoutConverter.formatPercent(100.0) + ";");
                     gridWrapper.appendChild(target);
                     targetParent.appendChild(gridWrapper);
                     System.out.println(
@@ -743,7 +746,7 @@ public class WebSquareGenerator {
         tableWrapper.setAttribute("id", tableTargetId);
         tableWrapper.setAttribute("tagname", "table");
         tableWrapper.setAttribute("class", "w2tb_tb");
-        tableWrapper.setAttribute("style", "width:100%;");
+        tableWrapper.setAttribute("style", "width:" + layoutConverter.formatPercent(100.0) + ";");
         targetParent.appendChild(tableWrapper);
 
         int rowIndex = 0;
@@ -887,7 +890,10 @@ public class WebSquareGenerator {
             Element content = createTargetElement(out, "w2:content");
             content.setAttribute("id", contentId);
             targetComponentTypeMap.put(contentId, "Tabpage");
-            content.setAttribute("style", "position:relative;width:100%;height:100%;");
+            content.setAttribute(
+                    "style",
+                    "position:relative;width:" + layoutConverter.formatPercent(100.0)
+                            + ";height:" + layoutConverter.formatPercent(100.0) + ";");
             tabControl.appendChild(content);
 
             String canonicalPagePath = canonicalizePath(pagePath);

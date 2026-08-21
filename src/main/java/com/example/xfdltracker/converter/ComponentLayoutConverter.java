@@ -77,27 +77,27 @@ public class ComponentLayoutConverter {
         }
 
         if (style.indexOf("width:") < 0) {
-            style.append("width:100%;");
+            style.append("width:").append(formatPercent(100.0)).append(";");
         }
         if (style.indexOf("height:") < 0) {
-            style.append("height:100%;");
+            style.append("height:").append(formatPercent(100.0)).append(";");
         }
         return style.toString();
     }
 
     /**
-     * percentage geometry 값을 deterministic하게 포맷한다(소수점 4자리에서 반올림, trailing zero
-     * 제거). fixture별 precision을 두지 않고 모든 Production output에 동일 규칙을 적용한다.
-     * 예: 25.0000% -&gt; 25%, 12.5000% -&gt; 12.5%.
+     * percentage geometry 값을 가장 가까운 0.5% 단위로 반올림하고, 항상 소수점 첫째 자리까지
+     * "N.0%" 또는 "N.5%" 형태로 포맷한다(PERCENT_FORMAT_NORMALIZATION 라운드). fixture별
+     * 예외 없이 모든 Production percentage output에 동일 규칙을 적용한다.
+     * 예: 6.0345% -&gt; 6.0%, 12.76% -&gt; 13.0%, 98.7069% -&gt; 98.5%.
      */
     public String formatPercent(double value) {
-        java.math.BigDecimal bd = java.math.BigDecimal.valueOf(value)
-                .setScale(4, java.math.RoundingMode.HALF_UP)
-                .stripTrailingZeros();
-        if (bd.scale() < 0) {
-            bd = bd.setScale(0);
-        }
-        return bd.toPlainString() + "%";
+        java.math.BigDecimal doubled = java.math.BigDecimal.valueOf(value)
+                .multiply(java.math.BigDecimal.valueOf(2));
+        java.math.BigDecimal roundedDoubled =
+                doubled.setScale(0, java.math.RoundingMode.HALF_UP);
+        java.math.BigDecimal rounded = roundedDoubled.divide(java.math.BigDecimal.valueOf(2));
+        return rounded.setScale(1, java.math.RoundingMode.HALF_UP).toPlainString() + "%";
     }
 
     /**
@@ -203,7 +203,8 @@ public class ComponentLayoutConverter {
         if (rowHeight <= 0.0) {
             return null;
         }
-        return "width:100%;height:" + formatPercent(rowHeight / basisHeight * 100.0) + ";";
+        return "width:" + formatPercent(100.0) + ";height:"
+                + formatPercent(rowHeight / basisHeight * 100.0) + ";";
     }
 
     /**
@@ -218,7 +219,8 @@ public class ComponentLayoutConverter {
         if (cellWidth <= 0.0) {
             return null;
         }
-        return "width:" + formatPercent(cellWidth / basisWidth * 100.0) + ";height:100%;";
+        return "width:" + formatPercent(cellWidth / basisWidth * 100.0) + ";height:"
+                + formatPercent(100.0) + ";";
     }
 
     /**
@@ -413,7 +415,7 @@ public class ComponentLayoutConverter {
      */
     public String buildMainAreaStyle(Document source) {
         StringBuilder style = new StringBuilder();
-        style.append("width:100%;");
+        style.append("width:").append(formatPercent(100.0)).append(";");
 
         Geometry geometry = findFormGeometry(source);
         if (geometry == null || isEmpty(geometry.height)) {

@@ -837,3 +837,37 @@ native evidence 없이 구현된 실험적 candidate이므로 폐쇄망 실검�
 낮은 리스크 구조로 설계했다. 상세는 `analysis/freeze-vs-candidate-function-diff.md`의
 "후속 라운드 -- Grid 내부 Column Width Ratio Candidate" 섹션, raw diff는
 `analysis/git-baseline-vs-candidate-production.diff` 참고.
+
+## 후속 라운드 -- Percentage 0.5% 단위 일괄 정규화
+
+지금까지 소수점 4자리(trailing zero 제거)로 생성되던 모든 percentage geometry 출력을, 가장
+가까운 0.5% 단위로 반올림하고 항상 `N.0%`/`N.5%` 한 자리 소수로 통일했다. 계산 기준(parent/
+basis)이나 구조는 전혀 재설계하지 않고 formatting 단계만 교체.
+
+전수 조사 결과 `"%"` 리터럴을 직접 붙이는 지점은 `[ComponentLayoutConverter] formatPercent`
+단 한 곳뿐이었고, 9개 callsite(Div/Table Row/Table Cell/Grid column 등)가 전부 이 함수를
+거친다 -- 신규 함수 없이 이 함수 하나만 generic하게 수정했다(`raw x 2`를 정수로 반올림 후 다시
+2로 나누는 BigDecimal 연산, 부동소수 비교 없이 deterministic). 추가로 그동안 구조 상수로 직접
+박혀 있던 리터럴 `100%` 7곳(`grp_main`/`grp_resultArea`/Table wrapper/Grid Group 내부
+`w2:gridView` fill/Tab `w2:content` 등)도 전부 `formatPercent(100.0)` 호출로 교체해 단일
+formatter로 통제했다. 유일한 예외는 `runtime/xplatform-tab-empty.xml`(계산이 아닌 고정
+placeholder, 과거 모든 라운드에서 이미 "실제 변환 화면과 무관"으로 확인된 파일) -- 근거를
+명시하고 미수정.
+
+사용자가 제시한 14개 예시 + 경계값 4개(6.24/6.25/6.74/6.75), 총 18건을 formatter 단위
+테스트로 전부 검증(18/18 PASS). corpus 실측: 149/149 변환 성공, 136개 XML 중 135개에서
+percentage precision만 변경(1개는 위 placeholder 예외), percentage 문자열을 정규식으로
+제거한 뒤 diff하면 135개 전체 byte-identical(`PERCENT_BASIS_CHANGED = 0` 실증). 전체
+1029건의 percentage 값 중 1027건이 `.0%`/`.5%` 규칙 준수(dot_zero=659, dot_five=368),
+2건은 위 placeholder 예외. `SOURCE_TO_TARGET_ID_MAP_EXPECTED_ONLY`/invariant class/QName/
+Phase1 SHA 전부 무변경 재확인.
+
+`PERCENT_ROUNDING_SUM_DRIFT_COUNT = 1`(`grdMain` Grid: header/body 개별 column 반올림 합
+73.0%와 footer의 raw-sum-then-round 73.5%가 0.5% 차이 -- 반올림 비선형성에 의한 것으로
+계산 오류 아님, 규칙에 따라 자동 보정하지 않고 기록만 함).
+
+최종 `PERCENT_FORMAT_NORMALIZATION = FIX_CANDIDATE` / `STATIC_VERIFIED`. 이 formatting
+변경만으로 기존 `STUDIO_DESIGN_FAILED`가 해결됐다고 선언하지 않는다 -- `STUDIO_DESIGN_
+REQUIRED` 유지. 상세는 `analysis/freeze-vs-candidate-function-diff.md`의 "후속 라운드 --
+Percentage 0.5% 단위 일괄 정규화" 섹션, raw diff는
+`analysis/git-baseline-vs-candidate-production.diff` 참고.

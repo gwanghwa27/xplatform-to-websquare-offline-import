@@ -1,5 +1,5 @@
 diff --git a/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java b/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java
-index 29f635a..94d55ba 100644
+index 29f635a..6982469 100644
 --- a/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java
 +++ b/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java
 @@ -5,7 +5,9 @@ import org.w3c.dom.Element;
@@ -64,23 +64,33 @@ index 29f635a..94d55ba 100644
  
          Geometry geometry = findFormGeometry(source);
          if (geometry != null) {
-@@ -68,25 +85,345 @@ public class ComponentLayoutConverter {
-         return style.toString();
-     }
+@@ -60,33 +77,355 @@ public class ComponentLayoutConverter {
+         }
  
+         if (style.indexOf("width:") < 0) {
+-            style.append("width:100%;");
++            style.append("width:").append(formatPercent(100.0)).append(";");
+         }
+         if (style.indexOf("height:") < 0) {
+-            style.append("height:100%;");
++            style.append("height:").append(formatPercent(100.0)).append(";");
++        }
++        return style.toString();
++    }
++
 +    /**
-+     * percentage geometry 값을 deterministic하게 포맷한다(소수점 4자리에서 반올림, trailing zero
-+     * 제거). fixture별 precision을 두지 않고 모든 Production output에 동일 규칙을 적용한다.
-+     * 예: 25.0000% -&gt; 25%, 12.5000% -&gt; 12.5%.
++     * percentage geometry 값을 가장 가까운 0.5% 단위로 반올림하고, 항상 소수점 첫째 자리까지
++     * "N.0%" 또는 "N.5%" 형태로 포맷한다(PERCENT_FORMAT_NORMALIZATION 라운드). fixture별
++     * 예외 없이 모든 Production percentage output에 동일 규칙을 적용한다.
++     * 예: 6.0345% -&gt; 6.0%, 12.76% -&gt; 13.0%, 98.7069% -&gt; 98.5%.
 +     */
 +    public String formatPercent(double value) {
-+        java.math.BigDecimal bd = java.math.BigDecimal.valueOf(value)
-+                .setScale(4, java.math.RoundingMode.HALF_UP)
-+                .stripTrailingZeros();
-+        if (bd.scale() < 0) {
-+            bd = bd.setScale(0);
-+        }
-+        return bd.toPlainString() + "%";
++        java.math.BigDecimal doubled = java.math.BigDecimal.valueOf(value)
++                .multiply(java.math.BigDecimal.valueOf(2));
++        java.math.BigDecimal roundedDoubled =
++                doubled.setScale(0, java.math.RoundingMode.HALF_UP);
++        java.math.BigDecimal rounded = roundedDoubled.divide(java.math.BigDecimal.valueOf(2));
++        return rounded.setScale(1, java.math.RoundingMode.HALF_UP).toPlainString() + "%";
 +    }
 +
 +    /**
@@ -124,7 +134,7 @@ index 29f635a..94d55ba 100644
 +        ParsedLength h = parseLength(g.height);
 +        if (w == null || h == null || w.value <= 0.0 || h.value <= 0.0) {
 +            return null;
-+        }
+         }
 +        return new double[] {w.value, h.value};
 +    }
 +
@@ -169,9 +179,9 @@ index 29f635a..94d55ba 100644
 +        style.append("width:").append(formatPercent(width.value / basisWidth * 100.0)).append(";");
 +        style.append("height:").append(formatPercent(height.value / basisHeight * 100.0)).append(";");
 +        appendVisualStyle(source, style);
-+        return style.toString();
-+    }
-+
+         return style.toString();
+     }
+ 
 +    /**
 +     * Table row wrapper(xf:group)의 style. row 안 셀들의 실제 top/height 분포(min top ~ max
 +     * bottom)로 row 자체의 세로 footprint를 구해 basisHeight 대비 비율로 변환한다(19번 규칙 --
@@ -186,7 +196,8 @@ index 29f635a..94d55ba 100644
 +        if (rowHeight <= 0.0) {
 +            return null;
 +        }
-+        return "width:100%;height:" + formatPercent(rowHeight / basisHeight * 100.0) + ";";
++        return "width:" + formatPercent(100.0) + ";height:"
++                + formatPercent(rowHeight / basisHeight * 100.0) + ";";
 +    }
 +
 +    /**
@@ -201,7 +212,8 @@ index 29f635a..94d55ba 100644
 +        if (cellWidth <= 0.0) {
 +            return null;
 +        }
-+        return "width:" + formatPercent(cellWidth / basisWidth * 100.0) + ";height:100%;";
++        return "width:" + formatPercent(cellWidth / basisWidth * 100.0) + ";height:"
++                + formatPercent(100.0) + ";";
 +    }
 +
 +    /**
@@ -400,7 +412,7 @@ index 29f635a..94d55ba 100644
       */
      public String buildMainAreaStyle(Document source) {
 +        StringBuilder style = new StringBuilder();
-+        style.append("width:100%;");
++        style.append("width:").append(formatPercent(100.0)).append(";");
 +
          Geometry geometry = findFormGeometry(source);
          if (geometry == null || isEmpty(geometry.height)) {
@@ -746,7 +758,7 @@ index 677cdd9..a0437b7 100644
          String value = trim(raw).toLowerCase();
          if (value.endsWith("px")) {
 diff --git a/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java b/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java
-index 3e52c8b..51456f8 100644
+index 3e52c8b..5ee3b92 100644
 --- a/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java
 +++ b/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java
 @@ -401,49 +401,54 @@ public class WebSquareGenerator {
@@ -789,7 +801,7 @@ index 3e52c8b..51456f8 100644
          Element resultArea = out.createElementNS(NS_XF, "xf:group");
          resultArea.setAttribute("id", "grp_resultArea");
 -        resultArea.setAttribute("style", "");
-+        resultArea.setAttribute("style", "width:100%;");
++        resultArea.setAttribute("style", "width:" + layoutConverter.formatPercent(100.0) + ";");
          body.appendChild(resultArea);
  
          Element main = out.createElementNS(NS_XF, "xf:group");
@@ -894,7 +906,7 @@ index 3e52c8b..51456f8 100644
                  applyComponentSpecificProperties(src, target, sourceTag, sourcePath);
                  applyBindings(src, target, sourcePath, localId, targetId, sourceTag);
                  bindEvents(target, sourcePath, localId, analysis);
-@@ -543,7 +572,40 @@ public class WebSquareGenerator {
+@@ -543,7 +572,43 @@ public class WebSquareGenerator {
                                      + layoutConverter.describeLayoutSource(src) + ")");
                  }
  
@@ -924,7 +936,10 @@ index 3e52c8b..51456f8 100644
 +                                "[UI PERCENT] 적용 id=" + wrapperId + " style=" + wrapperStyle);
 +                    }
 +                    gridWrapper.setAttribute("style", sanitizeXml10(wrapperStyle));
-+                    target.setAttribute("style", "width:100%;height:100%;");
++                    target.setAttribute(
++                            "style",
++                            "width:" + layoutConverter.formatPercent(100.0)
++                                    + ";height:" + layoutConverter.formatPercent(100.0) + ";");
 +                    gridWrapper.appendChild(target);
 +                    targetParent.appendChild(gridWrapper);
 +                    System.out.println(
@@ -936,7 +951,7 @@ index 3e52c8b..51456f8 100644
                  System.out.println(
                          "[UI 변환] " + sourceTag + " " + sourcePath
                                  + " -> " + targetTag + " id=" + targetId);
-@@ -555,7 +617,11 @@ public class WebSquareGenerator {
+@@ -555,7 +620,11 @@ public class WebSquareGenerator {
                              target,
                              sourcePath,
                              analysis,
@@ -949,7 +964,7 @@ index 3e52c8b..51456f8 100644
                  }
  
                  continue;
-@@ -573,15 +639,183 @@ public class WebSquareGenerator {
+@@ -573,15 +642,183 @@ public class WebSquareGenerator {
                                      + sourceTag + " id=" + wrapperId
                                      + " (자식 좌표 기준 수동 확인 필요)");
                  }
@@ -1057,7 +1072,7 @@ index 3e52c8b..51456f8 100644
 +        tableWrapper.setAttribute("id", tableTargetId);
 +        tableWrapper.setAttribute("tagname", "table");
 +        tableWrapper.setAttribute("class", "w2tb_tb");
-+        tableWrapper.setAttribute("style", "width:100%;");
++        tableWrapper.setAttribute("style", "width:" + layoutConverter.formatPercent(100.0) + ";");
 +        targetParent.appendChild(tableWrapper);
 +
 +        int rowIndex = 0;
@@ -1139,7 +1154,7 @@ index 3e52c8b..51456f8 100644
      }
  
      /** Phase 3: XPlatform Tab/Tabpage tree -> WebSquare tabControl tabs/content pairs. */
-@@ -592,7 +826,10 @@ public class WebSquareGenerator {
+@@ -592,7 +829,10 @@ public class WebSquareGenerator {
              String parentPath,
              XfdlAnalysisResult analysis,
              int depth,
@@ -1151,7 +1166,7 @@ index 3e52c8b..51456f8 100644
  
          String localId = sanitizeXml10(src.getAttribute("id"));
          if (localId.length() == 0) {
-@@ -608,11 +845,10 @@ public class WebSquareGenerator {
+@@ -608,11 +848,10 @@ public class WebSquareGenerator {
          Element tabControl = createTargetElement(out, "w2:tabControl");
          tabControl.setAttribute("id", targetId);
          targetComponentTypeMap.put(targetId, "Tab");
@@ -1165,7 +1180,19 @@ index 3e52c8b..51456f8 100644
          applyComponentSpecificProperties(src, tabControl, "Tab", sourcePath);
          applyBindings(src, tabControl, sourcePath, localId, targetId, "Tab");
          bindEvents(tabControl, sourcePath, localId, analysis);
-@@ -677,14 +913,15 @@ public class WebSquareGenerator {
+@@ -651,7 +890,10 @@ public class WebSquareGenerator {
+             Element content = createTargetElement(out, "w2:content");
+             content.setAttribute("id", contentId);
+             targetComponentTypeMap.put(contentId, "Tabpage");
+-            content.setAttribute("style", "position:relative;width:100%;height:100%;");
++            content.setAttribute(
++                    "style",
++                    "position:relative;width:" + layoutConverter.formatPercent(100.0)
++                            + ";height:" + layoutConverter.formatPercent(100.0) + ";");
+             tabControl.appendChild(content);
+ 
+             String canonicalPagePath = canonicalizePath(pagePath);
+@@ -677,14 +919,15 @@ public class WebSquareGenerator {
                  continue;
              }
              if (isRuntimeSetUrlTarget(localId, pageLocalId)) {
@@ -1185,7 +1212,7 @@ index 3e52c8b..51456f8 100644
          }
      }
  
-@@ -934,39 +1171,42 @@ public class WebSquareGenerator {
+@@ -934,39 +1177,42 @@ public class WebSquareGenerator {
          return normalized.startsWith("@") ? normalized.substring(1) : normalized;
      }
  
@@ -1249,7 +1276,7 @@ index 3e52c8b..51456f8 100644
                  String checkboxValue = sanitizeXml10(src.getAttribute("value"));
                  if (checkboxValue.length() == 0) checkboxValue = text;
                  String targetId = target.getAttribute("id");
-@@ -978,7 +1218,24 @@ public class WebSquareGenerator {
+@@ -978,7 +1224,24 @@ public class WebSquareGenerator {
              }
          }
  
@@ -1275,7 +1302,7 @@ index 3e52c8b..51456f8 100644
          if (style.length() > 0) {
              target.setAttribute("style", style);
          }
-@@ -1224,14 +1481,21 @@ public class WebSquareGenerator {
+@@ -1224,14 +1487,21 @@ public class WebSquareGenerator {
          return found;
      }
  
@@ -1300,7 +1327,7 @@ index 3e52c8b..51456f8 100644
          }
      }
  
-@@ -1298,12 +1562,9 @@ public class WebSquareGenerator {
+@@ -1298,12 +1568,9 @@ public class WebSquareGenerator {
              System.out.println("[BINDING 변환] " + sourcePath + " -> data:"
                      + valueBinding.getDatasetId() + "." + valueBinding.getColumnId());
  

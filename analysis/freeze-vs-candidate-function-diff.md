@@ -1623,3 +1623,226 @@ candidate는 native evidence 없이 구현된 실험적 시도이므로, 사용�
 확인한 결과에 따라 되돌릴 수 있어야 한다(모든 변경이 `columnPercents == null`이면 기존 코드
 경로와 완전히 동일하게 동작하도록 설계되어, 되돌림도 이 조건 분기 하나만 제거하면 되는 낮은
 리스크 구조).
+
+---
+
+## 후속 라운드 -- Percentage 0.5% 단위 일괄 정규화
+
+### 배경
+
+지금까지 여러 라운드에 걸쳐 percentage geometry가 소수점 4자리(`formatPercent`, trailing
+zero 제거) precision으로 생성되고 있었다(예: `6.0345%`, `98.7069%`). 이번 라운드는 사용자
+요청에 따라 모든 percentage 출력을 가장 가까운 0.5% 단위로 반올림하고, 최종 문자열을 항상
+`N.0%` 또는 `N.5%` 형태로 통일한다. 계산 기준(parent/basis)이나 구조는 전혀 재설계하지
+않는다 -- formatting/precision 단계만 교체한다.
+
+### 1. 기존 percentage 생성 위치 전수 조사
+
+`src/main/java` 전체에서 `"%"` 리터럴을 직접 붙이는 지점과 percentage formatter 호출 지점을
+전수 검색했다:
+
+- `"%"` 문자열 리터럴을 직접 붙이는 곳: `[ComponentLayoutConverter] formatPercent`의
+  `return bd.toPlainString() + "%";` **단 한 곳**뿐(`grep -rn '"%"' src/main/java` 확인).
+- 모든 percentage 계산은 `[ComponentLayoutConverter] formatPercent(double)`를 거친다 -- 별도
+  `Math.round`/`DecimalFormat`/개별 rounding 로직은 어디에도 없음(`grep -rn "Math.round|
+  DecimalFormat|BigDecimal" src/main/java` 확인, `BigDecimal` 사용처는 `formatPercent` 내부
+  1곳뿐).
+- `formatPercent` 호출부(`PERCENT_FORMATTER_CALLSITE_COUNT = 9`):
+  1. `[ComponentLayoutConverter] buildPercentComponentStyle` -- left/top/width/height(일반
+     component, Div Group/Grid Group 등)
+  2. `[ComponentLayoutConverter] buildTableRowStyle` -- Table row height
+  3. `[ComponentLayoutConverter] buildTableCellStyle` -- Table cell width
+  4. `[GridFormatConverter] calculateCellWidth`(percentFormatter 경유) -- Grid column colspan
+  5. `[GridFormatConverter] getSingleColumnWidth`(percentFormatter 경유) -- Grid column 단일
+  6. `[GridFormatConverter] resolveColumnPercents`(percentFormatter 경유, 로그 메시지만)
+
+- 리터럴 `100%`(계산이 아니라 구조 상수로 직접 박혀 있던 곳, `PERCENT_FORMATTER_BYPASS_COUNT`
+  기준 이번 라운드 전 상태로는 우회 지점): `[ComponentLayoutConverter] buildRootStyle`(dead
+  code, 호출부 없음), `buildTableRowStyle`/`buildTableCellStyle`(구조적 100% 부분), `[ComponentLayoutConverter] buildMainAreaStyle`(`grp_main` width),
+  `[WebSquareGenerator] appendBody`(`grp_resultArea` width), `convertChildren`(Grid Group
+  내부 `w2:gridView` fill), `convertLayoutAsTable`(table wrapper width), `convertTab`
+  (`w2:content` fill) -- 총 7곳. 전부 `formatPercent(100.0)` 호출로 교체해 단일 formatter로
+  통제한다.
+- **예외 1곳**: `[XPlatformProjectConverter] writeTabRuntimeResources`의 정적 placeholder
+  `runtime/xplatform-tab-empty.xml`(`<w2:group id="grp_main" style="position:relative;
+  width:100%;height:100%;">`) -- 이전 여러 라운드에서 이미 "실제 변환 화면이 아닌 무관
+  hardcoded placeholder"로 확인된 파일이며, 이 문자열은 percentage **계산**의 결과가 아니라
+  Java 소스에 직접 박힌 별도 XML 문서 literal이다. formatter 관리 대상(계산된 percentage
+  geometry)이 아니라고 판단해 이번 라운드에서 건드리지 않았다 -- 근거: (a) 이 파일은 실제
+  변환된 XPlatform 화면과 무관, (b) 과거 모든 라운드의 root/table/grid 감사에서 일관되게
+  제외 대상으로 취급됨, (c) 건드리면 오히려 "percentage geometry 정규화"라는 이번 범위를
+  넘어 무관 파일까지 diff를 만들게 됨.
+
+### 2. 공통 formatter 수정(신규 함수 없음)
+
+기존 `[ComponentLayoutConverter] formatPercent` 하나만 generic하게 수정했다. 신규 함수는
+추가하지 않았다(9개 callsite가 이미 전부 이 함수를 거치고 있어 그대로 재사용 가능).
+
+BEFORE:
+```java
+/**
+ * percentage geometry 값을 deterministic하게 포맷한다(소수점 4자리에서 반올림, trailing zero
+ * 제거). fixture별 precision을 두지 않고 모든 Production output에 동일 규칙을 적용한다.
+ * 예: 25.0000% -> 25%, 12.5000% -> 12.5%.
+ */
+public String formatPercent(double value) {
+    java.math.BigDecimal bd = java.math.BigDecimal.valueOf(value)
+            .setScale(4, java.math.RoundingMode.HALF_UP)
+            .stripTrailingZeros();
+    if (bd.scale() < 0) {
+        bd = bd.setScale(0);
+    }
+    return bd.toPlainString() + "%";
+}
+```
+
+AFTER:
+```java
+/**
+ * percentage geometry 값을 가장 가까운 0.5% 단위로 반올림하고, 항상 소수점 첫째 자리까지
+ * "N.0%" 또는 "N.5%" 형태로 포맷한다(PERCENT_FORMAT_NORMALIZATION 라운드). fixture별
+ * 예외 없이 모든 Production percentage output에 동일 규칙을 적용한다.
+ * 예: 6.0345% -> 6.0%, 12.76% -> 13.0%, 98.7069% -> 98.5%.
+ */
+public String formatPercent(double value) {
+    java.math.BigDecimal doubled = java.math.BigDecimal.valueOf(value)
+            .multiply(java.math.BigDecimal.valueOf(2));
+    java.math.BigDecimal roundedDoubled =
+            doubled.setScale(0, java.math.RoundingMode.HALF_UP);
+    java.math.BigDecimal rounded = roundedDoubled.divide(java.math.BigDecimal.valueOf(2));
+    return rounded.setScale(1, java.math.RoundingMode.HALF_UP).toPlainString() + "%";
+}
+```
+
+원리: `raw x 2`를 정수로 반올림(HALF_UP)한 뒤 다시 2로 나누면 정확히 가장 가까운 0.5 배수가
+되고(부동소수 비교 없이 BigDecimal 정수 반올림만 사용해 deterministic), 마지막에 소수 1자리로
+`setScale`해 항상 `N.0`/`N.5` 형태를 보장한다. 별도 unit 검증(18개 케이스, 사용자 제시 예시
+전부 + 경계값 4개 `6.24/6.25/6.74/6.75`)에서 전부 `PASS`(상세: 5번 섹션).
+
+**리터럴 100% 우회 지점 7곳**을 전부 `formatPercent(100.0)` 호출로 교체(`buildRootStyle`,
+`buildTableRowStyle`, `buildTableCellStyle`, `buildMainAreaStyle`, `appendBody`
+(`grp_resultArea`), `convertChildren`(Grid Group 내부 fill), `convertLayoutAsTable`
+(table wrapper), `convertTab`(`w2:content`)) -- `formatPercent(100.0)`는 항상 `"100.0%"`를
+반환하므로 이 교체 자체는 순수 텍스트 치환이며 값이 바뀌지 않는 경우는 없다(전부 `100%` ->
+`100.0%`로 정확히 1건씩 변경).
+
+### 3. formatPercent 단위 검증(18건)
+
+| 입력 | 기대값(사용자 제시) | 실제 결과 | 판정 |
+|---|---|---|---|
+| 0 | 0.0% | 0.0% | PASS |
+| 0.24 | 0.0% | 0.0% | PASS |
+| 0.25 | 0.5% | 0.5% | PASS |
+| 0.49 | 0.5% | 0.5% | PASS |
+| 4.2105 | 4.0% | 4.0% | PASS |
+| 4.26 | 4.5% | 4.5% | PASS |
+| 6.0345 | 6.0% | 6.0% | PASS |
+| 6.27 | 6.5% | 6.5% | PASS |
+| 12.74 | 12.5% | 12.5% | PASS |
+| 12.76 | 13.0% | 13.0% | PASS |
+| 25 | 25.0% | 25.0% | PASS |
+| 98.7069 | 98.5% | 98.5% | PASS |
+| 99.76 | 100.0% | 100.0% | PASS |
+| 100 | 100.0% | 100.0% | PASS |
+| 6.24(경계) | 6.0% | 6.0% | PASS |
+| 6.25(경계) | 6.5% | 6.5% | PASS |
+| 6.74(경계) | 6.5% | 6.5% | PASS |
+| 6.75(경계) | 7.0% | 7.0% | PASS |
+
+18/18 PASS(스크래치 디렉토리 독립 실행 `FormatPercentTest.java`, Production
+`ComponentLayoutConverter.formatPercent`를 직접 호출).
+
+### Full Unified Diff
+
+[analysis/git-baseline-vs-candidate-production.diff](git-baseline-vs-candidate-production.diff)
+(누적, 이번 라운드분은 `ComponentLayoutConverter.java`/`WebSquareGenerator.java` 마지막
+hunk들 -- `formatPercent` 본체 교체 + 리터럴 `100%` 7곳 치환).
+
+Caller: 9개 callsite(위 1번 섹션) 전부 무변경(파라미터/호출 방식 동일, 반환 문자열 precision만
+달라짐). Callee: `BigDecimal.multiply`/`setScale`/`divide`(JDK 표준 API, 신규 helper 없음).
+
+### Generated XML BEFORE/AFTER(대표 4건, 전부 실제 corpus 값)
+
+**A. Div Group**(`Form/ControlPropertyMatrix.xml`, 실제 corpus 값):
+```
+BEFORE: style="position:absolute;left:1.1111%;top:1.5385%;width:11.1111%;height:3.6923%;color:#112233;background:#eeeeee;"
+AFTER:  style="position:absolute;left:1.0%;top:1.5%;width:11.0%;height:3.5%;color:#112233;background:#eeeeee;"
+```
+
+**B. Table Row/Cell**(`Form/Main/TabExternalRelativePath.xml`, `divWrap`):
+```
+BEFORE: <xf:group id="divWrap_layoutTableRow0" style="width:100%;height:89.4737%;" tagname="tr">
+            <xf:group class="w2tb_td" id="divWrap_layoutTableRow0Col0" style="width:94.8276%;height:100%;" tagname="td">
+AFTER:  <xf:group id="divWrap_layoutTableRow0" style="width:100.0%;height:89.5%;" tagname="tr">
+            <xf:group class="w2tb_td" id="divWrap_layoutTableRow0Col0" style="width:95.0%;height:100.0%;" tagname="td">
+```
+
+**C. Grid Group**(`Form/ComponentMethodConversion.xml`, `grd_gridGroup`):
+```
+BEFORE: <xf:group id="grd_gridGroup" style="position:absolute;left:1.6667%;top:16.6667%;width:50%;height:40%;">
+            <w2:gridView class="wq_gvw" ... style="width:100%;height:100%;">
+AFTER:  <xf:group id="grd_gridGroup" style="position:absolute;left:1.5%;top:16.5%;width:50.0%;height:40.0%;">
+            <w2:gridView class="wq_gvw" ... style="width:100.0%;height:100.0%;">
+```
+
+**D. Grid column**(`Form/GridAdvancedPhase3.xml`, `grdMain`):
+```
+BEFORE: <w2:column id="grdMain_head_r0_c0" ... width="16.6667%"/>
+        <w2:column id="grdMain_head_r0_c1" ... width="36.6667%"/>
+        <w2:column id="grdMain_head_r0_c2" ... width="20%"/>
+AFTER:  <w2:column id="grdMain_head_r0_c0" ... width="16.5%"/>
+        <w2:column id="grdMain_head_r0_c1" ... width="36.5%"/>
+        <w2:column id="grdMain_head_r0_c2" ... width="20.0%"/>
+```
+
+### 영향 범위
+
+corpus 149개 화면 전체 변환 성공 149/149, 136개 XML 중 135개에서 diff 발생(전부 percentage
+precision 변경), 1개(`runtime/xplatform-tab-empty.xml`, 계산되지 않은 고정 placeholder)만
+무변경. percentage 문자열을 제외한 나머지 내용은 135개 전체에서 byte-identical함을 정규식
+치환 후 diff로 확인(`PERCENT_BASIS_CHANGED = 0` 근거).
+
+### 회귀 결과
+
+| 항목 | 결과 |
+|---|---|
+| 컴파일(clean build) | 0 errors |
+| 전체 corpus 변환 | 149/149 성공 |
+| XML parse | 136/136 well-formed |
+| standalone JS | 15/15(무변경) |
+| Phase1 SHA | 2/2 PASS(무변경) |
+| `SOURCE_TO_TARGET_ID_MAP_EXPECTED_ONLY` | PASS(403/403 key, diff 0) |
+| invariant class/QName(`btn_cm`/`wq_gvw`) | 전부 무변경(12/3) |
+| 실제 diff 발생 XML | 135/136(placeholder 1개 제외) |
+| percent 제거 후 diff | 0/136(전수 확인, percentage 문자열 외 전부 byte-identical) |
+| `formatPercent` unit test | 18/18 PASS |
+
+### Completion Gates(corpus 실측)
+
+`PERCENT_FORMAT_RULE = PASS`. `PERCENT_BASIS_CHANGED = 0`(구조/basis 완전 무변경, 정규식
+치환 후 diff 0으로 실증). `INVALID_PERCENT_PRECISION_COUNT = 2`(전부 예외로 확인된
+`runtime/xplatform-tab-empty.xml`의 고정 placeholder literal -- 실제 변환 결과 아님, 근거는
+위 1번 섹션). `PERCENT_FORMATTER_BYPASS_COUNT = 0`(이번 라운드 이후 -- 이전에 있던 리터럴
+`100%` 7곳 전부 formatter 경유로 교체 완료, 위 placeholder 1곳만 남았고 그 이유를 명시).
+`NaN% = 0`, `Infinity% = 0`. `PERCENT_DOT_ZERO_COUNT = 659`, `PERCENT_DOT_FIVE_COUNT = 368`
+(정규식 `^-?\d+\.(0|5)%$` 기준 전수 스캔, 총 1029건 중 1027건이 이 형식 준수, 2건은 위
+placeholder 예외).
+
+`PERCENT_ROUNDING_SUM_DRIFT_COUNT = 1`(corpus 실측): `Form/GridAdvancedPhase3.xfdl`의
+`grdMain` Grid에서, header/body의 개별 column을 각각 반올림한 값의 합(`16.5% + 36.5% + 20.0%
+= 73.0%`)과, footer(colSpan=3)가 raw percent 합계를 한 번에 반올림한 값(`73.3333% ->
+73.5%`)이 0.5% 차이가 난다(원본 raw 값 `73.3334%` 자체는 동일 -- 반올림을 개별로 하는지
+합산 후 하는지에 따라 비선형적으로 갈리는 것이며, 계산 오류가 아니다). 규칙 12에 따라 마지막
+column을 임의로 보정하지 않았고, 이 문서에 drift로 명시적으로 기록만 한다.
+
+## Status
+
+`[ComponentLayoutConverter] formatPercent`(기존 함수 수정, 신규 함수 없음),
+`buildRootStyle`/`buildTableRowStyle`/`buildTableCellStyle`/`buildMainAreaStyle`(리터럴
+`100%` 치환만), `[WebSquareGenerator] appendBody`/`convertChildren`/`convertLayoutAsTable`/
+`convertTab`(리터럴 `100%` 치환만) -- `STATIC_VERIFIED`(compile/corpus 변환/canonical
+map/invariant/percent-strip diff 0/unit test 18건 전부 확인 완료).
+
+최종 `PERCENT_FORMAT_NORMALIZATION = FIX_CANDIDATE` / `STATIC_VERIFIED`. 기존 실제 Studio
+실패 상태(`STUDIO_DESIGN_FAILED`/`STUDIO_DESIGN_REPRODUCED`)가 이 rounding/formatting
+변경만으로 자동 해결됐다고 선언하지 않는다 -- `STUDIO_DESIGN_REQUIRED` 유지.
