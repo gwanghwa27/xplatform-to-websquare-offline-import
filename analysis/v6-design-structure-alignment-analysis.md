@@ -804,3 +804,36 @@ class/QName/Phase1 SHA/top-level percentage 전부 무변경 재확인.
 `analysis/freeze-vs-candidate-function-diff.md`의 "후속 라운드 -- 실제 Studio 재실패: Nested
 Percentage Double-Scaling + Grid Width 조사" 섹션, raw diff는
 `analysis/git-baseline-vs-candidate-production.diff` 참고.
+
+## 후속 라운드 -- Grid 내부 Column Width Ratio Candidate (실험적)
+
+지난 라운드에서 `GRID_COLUMN_WIDTH_MISMATCH = EVIDENCE_INSUFFICIENT`로 미해결이던 Grid
+내부 column px 고정폭 문제를, native evidence 부재 상태 그대로 실험적 candidate로 구현해
+폐쇄망 Studio 실검증을 가능하게 했다(`GRID_COLUMN_NATIVE_EVIDENCE = EVIDENCE_INSUFFICIENT`,
+`GRID_COLUMN_WIDTH_SEMANTIC = EXPERIMENTAL`).
+
+정책: source Grid 자신의 `width` 속성을 분모로 사용(Form width 아님), column width 합계가
+Grid width를 초과하지 않을 때만(`columnSum <= gridWidth + 0.5px` tolerance) percentage로
+정규화(`NORMALIZED_TO_CONTAINER`); 초과하면 horizontal-scroll semantic 가능성으로 보고 기존
+px 그대로 유지(`PIXEL_FALLBACK`); column/Grid width를 읽을 수 없으면 `UNRESOLVED`(px 유지).
+header/body/footer는 `convert()`에서 1회만 계산한 동일 `columnPercents` 배열을 공유해
+rounding mismatch를 구조적으로 방지.
+
+수정: `[GridFormatConverter] resolveColumnPercents`(신규) + `calculateCellWidth`/
+`getSingleColumnWidth`/`appendHeader`/`appendBody`/`appendFooter`/
+`appendSynthesizedDatasetBody`/`appendPlaceholderColumn`/`applyCellGeometry`/`convert`(기존
+함수, `columnPercents` 파라미터 추가만 -- null이면 기존 px 로직과 완전 동일해 하위 호환
+보장). percentage formatter는 `ComponentLayoutConverter.formatPercent` 재사용(중복 없음).
+
+corpus 실측: 149/149 변환 성공, Grid Format을 가진 화면 3개 전부 `NORMALIZED_TO_CONTAINER`
+(`grd`@300px/100px=33.3333%, `grdMain`@600px/[100,220,120]px=[16.6667%,36.6667%,20%]).
+`PIXEL_FALLBACK`/`UNRESOLVED` corpus 실사례는 0건(로직 경로는 구현). header/body/footer 동일
+column 값 일치 확인. 나머지 133개 XML byte-identical. `SOURCE_TO_TARGET_ID_MAP_EXPECTED_ONLY`/
+`w2:gridView`/`wq_gvw`/invariant class/QName/Phase1 SHA 전부 무변경 재확인.
+
+최종 `GRID_COLUMN_WIDTH = FIX_CANDIDATE` / `STATIC_VERIFIED` / `STUDIO_DESIGN_REQUIRED`.
+native evidence 없이 구현된 실험적 candidate이므로 폐쇄망 실검증 결과에 따라 되돌릴 수 있어야
+하며, `columnPercents == null` 분기 하나만 비활성화하면 기존 px 동작으로 완전히 복귀 가능한
+낮은 리스크 구조로 설계했다. 상세는 `analysis/freeze-vs-candidate-function-diff.md`의
+"후속 라운드 -- Grid 내부 Column Width Ratio Candidate" 섹션, raw diff는
+`analysis/git-baseline-vs-candidate-production.diff` 참고.

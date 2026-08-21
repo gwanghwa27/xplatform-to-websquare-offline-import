@@ -417,6 +417,334 @@ index 29f635a..94d55ba 100644
          appendCssLength(style, "height", geometry.height);
          return style.toString();
      }
+diff --git a/src/main/java/com/example/xfdltracker/converter/GridFormatConverter.java b/src/main/java/com/example/xfdltracker/converter/GridFormatConverter.java
+index 677cdd9..a0437b7 100644
+--- a/src/main/java/com/example/xfdltracker/converter/GridFormatConverter.java
++++ b/src/main/java/com/example/xfdltracker/converter/GridFormatConverter.java
+@@ -20,8 +20,15 @@ public class GridFormatConverter {
+ 
+     private static final String NS_W2 = "http://www.inswave.com/websquare";
+     private static final int MAX_SAFE_AXIS_COUNT = 10000;
++    /** column width 합계가 source Grid width를 이 값(px) 이상 초과하면 horizontal-scroll
++     * semantic 가능성으로 보고 percentage 변환을 하지 않는다(rounding tolerance, magic 보정
++     * 상수 아님 -- 정수 px 입력 간 부동소수 오차만 흡수). */
++    private static final double GRID_COLUMN_SUM_TOLERANCE_PX = 0.5;
+ 
+     private final GridFormatParser parser = new GridFormatParser();
++    /** GRID_COLUMN_WIDTH candidate: 기존 percentage formatter(formatPercent) 재사용 목적으로만
++     * 사용한다(중복 formatter 생성 금지, 12번 규칙). */
++    private final ComponentLayoutConverter percentFormatter = new ComponentLayoutConverter();
+ 
+     /**
+      * @return Format을 찾아 상세 변환했으면 true, 없으면 false.
+@@ -54,9 +61,11 @@ public class GridFormatConverter {
+                             + gridId + " -> " + dataListId);
+         }
+ 
+-        appendHeader(out, targetGridView, gridId, format);
+-        appendBody(out, targetGridView, gridId, format, datasetColumns);
+-        appendFooter(out, targetGridView, gridId, format);
++        double[] columnPercents = resolveColumnPercents(sourceGrid, format.getColumnWidths(), gridId);
++
++        appendHeader(out, targetGridView, gridId, format, columnPercents);
++        appendBody(out, targetGridView, gridId, format, datasetColumns, columnPercents);
++        appendFooter(out, targetGridView, gridId, format, columnPercents);
+         applyDefaultCellHeight(targetGridView, format);
+ 
+         System.out.println(
+@@ -72,7 +81,8 @@ public class GridFormatConverter {
+             Document out,
+             Element gridView,
+             String gridId,
+-            GridFormat format) {
++            GridFormat format,
++            double[] columnPercents) {
+ 
+         if (format.getHeadCells().isEmpty()) {
+             return;
+@@ -111,7 +121,7 @@ public class GridFormatConverter {
+                             column.setAttribute("value", cell.getText());
+                         }
+                     }
+-                    applyCellGeometry(column, cell, format.getColumnWidths(), gridId, "head");
++                    applyCellGeometry(column, cell, format.getColumnWidths(), gridId, "head", columnPercents);
+                     applyCellPresentation(column, cell, gridId, "head");
+                     row.appendChild(column);
+                     colIndex += Math.max(cell.getColSpan(), 1);
+@@ -125,7 +135,7 @@ public class GridFormatConverter {
+ 
+                 appendPlaceholderColumn(
+                         out, row, gridId, "head", rowIndex, colIndex,
+-                        format.getColumnWidths(), false);
++                        format.getColumnWidths(), false, columnPercents);
+                 colIndex++;
+             }
+             header.appendChild(row);
+@@ -139,7 +149,8 @@ public class GridFormatConverter {
+             Element gridView,
+             String gridId,
+             GridFormat format,
+-            Set<String> datasetColumns) {
++            Set<String> datasetColumns,
++            double[] columnPercents) {
+ 
+         List<CellDef> bodyCells = format.getBodyCells();
+         if (bodyCells.isEmpty() && datasetColumns.isEmpty()) {
+@@ -154,7 +165,8 @@ public class GridFormatConverter {
+ 
+         if (bodyCells.isEmpty()) {
+             appendSynthesizedDatasetBody(
+-                    out, gBody, gridId, format.getColumnWidths(), rowHeights, datasetColumns);
++                    out, gBody, gridId, format.getColumnWidths(), rowHeights, datasetColumns,
++                    columnPercents);
+             gridView.appendChild(gBody);
+             System.out.println(
+                     "[GRID TODO] body Band가 없어 Dataset 컬럼으로 body를 보완 생성: " + gridId);
+@@ -200,7 +212,7 @@ public class GridFormatConverter {
+                         column.setAttribute("readOnly", "true");
+                     }
+ 
+-                    applyCellGeometry(column, cell, format.getColumnWidths(), gridId, "body");
++                    applyCellGeometry(column, cell, format.getColumnWidths(), gridId, "body", columnPercents);
+                     applyCellPresentation(column, cell, gridId, "body");
+                     row.appendChild(column);
+                     colIndex += Math.max(cell.getColSpan(), 1);
+@@ -214,7 +226,7 @@ public class GridFormatConverter {
+ 
+                 appendPlaceholderColumn(
+                         out, row, gridId, "body", rowIndex, colIndex,
+-                        format.getColumnWidths(), true);
++                        format.getColumnWidths(), true, columnPercents);
+                 colIndex++;
+             }
+             gBody.appendChild(row);
+@@ -234,7 +246,8 @@ public class GridFormatConverter {
+             Document out,
+             Element gridView,
+             String gridId,
+-            GridFormat format) {
++            GridFormat format,
++            double[] columnPercents) {
+ 
+         if (format.getSummCells().isEmpty()) {
+             return;
+@@ -271,7 +284,7 @@ public class GridFormatConverter {
+                             column.setAttribute("value", cell.getText());
+                         }
+                     }
+-                    applyCellGeometry(column, cell, format.getColumnWidths(), gridId, "summ");
++                    applyCellGeometry(column, cell, format.getColumnWidths(), gridId, "summ", columnPercents);
+                     row.appendChild(column);
+                     colIndex += Math.max(cell.getColSpan(), 1);
+                     continue;
+@@ -290,7 +303,8 @@ public class GridFormatConverter {
+             String gridId,
+             List<String> columnWidths,
+             List<String> rowHeights,
+-            Set<String> datasetColumns) {
++            Set<String> datasetColumns,
++            double[] columnPercents) {
+ 
+         Element row = createW2(out, "w2:row");
+         row.setAttribute("id", safeIdentifier(gridId + "_bodyRow_0"));
+@@ -301,7 +315,7 @@ public class GridFormatConverter {
+             Element column = createW2(out, "w2:column");
+             column.setAttribute("id", datasetColumn);
+             column.setAttribute("inputType", "text");
+-            String width = getSingleColumnWidth(columnWidths, index, gridId);
++            String width = getSingleColumnWidth(columnWidths, index, gridId, columnPercents);
+             if (width.length() > 0) {
+                 column.setAttribute("width", width);
+             }
+@@ -316,7 +330,8 @@ public class GridFormatConverter {
+             CellDef cell,
+             List<String> columnWidths,
+             String gridId,
+-            String band) {
++            String band,
++            double[] columnPercents) {
+ 
+         if (cell.getColSpan() > 1) {
+             target.setAttribute("colSpan", String.valueOf(cell.getColSpan()));
+@@ -326,7 +341,7 @@ public class GridFormatConverter {
+         }
+ 
+         String width = calculateCellWidth(
+-                columnWidths, cell.getCol(), cell.getColSpan(), gridId, band);
++                columnWidths, cell.getCol(), cell.getColSpan(), gridId, band, columnPercents);
+         if (width.length() > 0) {
+             target.setAttribute("width", width);
+         }
+@@ -641,7 +656,8 @@ public class GridFormatConverter {
+             int rowIndex,
+             int colIndex,
+             List<String> columnWidths,
+-            boolean readOnly) {
++            boolean readOnly,
++            double[] columnPercents) {
+ 
+         Element placeholder = createW2(out, "w2:column");
+         placeholder.setAttribute(
+@@ -652,24 +668,42 @@ public class GridFormatConverter {
+         if (readOnly) {
+             placeholder.setAttribute("readOnly", "true");
+         }
+-        String width = getSingleColumnWidth(columnWidths, colIndex, gridId);
++        String width = getSingleColumnWidth(columnWidths, colIndex, gridId, columnPercents);
+         if (width.length() > 0) {
+             placeholder.setAttribute("width", width);
+         }
+         row.appendChild(placeholder);
+     }
+ 
++    /**
++     * GRID_COLUMN_WIDTH candidate(실험적, native evidence 없음 -- 폐쇄망 실검증 목적):
++     * {@code columnPercents}가 있으면(NORMALIZED_TO_CONTAINER) 그 span의 percent 합을
++     * 반환하고, 없으면(PIXEL_FALLBACK/UNRESOLVED) 기존 px 합산 로직을 그대로 사용한다 --
++     * columnPercents가 null인 Grid는 이 함수의 동작이 기존과 완전히 동일하다(무변경 보장).
++     */
+     private String calculateCellWidth(
+             List<String> widths,
+             int startCol,
+             int colSpan,
+             String gridId,
+-            String band) {
++            String band,
++            double[] columnPercents) {
+ 
+         if (startCol < 0 || startCol >= widths.size()) {
+             return "";
+         }
+ 
++        if (columnPercents != null) {
++            double sum = 0.0;
++            for (int i = startCol; i < startCol + colSpan; i++) {
++                if (i >= columnPercents.length) {
++                    return "";
++                }
++                sum += columnPercents[i];
++            }
++            return percentFormatter.formatPercent(sum);
++        }
++
+         double sum = 0.0;
+         for (int i = startCol; i < startCol + colSpan; i++) {
+             if (i >= widths.size()) {
+@@ -697,10 +731,20 @@ public class GridFormatConverter {
+         return formatNumber(sum);
+     }
+ 
+-    private String getSingleColumnWidth(List<String> widths, int index, String gridId) {
++    /**
++     * GRID_COLUMN_WIDTH candidate: {@link #calculateCellWidth}와 동일 원칙 --
++     * {@code columnPercents}가 있으면 percent, 없으면 기존 px 로직 그대로.
++     */
++    private String getSingleColumnWidth(
++            List<String> widths, int index, String gridId, double[] columnPercents) {
+         if (index < 0 || index >= widths.size()) {
+             return "";
+         }
++        if (columnPercents != null) {
++            return index < columnPercents.length
++                    ? percentFormatter.formatPercent(columnPercents[index])
++                    : "";
++        }
+         String normalized = normalizeSize(widths.get(index));
+         if (normalized.length() == 0 && trim(widths.get(index)).length() > 0) {
+             System.out.println(
+@@ -710,6 +754,92 @@ public class GridFormatConverter {
+         return normalized;
+     }
+ 
++    /**
++     * GRID_COLUMN_WIDTH candidate(신규 함수, 실험적 -- native v6 evidence 없음,
++     * `GRID_COLUMN_NATIVE_EVIDENCE = EVIDENCE_INSUFFICIENT`, `GRID_COLUMN_WIDTH_SEMANTIC =
++     * EXPERIMENTAL`). column width의 px 합계가 source Grid 자신의 declared width를 넘지 않는
++     * 경우에만(즉 column sum &lt;= Grid width, horizontal-scroll 의도가 없다고 판단할 수 있는
++     * 경우) 각 column을 그 Grid width 기준 percentage로 정규화한다
++     * (`NORMALIZED_TO_CONTAINER`). 다음 경우 전부 null(기존 px 경로 완전 무변경,
++     * `GRID_COLUMN_PIXEL_FALLBACK`/`GRID_COLUMN_UNRESOLVED` 판정용 별도 로그로 구분):
++     * column 정의가 없거나(UNRESOLVED), 하나라도 숫자로 읽을 수 없거나(UNRESOLVED), source
++     * Grid 자신의 width 속성이 없거나 유효하지 않거나(UNRESOLVED -- column 합계 자체를 자기
++     * 기준으로 삼지 않는다, 6번 규칙), column 합계가 Grid width를 초과하면(PIXEL_FALLBACK --
++     * horizontal-scroll semantic 가능성, 8번 규칙). border/scrollbar 등 임의 보정 상수는
++     * 사용하지 않는다(6번 규칙) -- {@link #GRID_COLUMN_SUM_TOLERANCE_PX}는 정수 px 입력 간
++     * 부동소수 오차만 흡수하는 rounding tolerance다.
++     */
++    private double[] resolveColumnPercents(Element sourceGrid, List<String> widths, String gridId) {
++        if (widths == null || widths.isEmpty()) {
++            System.out.println(
++                    "[GRID COLUMN] UNRESOLVED(컬럼 정의 없음) id=" + gridId);
++            return null;
++        }
++
++        double[] raw = new double[widths.size()];
++        double columnSum = 0.0;
++        for (int i = 0; i < widths.size(); i++) {
++            String normalized = normalizeSize(widths.get(i));
++            if (normalized.length() == 0) {
++                System.out.println(
++                        "[GRID COLUMN] UNRESOLVED(col size 읽기 불가) id=" + gridId
++                                + " col=" + i + " size=" + widths.get(i));
++                return null;
++            }
++            try {
++                raw[i] = Double.parseDouble(normalized);
++            } catch (NumberFormatException ex) {
++                System.out.println(
++                        "[GRID COLUMN] UNRESOLVED(col size 파싱 실패) id=" + gridId
++                                + " col=" + i + " size=" + widths.get(i));
++                return null;
++            }
++            columnSum += raw[i];
++        }
++
++        String gridWidthRaw = normalizeSize(sourceGrid.getAttribute("width"));
++        if (gridWidthRaw.length() == 0) {
++            System.out.println(
++                    "[GRID COLUMN] UNRESOLVED(source Grid width 없음, column 합계를 자기 기준으로 "
++                            + "쓰지 않음) id=" + gridId + " columnSum=" + formatNumber(columnSum));
++            return null;
++        }
++        double gridWidth;
++        try {
++            gridWidth = Double.parseDouble(gridWidthRaw);
++        } catch (NumberFormatException ex) {
++            System.out.println(
++                    "[GRID COLUMN] UNRESOLVED(source Grid width 파싱 실패) id=" + gridId
++                            + " width=" + sourceGrid.getAttribute("width"));
++            return null;
++        }
++        if (gridWidth <= 0.0) {
++            System.out.println(
++                    "[GRID COLUMN] UNRESOLVED(source Grid width<=0) id=" + gridId
++                            + " width=" + gridWidthRaw);
++            return null;
++        }
++
++        if (columnSum > gridWidth + GRID_COLUMN_SUM_TOLERANCE_PX) {
++            System.out.println(
++                    "[GRID COLUMN] PIXEL_FALLBACK(columnSum>gridWidth, horizontal-scroll 가능성) "
++                            + "id=" + gridId + " gridWidth=" + formatNumber(gridWidth)
++                            + " columnSum=" + formatNumber(columnSum));
++            return null;
++        }
++
++        double[] percents = new double[raw.length];
++        for (int i = 0; i < raw.length; i++) {
++            percents[i] = raw[i] / gridWidth * 100.0;
++        }
++        System.out.println(
++                "[GRID COLUMN] NORMALIZED_TO_CONTAINER id=" + gridId
++                        + " gridWidth=" + formatNumber(gridWidth)
++                        + " columnSum=" + formatNumber(columnSum)
++                        + " ratio=" + percentFormatter.formatPercent(columnSum / gridWidth * 100.0));
++        return percents;
++    }
++
+     private String normalizeSize(String raw) {
+         String value = trim(raw).toLowerCase();
+         if (value.endsWith("px")) {
 diff --git a/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java b/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java
 index 3e52c8b..51456f8 100644
 --- a/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java

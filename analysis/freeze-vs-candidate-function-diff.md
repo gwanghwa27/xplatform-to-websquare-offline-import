@@ -1390,3 +1390,236 @@ fix는 corpus의 Table 판정 경로(5/135)에 존재하던 명확한 이중 축
 제공한 실제 화면 스크린샷의 수치 패턴과 정확히 일치하는 결함이었으므로, 이번에는 이전 라운드들과
 달리 사용자가 보고한 실패 증상과 직접 대응되는 근거가 있다. 다만 Grid 자체의 column width 문제는
 evidence 부족으로 이번에도 미해결로 남는다.
+
+---
+
+## 후속 라운드 -- Grid 내부 Column Width Ratio Candidate (실험적, native evidence 없음)
+
+### 배경
+
+지난 라운드(Nested Percentage Double-Scaling 수정)에서 `GRID_COLUMN_WIDTH_MISMATCH =
+EVIDENCE_INSUFFICIENT`로 미해결로 남겨둔 항목. 이번 라운드는 native v6 evidence가 여전히 없는
+상태에서(`GRID_COLUMN_NATIVE_EVIDENCE = EVIDENCE_INSUFFICIENT`), 폐쇄망 Studio에서 실제
+렌더링을 비교 검증할 수 있도록 실험적 candidate를 구현한다(`GRID_COLUMN_WIDTH_SEMANTIC =
+EXPERIMENTAL`). 이번 라운드 시작 시점의 참고 commit(`4b99695`)과 현재 HEAD는 완전히 동일(git
+diff 0) -- 이전 라운드의 작업과 겹치거나 충돌하는 부분 없음.
+
+### width attribute 지원 범위 조사 결과
+
+local repository/기존 generated reference 어디에도 `w2:column width="N%"` 형태의 실제 native
+evidence가 없다(`GRID_COLUMN_NATIVE_EVIDENCE = EVIDENCE_INSUFFICIENT`, 5번 규칙의 "D. local
+evidence로 판단 불가"). 이번 candidate는 XML 표준(percentage 문자열은 단순 attribute value
+문자열이라 XML 1.0 syntax 자체는 항상 허용 -- `w2:column`은 domain-defined attribute이므로
+parser/schema 레벨에서 값 형식을 제한하지 않음, 이 프로젝트의 XML 생성/파싱 경로에 값 형식
+검증이 없음을 코드로 확인)만 확인한 뒤, WebSquare semantic 확정 여부는 `STUDIO_DESIGN_REQUIRED`로
+유지한다.
+
+### Grid 기준 폭 계산 정책
+
+사용자 지시대로 분모를 Form width가 아니라 **source Grid 자신의 declared `width` 속성**으로
+우선 사용한다(`sourceGrid.getAttribute("width")`, `[GridFormatConverter] convert`의 파라미터로
+이미 전달받고 있던 실제 XPlatform `Grid` 엘리먼트). border/scrollbar 등 임의 보정 상수는
+사용하지 않았다(`GRID_COLUMN_SUM_TOLERANCE_PX = 0.5`는 정수 px 입력 간 부동소수 오차만 흡수하는
+rounding tolerance이며, 시각적 보정이 아니다).
+
+### column 합계 대 Grid width 불일치 처리
+
+3가지로 분류(전부 corpus 실측):
+
+| 분류 | 조건 | 처리 |
+|---|---|---|
+| `NORMALIZED_TO_CONTAINER` | column 정의 전부 숫자로 읽히고, source Grid width 유효, `columnSum <= gridWidth + 0.5px` | 각 column을 `columnWidth/gridWidth*100`로 percentage 변환 |
+| `PIXEL_FALLBACK` | `columnSum > gridWidth + 0.5px`(horizontal-scroll semantic 가능성) | 기존 px 값 그대로 유지(무변경) |
+| `UNRESOLVED` | column 정의 없음/숫자 아님, 또는 source Grid width 없음/유효하지 않음 | 기존 px 값 그대로 유지(무변경) |
+
+`column sum < Grid width`인 경우(이번 corpus의 3건 전부 이 케이스) 남는 영역을 마지막 column에
+임의로 몰아주지 않고, 각 column을 있는 그대로 `자기 px / Grid px`로 계산한다 -- 합계가 100%
+미만이 되는 것 자체가 "Grid 폭 중 일부가 비어있다"는 source semantic을 percentage로도 그대로
+보존한 결과다(왜곡 없음).
+
+### 대표 Grid 실제 trace (corpus 3건 전부)
+
+| source file | source Grid id | source Grid width | column count | source column widths | column sum | normalized 결과 | fallback |
+|---|---|---|---|---|---|---|---|
+| `Form/ComponentMethodConversion.xfdl` | `grd` | 300 | 1 | `[100]` | 100 | `[33.3333%]` | 아니오 |
+| `Form/GridAdvancedPhase3.xfdl` | `grdMain` | 600 | 3 | `[100, 220, 120]` | 440 | `[16.6667%, 36.6667%, 20%]` | 아니오 |
+| `Form/UnsupportedFeatures.xfdl` | `grd` | 300 | 1 | `[100]` | 100 | `[33.3333%]` | 아니오 |
+
+corpus 149개 화면 전체에서 `TABLE_LAYOUT_HIGH_CONFIDENCE`와 달리 실제 Grid Format을 가진
+화면은 이 3개뿐이며, 전부 `NORMALIZED_TO_CONTAINER`로 분류됐다(`PIXEL_FALLBACK`/`UNRESOLVED`
+corpus 실사례 0건 -- 로직 경로는 구현/코드리뷰로 존재하나 이번 corpus에서 트리거된 적 없음).
+
+### Header/Body/Footer 일관성 검증
+
+`grdMain`(3-column) 실측: header `[16.6667%, 36.6667%, 20%]`, body(2 visible column, 3번째는
+select) `[16.6667%, 36.6667%, 20%]`(동일 컬럼 인덱스와 정확히 일치), footer(colspan=3)
+`73.3333%`(`16.6667+36.6667+20`의 합과 정확히 일치, 별도 재계산 없이 동일
+`columnPercents`(`double[]`, `convert()`에서 1회만 계산해 header/body/footer 3곳에 공통 전달)
+배열을 그대로 사용하므로 rounding mismatch 발생 불가능(구조적으로 보장).
+
+### Production 변경
+
+**[GridFormatConverter] resolveColumnPercents(Element, List&lt;String&gt;, String)** -- 신규
+함수
+
+```java
+private double[] resolveColumnPercents(Element sourceGrid, List<String> widths, String gridId) {
+    // widths 전부 숫자로 읽을 수 있고, sourceGrid.getAttribute("width")가 유효하고,
+    // columnSum <= gridWidth + tolerance일 때만 percentage 배열 반환, 그 외 전부 null
+    // (기존 px 경로 완전 무변경)
+}
+```
+
+**[GridFormatConverter] convert(...)** -- 기존 함수 수정(호출부 1곳 추가)
+
+BEFORE:
+```java
+appendHeader(out, targetGridView, gridId, format);
+appendBody(out, targetGridView, gridId, format, datasetColumns);
+appendFooter(out, targetGridView, gridId, format);
+```
+
+AFTER:
+```java
+double[] columnPercents = resolveColumnPercents(sourceGrid, format.getColumnWidths(), gridId);
+
+appendHeader(out, targetGridView, gridId, format, columnPercents);
+appendBody(out, targetGridView, gridId, format, datasetColumns, columnPercents);
+appendFooter(out, targetGridView, gridId, format, columnPercents);
+```
+
+**[GridFormatConverter] calculateCellWidth/getSingleColumnWidth** -- 기존 함수 수정(파라미터
+`double[] columnPercents` 추가, null이면 기존 px 로직 완전 동일 -- 하위 호환)
+
+BEFORE(`getSingleColumnWidth` 예시):
+```java
+private String getSingleColumnWidth(List<String> widths, int index, String gridId) {
+    if (index < 0 || index >= widths.size()) {
+        return "";
+    }
+    String normalized = normalizeSize(widths.get(index));
+    ...
+    return normalized;
+}
+```
+
+AFTER:
+```java
+private String getSingleColumnWidth(
+        List<String> widths, int index, String gridId, double[] columnPercents) {
+    if (index < 0 || index >= widths.size()) {
+        return "";
+    }
+    if (columnPercents != null) {
+        return index < columnPercents.length
+                ? percentFormatter.formatPercent(columnPercents[index])
+                : "";
+    }
+    String normalized = normalizeSize(widths.get(index));
+    ...
+    return normalized;
+}
+```
+
+`calculateCellWidth`도 동일 원칙(colspan 구간의 percent 합을 반환, `columnPercents==null`이면
+기존 px 합산 로직 완전 그대로).
+
+**[GridFormatConverter] appendHeader/appendBody/appendFooter/appendSynthesizedDatasetBody/
+appendPlaceholderColumn/applyCellGeometry** -- 기존 함수 수정(파라미터로 `columnPercents`를
+전달만 함, 각 함수 내부 로직/구조는 무변경).
+
+percentage formatter는 새로 만들지 않고 `[ComponentLayoutConverter] formatPercent`를
+`percentFormatter`(private final 필드)로 재사용했다(중복 formatter 생성 금지 원칙 준수).
+
+Full Unified Diff: [analysis/git-baseline-vs-candidate-production.diff](git-baseline-vs-candidate-production.diff)
+(누적, 이번 라운드분은 `GridFormatConverter.java` hunk 전체).
+
+Caller: `[WebSquareGenerator] convertChildren`(`gridFormatConverter.convert(out, src, target)`
+호출, 무변경). Callee: 신규 `resolveColumnPercents`는 기존 `normalizeSize`/`formatNumber`
+(px 파싱/포맷)와 `ComponentLayoutConverter.formatPercent`(percentage 포맷)만 재사용, 새 helper
+클래스 없음.
+
+### Generated XML BEFORE/AFTER(실제 corpus, `Form/GridAdvancedPhase3.xml`, `grdMain`)
+
+BEFORE(`corpus-output-round7`):
+```xml
+<w2:column id="grdMain_head_r0_c0" inputType="text" value="코드" width="100"/>
+<w2:column id="grdMain_head_r0_c1" inputType="text" value="이름" width="220"/>
+<w2:column id="grdMain_head_r0_c2" inputType="text" value="유형" width="120"/>
+...
+<w2:column id="CODE" inputType="text" width="100"/>
+<w2:column id="grdMain_body_r0_c1" inputType="text" readOnly="true" width="220"/>
+<w2:column id="TYPE" inputType="select" width="120">
+...
+<w2:column colSpan="3" displayMode="label" id="grdMain_summ_r0_c0" inputType="text" value="summary" width="440"/>
+```
+
+AFTER(`corpus-output-round9`):
+```xml
+<w2:column id="grdMain_head_r0_c0" inputType="text" value="코드" width="16.6667%"/>
+<w2:column id="grdMain_head_r0_c1" inputType="text" value="이름" width="36.6667%"/>
+<w2:column id="grdMain_head_r0_c2" inputType="text" value="유형" width="20%"/>
+...
+<w2:column id="CODE" inputType="text" width="16.6667%"/>
+<w2:column id="grdMain_body_r0_c1" inputType="text" readOnly="true" width="36.6667%"/>
+<w2:column id="TYPE" inputType="select" width="20%">
+...
+<w2:column colSpan="3" displayMode="label" id="grdMain_summ_r0_c0" inputType="text" value="summary" width="73.3333%"/>
+```
+
+header(`grdMain_head_r0_c0/c1/c2`)와 body(`CODE`/`grdMain_body_r0_c1`/`TYPE`)의 동일 logical
+column이 항상 같은 percent 값을 가짐을 실측 확인(`GRID_HEADER_BODY_FOOTER_WIDTH_CONSISTENCY =
+PASS`). footer(colspan=3)의 `73.3333%`는 `16.6667+36.6667+20`의 합과 정확히 일치.
+
+### 영향 범위
+
+corpus 149개 화면 전체 변환 성공 149/149, 실제 diff 발생 3개 파일(Grid Format을 가진 화면
+전체와 일치 -- `ComponentMethodConversion.xml`, `GridAdvancedPhase3.xml`,
+`UnsupportedFeatures.xml`), 나머지 133개 XML byte-identical. 3개 파일의 diff는 전부
+`w2:column width` attribute 값 변경뿐이며, id/QName/class/colSpan/readOnly/inputType 등 다른
+속성은 전혀 변경되지 않았다(line-by-line diff 확인).
+
+### 회귀 결과
+
+| 항목 | 결과 |
+|---|---|
+| 컴파일(clean build) | 0 errors |
+| 전체 corpus 변환 | 149/149 성공 |
+| XML parse | 136/136 well-formed |
+| standalone JS | 15/15(무변경) |
+| Phase1 SHA | 2/2 PASS(무변경) |
+| `SOURCE_TO_TARGET_ID_MAP_EXPECTED_ONLY` | PASS(403/403 key, diff 0) |
+| `w2:gridView`/`wq_gvw` | 3/3 무변경 |
+| invariant class/QName(`btn_cm`/`wq_gvw`) | 전부 무변경 |
+| `grp_resultArea`/`grp_main` width | 135/136(무변경, 이번 라운드 미접촉) |
+| `GRID_COLUMN_INVALID_WIDTH_COUNT` | 0(NaN/Infinity/음수 없음) |
+| 실제 diff 발생 XML | 3/136(Grid Format 보유 화면 전체와 일치), 나머지 133개 byte-identical |
+| diff 내용 | 전부 `w2:column width` 값 변경만 |
+
+### Completion Gates
+
+`GRID_COLUMN_NATIVE_EVIDENCE = EVIDENCE_INSUFFICIENT`. `GRID_COLUMN_WIDTH_SEMANTIC =
+EXPERIMENTAL`. `GRID_COLUMN_RATIO_CALCULATION = PASS`(3건 전부 역산 일치). `GRID_HEADER_BODY_
+FOOTER_WIDTH_CONSISTENCY = PASS`(공통 `columnPercents` 배열 재사용으로 구조적 보장).
+`GRID_COLUMN_NORMALIZED_COUNT = 3`. `GRID_COLUMN_PIXEL_FALLBACK_COUNT = 0`(corpus 실사례
+없음, 로직 경로는 구현됨). `GRID_COLUMN_UNRESOLVED_COUNT = 0`(corpus 실사례 없음, 로직 경로는
+구현됨). `GRID_COLUMN_INVALID_WIDTH_COUNT = 0`. `GRID_QNAME_PRESERVED = PASS`(`w2:gridView`
+무변경). `GRID_CLASS_PRESERVED = PASS`(`wq_gvw` 무변경). `STRUCTURE_TOPOLOGY_PRESERVED = PASS`
+(header/body/footer/row/column 구조 자체 무변경, width 값만 변경). `UNEXPECTED_GENERATED_DIFF
+= 0`(3개 파일 diff 전부 의도한 width 값 변경으로 설명됨).
+
+## Status
+
+`[GridFormatConverter] resolveColumnPercents`(신규 함수), `convert`/`calculateCellWidth`/
+`getSingleColumnWidth`/`appendHeader`/`appendBody`/`appendFooter`/
+`appendSynthesizedDatasetBody`/`appendPlaceholderColumn`/`applyCellGeometry`(기존 함수 수정,
+파라미터 추가만) -- `STATIC_VERIFIED`(compile/corpus 변환/canonical map/invariant/3개 대상
+파일 line-by-line diff + 역산 검증 완료). `STUDIO_DESIGN_VERIFIED`는 선언하지 않음 -- 사용자의
+실제 폐쇄망 Studio 확인 필요(`STUDIO_DESIGN_REQUIRED`, native evidence가 없는 실험적 candidate
+이므로 특히 중요).
+
+최종 `GRID_COLUMN_WIDTH = FIX_CANDIDATE` / `STATIC_VERIFIED` / `STUDIO_DESIGN_REQUIRED`. 이번
+candidate는 native evidence 없이 구현된 실험적 시도이므로, 사용자가 폐쇄망에서 실제 렌더링을
+확인한 결과에 따라 되돌릴 수 있어야 한다(모든 변경이 `columnPercents == null`이면 기존 코드
+경로와 완전히 동일하게 동작하도록 설계되어, 되돌림도 이 조건 분기 하나만 제거하면 되는 낮은
+리스크 구조).
