@@ -401,25 +401,14 @@ public class WebSquareGenerator {
 
         bindFormLifecycle(body, source, analysis);
 
-        // WebSquare AI v6 Studio Design Canvas root container: FIXED / STUDIO_DESIGN_VERIFIED /
-        // REGRESSION_VERIFIED / PATCH_READY (user-confirmed on real closed-network Studio).
-        // Root-only: does NOT affect Div/GroupBox/PopupDiv/Tabpage, which stay w2:group via
-        // ComponentMappingRegistry/convertChildren (a separate code path from this hardcoded
-        // root). Remaining gap: V5_RUNTIME_REGRESSION_REQUIRED -- whether xf:group supports
-        // TabRuntimeScriptGenerator's component('grp_content').getScope() WFrame call (narrow
-        // Tab-runtime-scope subset) is unverified in a real v5 engine. Full chronology/evidence:
-        // work/closed-network-support/issues/ISSUE-20260818-001-studio-design-blank/analysis/root-container-fix-chronology.md
-        // and ISSUE.md.
-        //
-        // V6_STRUCTURE_PARTIAL_ALIGNMENT (this round): real closed-network v6 evidence shows
-        // body > grp_resultArea > grp_main > (content directly) -- one id level shallower than
-        // this converter's output. grp_content is kept as-is (id/namespace/style/semantics
-        // untouched, only its DOM ancestor chain changes) specifically to protect the
-        // Form->grp_content componentIdMap registration (registerFormRootMapping below) and the
-        // id-based (not depth-based) TabRuntimeScriptGenerator literals component('grp_content')
-        // .getScope()/w.grp_content, whose real-engine behavior stays V5_RUNTIME_REGRESSION_REQUIRED
-        // and must not be additionally risked this round. Two new outer wrappers are added instead
-        // of renaming/removing grp_content. See analysis/v6-root-body-structure-analysis.md.
+        // Root container(grp_resultArea/grp_main): STUDIO_DESIGN_VERIFIED, 폐쇄망 실측 완료.
+        // 잔여 gap: V5_RUNTIME_REGRESSION_REQUIRED(xf:group의 getScope() 실제 v5 엔진 지원 여부
+        // 미검증) -- 상세: analysis/root-container-fix-chronology.md, ISSUE.md.
+        // grp_content wrapper는 이번 라운드에 제거(GLOBAL_GRP_CONTENT_XFDL_COUNT=0), 변환된
+        // Div/Layout/Grid 구조가 grp_main 바로 아래 위치. id 예약은 충돌 방지용으로 유지하되
+        // TabRuntimeScriptGenerator/XPlatformProjectConverter/registerFormRootMapping의 관련
+        // literal은 전부 grp_content -> grp_main으로 함께 이동(EXPECTED_SOURCE_TO_TARGET_MAP_DIFF).
+        // 상세: analysis/v6-design-structure-alignment-analysis.md.
         Element resultArea = out.createElementNS(NS_XF, "xf:group");
         resultArea.setAttribute("id", "grp_resultArea");
         resultArea.setAttribute("style", "");
@@ -429,21 +418,20 @@ public class WebSquareGenerator {
         main.setAttribute("id", "grp_main");
         main.setAttribute("style", layoutConverter.buildMainAreaStyle(source));
         resultArea.appendChild(main);
-
-        Element root = out.createElementNS(NS_XF, "xf:group");
-        root.setAttribute("id", "grp_content");
-        root.setAttribute("style", layoutConverter.buildRootStyle(source));
-        main.appendChild(root);
         registerFormRootMapping(source);
 
         Element sourceRoot = source.getDocumentElement();
         convertChildren(
                 out,
                 sourceRoot,
-                root,
+                main,
                 "",
                 analysis,
-                0);
+                0,
+                null,
+                -1.0,
+                -1.0,
+                true);
 
         finalizePageLoadBinding(body);
         logUnmappedEventBindings(analysis);
@@ -451,13 +439,32 @@ public class WebSquareGenerator {
                 "[UI 변환 완료] component count=" + componentIdMap.size());
     }
 
+    /**
+     * [WebSquareGenerator] convertChildren -- percent-geometry basis 파라미터 추가(basisWidth/
+     * basisHeight/includePosition). onlyChild가 null이면 sourceParent의 모든 element 자식을
+     * 순회한다. onlyChild가 non-null이면 그 특정 자식 하나만 처리한다 -- Layout -> Table 구조
+     * 변환(convertLayoutAsTable)에서 이미 row/column으로 분류된 셀 하나를 targetParent 계층 안의
+     * 정확한 위치에 배치하기 위해, 이 메서드의 나머지 로직(mapped-component 생성, container 재귀,
+     * pass-through 재귀 등)을 전혀 수정하지 않고 그대로 재사용하는 용도다.
+     *
+     * <p>basisWidth/basisHeight는 {@code PERCENT_GEOMETRY_PARENT = IMMEDIATE_SOURCE_CONTAINER}
+     * 원칙에 따라 항상 "현재 순회 중인 자식들을 감싸는 가장 가까운 XPlatform Layout 자신의
+     * width/height"다. Div/Layouts/FDL/Form 등 pass-through 재귀에서는 이 basis를 그대로
+     * 전달하고(그 경계 자체는 좌표계를 바꾸지 않음), 새 {@code Layout}을 만났을 때만
+     * (convertLayoutAsTable 내부에서) 그 Layout 자신의 geometry로 basis를 갱신한다. 둘 다 <=0
+     * 이면(sentinel -1.0) percent 변환은 시도하지 않고 px로 fallback한다.
+     */
     private void convertChildren(
             Document out,
             Element sourceParent,
             Element targetParent,
             String parentPath,
             XfdlAnalysisResult analysis,
-            int depth) {
+            int depth,
+            Element onlyChild,
+            double basisWidth,
+            double basisHeight,
+            boolean includePosition) {
 
         if (depth > 200) {
             throw new IllegalStateException(
@@ -472,6 +479,9 @@ public class WebSquareGenerator {
             }
 
             Element src = (Element) node;
+            if (onlyChild != null && src != onlyChild) {
+                continue;
+            }
             String sourceTag = getSourceTagName(src);
 
             if ("Layouts".equals(getSourceTagName(sourceParent))
@@ -490,7 +500,9 @@ public class WebSquareGenerator {
             }
 
             if ("Tab".equals(sourceTag) && componentMapping != null && targetTag != null) {
-                convertTab(out, src, targetParent, parentPath, analysis, depth, componentMapping);
+                convertTab(
+                        out, src, targetParent, parentPath, analysis, depth, componentMapping,
+                        basisWidth, basisHeight, includePosition);
                 continue;
             }
 
@@ -516,7 +528,7 @@ public class WebSquareGenerator {
                 target.setAttribute("id", targetId);
                 targetComponentTypeMap.put(targetId, sourceTag);
                 logPartialComponentMapping(componentMapping, sourcePath);
-                copyBasicProperties(src, target);
+                copyBasicProperties(src, target, basisWidth, basisHeight, includePosition);
                 applyComponentSpecificProperties(src, target, sourceTag, sourcePath);
                 applyBindings(src, target, sourcePath, localId, targetId, sourceTag);
                 bindEvents(target, sourcePath, localId, analysis);
@@ -543,7 +555,40 @@ public class WebSquareGenerator {
                                     + layoutConverter.describeLayoutSource(src) + ")");
                 }
 
-                targetParent.appendChild(target);
+                // GRID_GROUP_STRUCTURE: XPlatform Grid는 그 자체로 container가 아니라서(위
+                // isContainerComponent 재귀 대상이 아님) 여기서 직접 Group wrapper로 감싼다.
+                // wrapper id는 row/col wrapper와 동일 원칙으로 synthetic(componentIdMap에는 추가
+                // 안 함, usedTargetIds 충돌 방지만)이며, Grid 자신의 sourcePath/targetId(스크립트가
+                // 참조하는 실제 id)는 무변경으로 보존한다. Grid 자신의 style은 wrapper가 위치를
+                // 담당하므로 100% fill로 대체한다.
+                if ("w2:gridView".equals(targetTag)) {
+                    Element gridWrapper = out.createElementNS(NS_XF, "xf:group");
+                    String wrapperId = createUniqueTargetId(buildSourcePath(sourcePath, "gridGroup"));
+                    gridWrapper.setAttribute("id", wrapperId);
+                    String wrapperStyle = layoutConverter.hasGeometry(src)
+                            ? ((basisWidth > 0.0 && basisHeight > 0.0)
+                                    ? layoutConverter.buildPercentComponentStyle(
+                                            src, basisWidth, basisHeight, true)
+                                    : null)
+                            : "";
+                    if (wrapperStyle == null) {
+                        wrapperStyle = layoutConverter.buildComponentStyle(src, true);
+                        System.out.println(
+                                "[UI PERCENT] UNRESOLVED(px fallback, Grid Group) id=" + wrapperId);
+                    } else if (wrapperStyle.length() > 0) {
+                        System.out.println(
+                                "[UI PERCENT] 적용 id=" + wrapperId + " style=" + wrapperStyle);
+                    }
+                    gridWrapper.setAttribute("style", sanitizeXml10(wrapperStyle));
+                    target.setAttribute("style", "width:100%;height:100%;");
+                    gridWrapper.appendChild(target);
+                    targetParent.appendChild(gridWrapper);
+                    System.out.println(
+                            "[UI GRID GROUP] " + sourcePath + " -> Group id=" + wrapperId
+                                    + " -> w2:gridView id=" + targetId);
+                } else {
+                    targetParent.appendChild(target);
+                }
                 System.out.println(
                         "[UI 변환] " + sourceTag + " " + sourcePath
                                 + " -> " + targetTag + " id=" + targetId);
@@ -555,7 +600,11 @@ public class WebSquareGenerator {
                             target,
                             sourcePath,
                             analysis,
-                            depth + 1);
+                            depth + 1,
+                            null,
+                            basisWidth,
+                            basisHeight,
+                            true);
                 }
 
                 continue;
@@ -573,15 +622,137 @@ public class WebSquareGenerator {
                                     + sourceTag + " id=" + wrapperId
                                     + " (자식 좌표 기준 수동 확인 필요)");
                 }
-                convertChildren(
-                        out,
-                        src,
-                        targetParent,
-                        parentPath,
-                        analysis,
-                        depth + 1);
+                if ("Layout".equals(sourceTag)) {
+                    convertLayoutAsTable(out, src, targetParent, parentPath, analysis, depth + 1);
+                } else {
+                    convertChildren(
+                            out,
+                            src,
+                            targetParent,
+                            parentPath,
+                            analysis,
+                            depth + 1,
+                            null,
+                            basisWidth,
+                            basisHeight,
+                            includePosition);
+                }
             }
         }
+    }
+
+    /**
+     * XPlatform {@code Layout} 직계 자식들이 table topology({@code TABLE_LAYOUT_HIGH_CONFIDENCE})
+     * 로 판정되는 경우 row/column {@code xf:group} 구조를 생성한다. 겹침 등으로 계산이 불가능한
+     * 경우({@code ABSOLUTE_LAYOUT_FALLBACK}/{@code UNRESOLVED_LAYOUT})만 flat pass-through로
+     * 처리한다({@code Layout} 자체는 target element 없이 targetParent 아래 자식들을 직접 배치).
+     * v6 Design Structure + Table + Grid Group + Percentage Geometry Alignment 라운드부터는
+     * 1-row/1-column Layout(검색조건/버튼 바 등)도 table 대상이다(14번 규칙, 이전 라운드의
+     * row&gt;=2/column&gt;=2 요건 제거).
+     *
+     * <p>row/column wrapper는 XPlatform source component가 아니므로 componentIdMap에 새 키를
+     * 추가하지 않는다({@code usedTargetIds} 등록(충돌 방지)만 발생 -- grp_resultArea/grp_main과
+     * 동일한 원칙). 실제 셀 안의 컴포넌트는 원래 sourcePath({@code parentPath} 그대로)를
+     * 유지하며, {@link #convertChildren}의 mapped-component 처리 로직을 완전히 무수정으로
+     * 재사용한다(onlyChild 필터).
+     *
+     * <p>이 Layout 자신의 width/height가 이 Layout 직계 자식 전체(및 fallback 경로의 하위
+     * 재귀)의 percent 기준(basis)이 된다({@code PERCENT_GEOMETRY_PARENT =
+     * IMMEDIATE_SOURCE_CONTAINER}). row wrapper의 height%/cell wrapper의 width%도 동일 basis로
+     * 계산한다(19번 규칙 -- source 비율 실측, 균등분할 금지). row/cell 내부 실제 component는
+     * structural placement로 위치가 이미 결정되므로 left/top/position은 생성하지 않는다
+     * (includePosition=false, 20번 규칙).
+     *
+     * <p>12번 규칙: Table 판단 대상은 Div 내부 Layout이 핵심이며, Form root Layout 전체는 Table
+     * 대상이 아니다({@code parentPath}가 비어 있으면 -- 즉 아직 어떤 Div/container도 거치지 않은
+     * 최상위 Form Layout이면 -- classification과 무관하게 강제로 flat pass-through). 목표
+     * hierarchy(6번 규칙)가 {@code grp_main} 바로 아래 Div Group/Grid Group이 직접 나타나는
+     * 것이기 때문에, root Layout 자체를 1-column table로 감싸면 불필요한 추가 wrapper 계층이
+     * 생겨 이 목표와 어긋난다. Div 내부에서 다시 Layout을 만나면(parentPath가 그 Div의
+     * sourcePath로 비어있지 않음) 정상적으로 Table 판정 대상이 된다.
+     */
+    private void convertLayoutAsTable(
+            Document out,
+            Element layout,
+            Element targetParent,
+            String parentPath,
+            XfdlAnalysisResult analysis,
+            int depth) {
+
+        List<Element> children = directElementChildren(layout);
+        boolean isRootFormLayout = parentPath.length() == 0;
+        String classification = isRootFormLayout
+                ? "ROOT_FORM_LAYOUT_NOT_A_TABLE_TARGET"
+                : layoutConverter.classifyLayoutGeometry(children);
+        double[] basis = layoutConverter.resolveLayoutBasis(layout);
+        double basisWidth = basis == null ? -1.0 : basis[0];
+        double basisHeight = basis == null ? -1.0 : basis[1];
+        System.out.println(
+                "[UI TABLE] Layout " + (parentPath.length() == 0 ? "(root)" : parentPath)
+                        + " children=" + children.size() + " classification=" + classification
+                        + " basisWidth=" + basisWidth + " basisHeight=" + basisHeight);
+
+        if (!"TABLE_LAYOUT_HIGH_CONFIDENCE".equals(classification)) {
+            convertChildren(
+                    out, layout, targetParent, parentPath, analysis, depth, null,
+                    basisWidth, basisHeight, true);
+            return;
+        }
+
+        List<List<Element>> rows = layoutConverter.buildTableRows(children);
+        int rowIndex = 0;
+        for (List<Element> row : rows) {
+            Element rowGroup = out.createElementNS(NS_XF, "xf:group");
+            String rowTargetId = createUniqueTargetId(
+                    buildSourcePath(parentPath, "layoutTableRow" + rowIndex));
+            rowGroup.setAttribute("id", rowTargetId);
+            String rowStyle = layoutConverter.buildTableRowStyle(row, basisHeight);
+            if (rowStyle != null) {
+                rowGroup.setAttribute("style", rowStyle);
+                System.out.println("[UI PERCENT] 적용 id=" + rowTargetId + " style=" + rowStyle);
+            } else {
+                System.out.println("[UI PERCENT] UNRESOLVED(no style, row) id=" + rowTargetId);
+            }
+            targetParent.appendChild(rowGroup);
+
+            int colIndex = 0;
+            for (Element cell : row) {
+                Element cellGroup = out.createElementNS(NS_XF, "xf:group");
+                String cellTargetId = createUniqueTargetId(
+                        buildSourcePath(parentPath, "layoutTableRow" + rowIndex + "Col" + colIndex));
+                cellGroup.setAttribute("id", cellTargetId);
+                String cellStyle = layoutConverter.buildTableCellStyle(cell, basisWidth);
+                if (cellStyle != null) {
+                    cellGroup.setAttribute("style", cellStyle);
+                    System.out.println("[UI PERCENT] 적용 id=" + cellTargetId + " style=" + cellStyle);
+                } else {
+                    System.out.println("[UI PERCENT] UNRESOLVED(no style, cell) id=" + cellTargetId);
+                }
+                rowGroup.appendChild(cellGroup);
+
+                convertChildren(
+                        out, layout, cellGroup, parentPath, analysis, depth, cell,
+                        basisWidth, basisHeight, false);
+                colIndex++;
+            }
+            rowIndex++;
+        }
+
+        System.out.println(
+                "[UI TABLE] Layout " + (parentPath.length() == 0 ? "(root)" : parentPath)
+                        + " -> table rows=" + rows.size());
+    }
+
+    private List<Element> directElementChildren(Element parent) {
+        List<Element> result = new ArrayList<Element>();
+        NodeList children = parent.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node node = children.item(i);
+            if (node.getNodeType() == Node.ELEMENT_NODE) {
+                result.add((Element) node);
+            }
+        }
+        return result;
     }
 
     /** Phase 3: XPlatform Tab/Tabpage tree -> WebSquare tabControl tabs/content pairs. */
@@ -592,7 +763,10 @@ public class WebSquareGenerator {
             String parentPath,
             XfdlAnalysisResult analysis,
             int depth,
-            ComponentMapping componentMapping) {
+            ComponentMapping componentMapping,
+            double basisWidth,
+            double basisHeight,
+            boolean includePosition) {
 
         String localId = sanitizeXml10(src.getAttribute("id"));
         if (localId.length() == 0) {
@@ -608,11 +782,10 @@ public class WebSquareGenerator {
         Element tabControl = createTargetElement(out, "w2:tabControl");
         tabControl.setAttribute("id", targetId);
         targetComponentTypeMap.put(targetId, "Tab");
-        // Inline Tabpage behavior keeps the Phase 3 baseline. External URL pages override
-        // alwaysDraw per w2:content so XPlatform preload semantics can be preserved.
+        // 외부 URL page는 w2:content 단위로 alwaysDraw를 override해 preload semantic 보존.
         tabControl.setAttribute("alwaysDraw", "true");
         logPartialComponentMapping(componentMapping, sourcePath);
-        copyBasicProperties(src, tabControl);
+        copyBasicProperties(src, tabControl, basisWidth, basisHeight, includePosition);
         applyComponentSpecificProperties(src, tabControl, "Tab", sourcePath);
         applyBindings(src, tabControl, sourcePath, localId, targetId, "Tab");
         bindEvents(tabControl, sourcePath, localId, analysis);
@@ -677,14 +850,15 @@ public class WebSquareGenerator {
                 continue;
             }
             if (isRuntimeSetUrlTarget(localId, pageLocalId)) {
-                // No initial url, but script assigns content dynamically via set_url() at runtime.
-                // Without frameMode=wframe the content element never becomes a real WFrame, so
-                // frame.setSrc is unavailable when the runtime adapter later calls set_url.
+                // 런타임 set_url() 대상: frameMode=wframe 없으면 실제 WFrame이 안 돼 setSrc 불가.
                 content.setAttribute("frameMode", "wframe");
                 content.setAttribute("scope", "true");
                 System.out.println("[TAB CONTENT] " + pagePath + " runtime set_url target -> frameMode=wframe placeholder");
             }
-            convertChildren(out, page, content, pagePath, analysis, depth + 1);
+            // Tabpage 내부는 독립 scope(별도 Frame)이므로 percent basis를 상속하지 않고
+            // fresh하게 시작한다(appendBody의 최초 진입과 동일 원칙) -- page 자신의 Layout을
+            // 만나는 시점에 convertLayoutAsTable이 새 basis를 다시 계산한다.
+            convertChildren(out, page, content, pagePath, analysis, depth + 1, null, -1.0, -1.0, true);
         }
     }
 
@@ -934,39 +1108,42 @@ public class WebSquareGenerator {
         return normalized.startsWith("@") ? normalized.substring(1) : normalized;
     }
 
+    /**
+     * [WebSquareGenerator] copyBasicProperties -- 기존 오버로드, px/position 항상 포함(basis
+     * 정보가 없는 호출부용, 동작 무변경).
+     */
     private void copyBasicProperties(Element src, Element target) {
+        copyBasicProperties(src, target, -1.0, -1.0, true);
+    }
+
+    /**
+     * [WebSquareGenerator] copyBasicProperties -- 신규 오버로드. PERCENT_GEOMETRY_PARENT =
+     * IMMEDIATE_SOURCE_CONTAINER 원칙에 따라 basisWidth/basisHeight(둘 다 양수일 때만 유효)가
+     * 있으면 percentage style을 우선 시도하고, 계산 불가(PERCENT_GEOMETRY_UNRESOLVED)면 px로
+     * fallback한다(PIXEL_GEOMETRY_FALLBACK). includePosition=false면 Table 셀 내부처럼 structural
+     * placement가 이미 위치를 결정하는 경우로, percent/px 어느 경로든 position/left/top을 생성하지
+     * 않는다(20번 규칙).
+     */
+    private void copyBasicProperties(
+            Element src, Element target, double basisWidth, double basisHeight, boolean includePosition) {
         String text = sanitizeXml10(src.getAttribute("text"));
         if (text.length() == 0) {
             text = sanitizeXml10(src.getAttribute("value"));
         }
         if (text.length() > 0) {
-            // Real WebSquare only honors a plain static "value" attribute for action-caption
-            // widgets (xf:trigger). Data-bearing widgets need their own real static-content
-            // attribute name instead (confirmed against shipped docs/samples: a bare "value" is
-            // silently ignored by the real engine for these): w2:span -> label ("컴포넌트의
-            // value를 화면에 출력하려는 텍스트"), xf:input -> initValue ("초기의 input에 지정할
-            // 초기값"). Other target tags keep "value" unchanged (xf:trigger already renders it
-            // correctly; other data-bearing tags such as xf:textarea/w2:calendar/w2:progressbar
-            // have no documented static-value attribute at all and are intentionally left as-is,
-            // out of this fix's scope).
+            // 실제 엔진은 정적 "value"를 xf:trigger에서만 렌더링 -- data 위젯은 전용 속성 필요:
+            // w2:span -> label, xf:input -> initValue. 그 외 태그는 "value" 유지(xf:trigger는
+            // 정상 렌더링, textarea/calendar/progressbar는 static-value 속성 자체가 없어 범위 밖).
             String targetTag = target.getTagName();
             if ("w2:span".equals(targetTag)) {
                 target.setAttribute("label", text);
             } else if ("xf:input".equals(targetTag)) {
                 target.setAttribute("initValue", text);
             } else if ("w2:checkbox".equals(targetTag)) {
-                // Real w2:checkbox (uiplugin.checkbox) renders an empty shell (<table
-                // class="w2checkbox_main"></table>, no <input>, no label) when only a static
-                // "value"/"label" attribute is set on the tag -- confirmed live against the
-                // shipped engine (getConfiguredOptions() shows value/title are read but do not
-                // drive rendering; the widget only produces a real <input type="checkbox">+
-                // <label> row, and a working getValue()/click round-trip, once populated via its
-                // real addItem(value, label) API). There is no shipped standalone w2:checkbox
-                // sample to confirm a declarative XML equivalent, so the addItem call is emitted
-                // into the same page-init bootstrap channel already used by BIND-1's
-                // setRowPosition bootstrap. XPlatform CheckBox "value" becomes the checkbox
-                // item's value; "text" becomes its visible label (falls back to the label text
-                // when no separate "value" attribute is present in the source).
+                // 실제 w2:checkbox는 정적 value/label 속성을 렌더링하지 않고 빈 shell만 생성 --
+                // 실제 input/label은 addItem(value,label) API 호출로만 생성됨(엔진 실측 확인).
+                // 선언적 XML 대안이 없어 page-init bootstrap(BIND-1 setRowPosition과 동일 채널)
+                // 으로 addItem 호출을 내보낸다. XPlatform "value"->item value, "text"->label.
                 String checkboxValue = sanitizeXml10(src.getAttribute("value"));
                 if (checkboxValue.length() == 0) checkboxValue = text;
                 String targetId = target.getAttribute("id");
@@ -978,7 +1155,24 @@ public class WebSquareGenerator {
             }
         }
 
-        String style = sanitizeXml10(layoutConverter.buildComponentStyle(src));
+        String targetId = target.getAttribute("id");
+        String style;
+        if (layoutConverter.hasGeometry(src)) {
+            String percentStyle = (basisWidth > 0.0 && basisHeight > 0.0)
+                    ? layoutConverter.buildPercentComponentStyle(src, basisWidth, basisHeight, includePosition)
+                    : null;
+            if (percentStyle != null) {
+                style = percentStyle;
+                System.out.println("[UI PERCENT] 적용 id=" + targetId + " style=" + percentStyle);
+            } else {
+                style = layoutConverter.buildComponentStyle(src, includePosition);
+                System.out.println("[UI PERCENT] UNRESOLVED(px fallback) id=" + targetId
+                        + " basisWidth=" + basisWidth + " basisHeight=" + basisHeight);
+            }
+        } else {
+            style = layoutConverter.buildComponentStyle(src, includePosition);
+        }
+        style = sanitizeXml10(style);
         if (style.length() > 0) {
             target.setAttribute("style", style);
         }
@@ -1224,14 +1418,21 @@ public class WebSquareGenerator {
         return found;
     }
 
+    /**
+     * [WebSquareGenerator] registerFormRootMapping -- EXPECTED_SOURCE_TO_TARGET_MAP_DIFF: global
+     * grp_content wrapper 제거에 맞춰 Form root mapping을 grp_content에서 grp_main으로
+     * migration했다(다른 component mapping은 무변경). TabRuntimeScriptGenerator의
+     * component('grp_main').getScope()/w.grp_main도 동일 id로 함께 변경됨(id-string 기반 lookup
+     * 방식 자체는 무변경).
+     */
     private void registerFormRootMapping(Document source) {
         List<Element> forms = findDescendants(source.getDocumentElement(), "Form");
         if (forms.isEmpty()) return;
         String formId = canonicalizePath(sanitizeXml10(forms.get(0).getAttribute("id")));
         if (formId.length() > 0 && !componentIdMap.containsKey(formId)) {
-            componentIdMap.put(formId, "grp_content");
-            targetComponentTypeMap.put("grp_content", "Form");
-            System.out.println("[UI 매핑] Form " + formId + " -> grp_content (lifecycle obj 호환)");
+            componentIdMap.put(formId, "grp_main");
+            targetComponentTypeMap.put("grp_main", "Form");
+            System.out.println("[UI 매핑] Form " + formId + " -> grp_main (lifecycle obj 호환)");
         }
     }
 
@@ -1298,12 +1499,9 @@ public class WebSquareGenerator {
             System.out.println("[BINDING 변환] " + sourcePath + " -> data:"
                     + valueBinding.getDatasetId() + "." + valueBinding.getColumnId());
 
-            // A scalar "data:dataset.column" ref only resolves once the target w2:dataList's
-            // internal row cursor is set (real WebSquare: w2:dataList.setRowPosition(rowIndex);
-            // unset by default, so the field renders blank even though the ref is correct).
-            // XPlatform BindItem has no explicit row concept for a plain component bind, so the
-            // first row (0) is the only safe, generalizable default. One bootstrap call per
-            // dataset regardless of how many components bind into it.
+            // scalar ref는 w2:dataList의 row cursor가 설정돼야 실제로 값이 보임(기본 unset).
+            // XPlatform BindItem엔 row 개념이 없어 0번 row를 안전한 기본값으로 사용, dataset당
+            // 1회만 bootstrap.
             String datasetId = valueBinding.getDatasetId();
             if (datasetId != null && datasetId.length() > 0 && rowPositionBootstrapped.add(datasetId)) {
                 pageLoadStatements.add(datasetId + ".setRowPosition(0);");

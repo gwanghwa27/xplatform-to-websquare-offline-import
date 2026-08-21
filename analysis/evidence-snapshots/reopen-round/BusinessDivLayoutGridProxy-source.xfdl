@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><Form id="BusinessDivLayoutGridProxy" width="1350" height="800"><Layouts><Layout width="1350" height="800">
+<Div id="div_search" left="10" top="10" width="1330" height="120">
+<Layouts><Layout width="1330" height="120">
+<Static id="lbl_baseYm" left="10" top="10" width="80" height="24" text="기준년월"/>
+<Edit id="ed_baseYm" left="100" top="10" width="120" height="24"/>
+<Static id="lbl_branch" left="250" top="10" width="80" height="24" text="지점"/>
+<Combo id="cb_branch" left="340" top="10" width="150" height="24"/>
+</Layout></Layouts>
+</Div>
+<Div id="div_summary" left="10" top="140" width="1330" height="60">
+<Layouts><Layout width="1330" height="60">
+<Static id="lbl_startDate" left="10" top="10" width="120" height="24" text="시작일자"/>
+<Static id="lbl_endDate" left="180" top="10" width="120" height="24" text="종료일자"/>
+<Static id="val_startDate" left="10" top="40" width="120" height="24" text="0"/>
+<Static id="val_endDate" left="180" top="40" width="120" height="24" text="0"/>
+</Layout></Layouts>
+</Div>
+<Grid id="grd_list" left="10" top="210" width="1330" height="500"/>
+</Layout></Layouts></Form></FDL>

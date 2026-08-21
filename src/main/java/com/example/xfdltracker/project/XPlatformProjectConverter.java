@@ -247,10 +247,14 @@ public class XPlatformProjectConverter {
             throw new IllegalStateException("Tab runtime 디렉터리를 생성할 수 없습니다: " + runtimeDir);
         TextFileUtil.writeUtf8(new File(runtimeDir, "xplatform-tab-runtime.js"),
                 new TabRuntimeScriptGenerator().generateStandaloneReference());
+        // v6 Design Structure + Table + Grid Group + Percentage Geometry Alignment 라운드:
+        // WebSquareGenerator가 실제 화면에서 더 이상 grp_content를 생성하지 않고 Form root를
+        // grp_main으로 등록하므로(EXPECTED_SOURCE_TO_TARGET_MAP_DIFF), Tab runtime의 빈 placeholder
+        // 페이지도 동일 id-string 규약을 따르도록 grp_content -> grp_main으로 함께 migration했다.
         String empty = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
                 + "<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:w2=\"http://www.inswave.com/websquare\">\n"
                 + "  <head><script type=\"text/javascript\"><![CDATA[var scwin=(typeof scwin===\"undefined\")?{}:scwin;]]></script></head>\n"
-                + "  <body><w2:group id=\"grp_content\" style=\"position:relative;width:100%;height:100%;\"/></body>\n"
+                + "  <body><w2:group id=\"grp_main\" style=\"position:relative;width:100%;height:100%;\"/></body>\n"
                 + "</html>\n";
         TextFileUtil.writeUtf8(new File(runtimeDir, "xplatform-tab-empty.xml"), empty);
     }

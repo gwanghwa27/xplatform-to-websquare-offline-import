@@ -1,6 +1,8 @@
 build/
 verify-logs/
 logs/
+*.log
+!analysis/**/*.log
 *.class
 *.jar
 .idea/workspace.xml
@@ -9,5 +11,23 @@ logs/
 .idea/httpRequests/
 *.iws
 *.ipr
+*.iml
+.vscode/
 out/
 target/
+tmp/
+temp/
+*.tmp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+.env.*
+*.pem
+*.key
+
+# Freeze archives (참조만, 이 저장소 root에는 존재하지 않음 -- 방어적으로 유지)
+work/frozen/*.zip

@@ -1,0 +1,944 @@
+--- BASELINE-ZIP/src/main/java/com/example/xfdltracker/mapping/ComponentMappingRegistry.java
++++ CANDIDATE/src/main/java/com/example/xfdltracker/mapping/ComponentMappingRegistry.java
+@@ -20,7 +20,7 @@
+         add("ListBox", "xf:select1", SupportLevel.PARTIAL, false, "visual list behavior may differ");
+         add("Radio", "xf:select1", SupportLevel.PARTIAL, false, "itemset binding supported in Phase 3");
+         add("CheckBox", "w2:checkbox", SupportLevel.PARTIAL, false, "single-value checkbox baseline");
+-        add("Calendar", "w2:calendar", SupportLevel.PARTIAL, false, "date/edit format partially mapped");
++        add("Calendar", "w2:inputCalendar", SupportLevel.PARTIAL, false, "date/edit format partially mapped; uiplugin.inputCalendar (edit box + picker), not bare uiplugin.calendar (picker-only) -- see V6_COMPONENT_MAPPING_MISMATCH fix");
+         add("Spin", "w2:spinner", SupportLevel.PARTIAL, false, "basic geometry/value only");
+         add("Grid", "w2:gridView", SupportLevel.PARTIAL, false, "Formats/head/body/bind and selected input types");
+         add("Div", "w2:group", SupportLevel.SUPPORTED, true, "child coordinate system preserved");
+--- BASELINE-ZIP/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java
++++ CANDIDATE/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java
+@@ -5,7 +5,9 @@
+ import org.w3c.dom.Node;
+ import org.w3c.dom.NodeList;
+ 
++import java.util.ArrayList;
+ import java.util.LinkedHashMap;
++import java.util.List;
+ import java.util.Map;
+ import java.util.regex.Matcher;
+ import java.util.regex.Pattern;
+@@ -24,15 +26,32 @@
+             "([-+]?\\d+(?:\\.\\d+)?)(px|%)?",
+             Pattern.CASE_INSENSITIVE);
+ 
+-    /** 일반 UI 컴포넌트의 CSS style 문자열을 생성한다. */
++    /** source가 left/top/width/height 등 위치/크기 속성을 하나라도 가지는지 여부. */
++    public boolean hasGeometry(Element source) {
++        return resolveGeometry(source).hasAnyPositionOrSize();
++    }
++
++    /** 일반 UI 컴포넌트의 CSS style 문자열을 생성한다(px, position 포함). */
+     public String buildComponentStyle(Element source) {
++        return buildComponentStyle(source, true);
++    }
++
++    /**
++     * 일반 UI 컴포넌트의 CSS style(px) 문자열을 생성한다. {@code includePosition=false}면
++     * Table 셀처럼 structural placement가 이미 위치를 결정하는 경우 불필요한
++     * {@code position:absolute}/{@code left}/{@code top}을 생성하지 않는다(percentage 변환이
++     * unresolved라서 px로 fallback하는 경우에도 20번 규칙을 동일하게 지킨다).
++     */
++    public String buildComponentStyle(Element source, boolean includePosition) {
+         Geometry geometry = resolveGeometry(source);
+         StringBuilder style = new StringBuilder();
+ 
+         if (geometry.hasAnyPositionOrSize()) {
+-            style.append("position:absolute;");
+-            appendCssLength(style, "left", geometry.left);
+-            appendCssLength(style, "top", geometry.top);
++            if (includePosition) {
++                style.append("position:absolute;");
++                appendCssLength(style, "left", geometry.left);
++                appendCssLength(style, "top", geometry.top);
++            }
+             appendCssLength(style, "width", geometry.width);
+             appendCssLength(style, "height", geometry.height);
+         }
+@@ -47,8 +66,9 @@
+      */
+     public String buildRootStyle(Document source) {
+         StringBuilder style = new StringBuilder();
+-        style.append("position:relative;");
+-        style.append("overflow:hidden;");
++        // position:relative/overflow:hidden 미emit -- Studio 실측 확정(ISSUE-20260818-001).
++        // 현재 이 메서드의 호출부는 없음(v6 Design Structure 라운드에서 grp_content 제거로 dead
++        // code화, 정리는 NEXT_ROUND_CANDIDATE).
+ 
+         Geometry geometry = findFormGeometry(source);
+         if (geometry != null) {
+@@ -65,6 +85,279 @@
+         return style.toString();
+     }
+ 
++    /**
++     * percentage geometry 값을 deterministic하게 포맷한다(소수점 4자리에서 반올림, trailing zero
++     * 제거). fixture별 precision을 두지 않고 모든 Production output에 동일 규칙을 적용한다.
++     * 예: 25.0000% -&gt; 25%, 12.5000% -&gt; 12.5%.
++     */
++    public String formatPercent(double value) {
++        java.math.BigDecimal bd = java.math.BigDecimal.valueOf(value)
++                .setScale(4, java.math.RoundingMode.HALF_UP)
++                .stripTrailingZeros();
++        if (bd.scale() < 0) {
++            bd = bd.setScale(0);
++        }
++        return bd.toPlainString() + "%";
++    }
++
++    /**
++     * percentage 기준(basis)은 항상 {@code PERCENT_GEOMETRY_PARENT = IMMEDIATE_SOURCE_CONTAINER}
++     * 원칙에 따라, 자식을 담고 있는 XPlatform {@code Layout} 엘리먼트 자신의 width/height(px)다
++     * (Form root Layout이든 Div 내부 Layout이든 동일 방식 -- Div의 Group, Div/Layout 내부
++     * component, Layout-as-Table의 row/column 크기 모두 이 basis 하나로 계산한다). width/height가
++     * 없거나 파싱 불가/0 이하이면 null(호출부가 {@code PERCENT_GEOMETRY_UNRESOLVED}로 처리).
++     */
++    public double[] resolveLayoutBasis(Element layout) {
++        Geometry g = resolveGeometry(layout);
++        if (isEmpty(g.width) || isEmpty(g.height)) {
++            return null;
++        }
++        ParsedLength w = parseLength(g.width);
++        ParsedLength h = parseLength(g.height);
++        if (w == null || h == null || w.value <= 0.0 || h.value <= 0.0) {
++            return null;
++        }
++        return new double[] {w.value, h.value};
++    }
++
++    /**
++     * source의 left/top/width/height를 basis(immediate source Layout의 width/height) 기준
++     * percentage style로 변환한다. {@code includePosition=false}면 left/top을 emit하지 않는다
++     * (Table 셀 내부처럼 structural placement가 이미 위치를 결정하는 경우 -- 20번 규칙).
++     * source 자체가 geometry를 전혀 갖지 않으면(hasAnyPositionOrSize=false) 그냥 visual style만
++     * 반환한다(변환 대상이 아님, unresolved 아님). basis가 없거나(<=0) width/height(그리고
++     * includePosition인 경우 left/top)를 확정적으로 읽을 수 없으면 null을 반환한다
++     * (PERCENT_GEOMETRY_UNRESOLVED -- 호출부가 px fallback 여부를 결정).
++     */
++    public String buildPercentComponentStyle(
++            Element source, double basisWidth, double basisHeight, boolean includePosition) {
++        Geometry geometry = resolveGeometry(source);
++        if (!geometry.hasAnyPositionOrSize()) {
++            StringBuilder style = new StringBuilder();
++            appendVisualStyle(source, style);
++            return style.toString();
++        }
++        if (basisWidth <= 0.0 || basisHeight <= 0.0) {
++            return null;
++        }
++
++        ParsedLength left = isEmpty(geometry.left) ? null : parseLength(geometry.left);
++        ParsedLength top = isEmpty(geometry.top) ? null : parseLength(geometry.top);
++        ParsedLength width = isEmpty(geometry.width) ? null : parseLength(geometry.width);
++        ParsedLength height = isEmpty(geometry.height) ? null : parseLength(geometry.height);
++        if (width == null || height == null) {
++            return null;
++        }
++        if (includePosition && (left == null || top == null)) {
++            return null;
++        }
++
++        StringBuilder style = new StringBuilder();
++        if (includePosition) {
++            style.append("position:absolute;");
++            style.append("left:").append(formatPercent(left.value / basisWidth * 100.0)).append(";");
++            style.append("top:").append(formatPercent(top.value / basisHeight * 100.0)).append(";");
++        }
++        style.append("width:").append(formatPercent(width.value / basisWidth * 100.0)).append(";");
++        style.append("height:").append(formatPercent(height.value / basisHeight * 100.0)).append(";");
++        appendVisualStyle(source, style);
++        return style.toString();
++    }
++
++    /**
++     * Table row wrapper(xf:group)의 style. row 안 셀들의 실제 top/height 분포(min top ~ max
++     * bottom)로 row 자체의 세로 footprint를 구해 basisHeight 대비 비율로 변환한다(19번 규칙 --
++     * source geometry 실비율 사용, 균등분할 금지). 좌우 offset은 structural placement(문서 순서
++     * stacking)로 대체하므로 emit하지 않는다(20번 규칙). 계산 불가면 null.
++     */
++    public String buildTableRowStyle(List<Element> row, double basisHeight) {
++        if (basisHeight <= 0.0 || row == null || row.isEmpty()) {
++            return null;
++        }
++        double minTop = Double.MAX_VALUE;
++        double maxBottom = -Double.MAX_VALUE;
++        for (Element cell : row) {
++            Geometry g = resolveGeometry(cell);
++            ParsedLength top = isEmpty(g.top) ? null : parseLength(g.top);
++            ParsedLength height = isEmpty(g.height) ? null : parseLength(g.height);
++            if (top == null || height == null) {
++                return null;
++            }
++            minTop = Math.min(minTop, top.value);
++            maxBottom = Math.max(maxBottom, top.value + height.value);
++        }
++        double rowHeight = maxBottom - minTop;
++        if (rowHeight <= 0.0) {
++            return null;
++        }
++        return "width:100%;height:" + formatPercent(rowHeight / basisHeight * 100.0) + ";";
++    }
++
++    /**
++     * Table cell wrapper(xf:group)의 style. 셀 자신의 width를 basisWidth 대비 비율로 변환한다(19번
++     * 규칙). height는 row를 100% 채운다(structural placement). 계산 불가면 null.
++     */
++    public String buildTableCellStyle(Element cell, double basisWidth) {
++        if (basisWidth <= 0.0 || cell == null) {
++            return null;
++        }
++        Geometry g = resolveGeometry(cell);
++        ParsedLength width = isEmpty(g.width) ? null : parseLength(g.width);
++        if (width == null) {
++            return null;
++        }
++        return "width:" + formatPercent(width.value / basisWidth * 100.0) + ";height:100%;";
++    }
++
++    /**
++     * XPlatform {@code Layout} 직계 자식들의 geometry(left/top/width/height)만으로 table topology
++     * 변환 가능 여부를 generic하게 판정한다. Magic pixel tolerance는 사용하지 않는다 -- 정확히
++     * 동일한 top 좌표값을 가진 자식만 같은 row로 묶는다(exact numeric equality).
++     *
++     * <p>v6 Design Structure + Table + Grid Group + Percentage Geometry Alignment 라운드에서
++     * 판정 기준을 완화했다: row 수/column 수가 2 미만이거나(1-row/1-column) row마다 column 수가
++     * 다르더라도(완전한 사각 grid가 아니더라도) 그 자체를 fallback 사유로 쓰지 않는다(row/column
++     * clustering이 곧 table topology이며, {@link #buildTableRows}가 row별로 실제 존재하는 셀만
++     * 배치하므로 임의 span을 만들지 않는다). fallback은 오직: 자식 geometry를 확정적으로 읽을 수
++     * 없을 때({@code UNRESOLVED_LAYOUT}), 자식이 없을 때({@code UNRESOLVED_LAYOUT}), 자식끼리
++     * 실제로 겹칠 때({@code ABSOLUTE_LAYOUT_FALLBACK} -- topology 계산 자체가 불가능/불안전)만
++     * 발생한다.
++     *
++     * <p>반환값은 다음 3개 문자열 중 하나: {@code TABLE_LAYOUT_HIGH_CONFIDENCE},
++     * {@code ABSOLUTE_LAYOUT_FALLBACK}, {@code UNRESOLVED_LAYOUT}.
++     */
++    public String classifyLayoutGeometry(List<Element> children) {
++        List<CellGeometry> cells = resolveCellGeometries(children);
++        if (cells == null || cells.isEmpty()) {
++            return "UNRESOLVED_LAYOUT";
++        }
++        if (hasOverlap(cells)) {
++            return "ABSOLUTE_LAYOUT_FALLBACK";
++        }
++        return "TABLE_LAYOUT_HIGH_CONFIDENCE";
++    }
++
++    /**
++     * {@link #classifyLayoutGeometry}가 {@code TABLE_LAYOUT_HIGH_CONFIDENCE}를 반환한 경우에만
++     * 호출한다. top 오름차순으로 정렬된 row 목록을, 각 row는 left 오름차순으로 정렬된 셀 목록으로
++     * 반환한다.
++     */
++    public List<List<Element>> buildTableRows(List<Element> children) {
++        List<CellGeometry> cells = resolveCellGeometries(children);
++        if (cells == null) {
++            return new ArrayList<List<Element>>();
++        }
++        Map<Double, List<CellGeometry>> byTop = groupByTop(cells);
++        List<Double> tops = new ArrayList<Double>(byTop.keySet());
++        java.util.Collections.sort(tops);
++
++        List<List<Element>> rows = new ArrayList<List<Element>>();
++        for (Double top : tops) {
++            List<CellGeometry> row = byTop.get(top);
++            java.util.Collections.sort(row, new java.util.Comparator<CellGeometry>() {
++                public int compare(CellGeometry a, CellGeometry b) {
++                    return Double.compare(a.left, b.left);
++                }
++            });
++            List<Element> rowElements = new ArrayList<Element>();
++            for (CellGeometry c : row) {
++                rowElements.add(c.element);
++            }
++            rows.add(rowElements);
++        }
++        return rows;
++    }
++
++    /**
++     * children이 비어있거나 left/top/width/height를 확정적으로 읽을 수 없으면 null. child 수
++     * 자체는 fallback 사유로 쓰지 않는다(1-row/소수 child Div도 table 변환 대상, 14번 규칙).
++     */
++    private List<CellGeometry> resolveCellGeometries(List<Element> children) {
++        if (children == null || children.isEmpty()) {
++            return null;
++        }
++        List<CellGeometry> cells = new ArrayList<CellGeometry>();
++        for (Element child : children) {
++            Geometry g = resolveGeometry(child);
++            ParsedLength left = isEmpty(g.left) ? null : parseLength(g.left);
++            ParsedLength top = isEmpty(g.top) ? null : parseLength(g.top);
++            ParsedLength width = isEmpty(g.width) ? null : parseLength(g.width);
++            ParsedLength height = isEmpty(g.height) ? null : parseLength(g.height);
++            if (left == null || top == null || width == null || height == null) {
++                return null;
++            }
++            cells.add(new CellGeometry(child, left.value, top.value, width.value, height.value));
++        }
++        return cells;
++    }
++
++    private Map<Double, List<CellGeometry>> groupByTop(List<CellGeometry> cells) {
++        Map<Double, List<CellGeometry>> map = new LinkedHashMap<Double, List<CellGeometry>>();
++        for (CellGeometry c : cells) {
++            List<CellGeometry> row = map.get(c.top);
++            if (row == null) {
++                row = new ArrayList<CellGeometry>();
++                map.put(c.top, row);
++            }
++            row.add(c);
++        }
++        return map;
++    }
++
++    private boolean hasOverlap(List<CellGeometry> cells) {
++        for (int i = 0; i < cells.size(); i++) {
++            for (int j = i + 1; j < cells.size(); j++) {
++                CellGeometry a = cells.get(i);
++                CellGeometry b = cells.get(j);
++                boolean xOverlap = a.left < b.left + b.width && b.left < a.left + a.width;
++                boolean yOverlap = a.top < b.top + b.height && b.top < a.top + a.height;
++                if (xOverlap && yOverlap) {
++                    return true;
++                }
++            }
++        }
++        return false;
++    }
++
++    private static final class CellGeometry {
++        private final Element element;
++        private final double left;
++        private final double top;
++        private final double width;
++        private final double height;
++
++        private CellGeometry(Element element, double left, double top, double width, double height) {
++            this.element = element;
++            this.left = left;
++            this.top = top;
++            this.width = width;
++            this.height = height;
++        }
++    }
++
++    /**
++     * WebSquare AI v6 grp_main wrapper(V6_STRUCTURE_PARTIAL_ALIGNMENT)의 style을 생성한다.
++     * buildRootStyle과 동일한 geometry resolution(findFormGeometry)을 재사용하며, 유효한 양수
++     * height를 얻은 경우에만 height만 반환한다(width/position/overflow는 절대 emit하지 않음).
++     * 유효한 height를 얻지 못하면 height:0px; 같은 placeholder 없이 빈 문자열을 반환한다.
++     * height-only/no-width convention은 단일 real v6 화면 관찰(video evidence) 기반이며 아직
++     * universal rule로 검증된 것은 아니다.
++     */
++    public String buildMainAreaStyle(Document source) {
++        Geometry geometry = findFormGeometry(source);
++        if (geometry == null || isEmpty(geometry.height)) {
++            return "";
++        }
++        ParsedLength parsed = parseLength(geometry.height);
++        if (parsed == null || parsed.value <= 0.0) {
++            return "";
++        }
++
++        StringBuilder style = new StringBuilder();
++        appendCssLength(style, "height", geometry.height);
++        return style.toString();
++    }
++
+     /** 어떤 XPlatform 위치 속성을 사용했는지 진단용 문자열로 반환한다. */
+     public String describeLayoutSource(Element source) {
+         if (source == null) {
+--- BASELINE-ZIP/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java
++++ CANDIDATE/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java
+@@ -155,6 +155,11 @@
+         this.tabRuntimePlan = tabRuntimePlan;
+         // 고정 루트 group ID와 원본 컴포넌트 ID가 충돌하지 않도록 선예약한다.
+         usedTargetIds.add("grp_content");
++        // V6_STRUCTURE_PARTIAL_ALIGNMENT: WebSquare AI v6 실제 화면의 body > grp_resultArea >
++        // grp_main > (content) 구조를 부분 반영하기 위한 outer wrapper 2개도 동일하게 선예약한다.
++        // WRAPPER_ID_COLLISION pre-check (전체 corpus 136개 reference XML 스캔) = 0건 확인됨.
++        usedTargetIds.add("grp_resultArea");
++        usedTargetIds.add("grp_main");
+ 
+         XfdlReader reader = new XfdlReader();
+         Document source = reader.read(xfdlFile);
+@@ -396,20 +401,37 @@
+ 
+         bindFormLifecycle(body, source, analysis);
+ 
+-        Element root = out.createElementNS(NS_W2, "w2:group");
+-        root.setAttribute("id", "grp_content");
+-        root.setAttribute("style", layoutConverter.buildRootStyle(source));
+-        body.appendChild(root);
++        // Root container(grp_resultArea/grp_main): STUDIO_DESIGN_VERIFIED, 폐쇄망 실측 완료.
++        // 잔여 gap: V5_RUNTIME_REGRESSION_REQUIRED(xf:group의 getScope() 실제 v5 엔진 지원 여부
++        // 미검증) -- 상세: analysis/root-container-fix-chronology.md, ISSUE.md.
++        // grp_content wrapper는 이번 라운드에 제거(GLOBAL_GRP_CONTENT_XFDL_COUNT=0), 변환된
++        // Div/Layout/Grid 구조가 grp_main 바로 아래 위치. id 예약은 충돌 방지용으로 유지하되
++        // TabRuntimeScriptGenerator/XPlatformProjectConverter/registerFormRootMapping의 관련
++        // literal은 전부 grp_content -> grp_main으로 함께 이동(EXPECTED_SOURCE_TO_TARGET_MAP_DIFF).
++        // 상세: analysis/v6-design-structure-alignment-analysis.md.
++        Element resultArea = out.createElementNS(NS_XF, "xf:group");
++        resultArea.setAttribute("id", "grp_resultArea");
++        resultArea.setAttribute("style", "");
++        body.appendChild(resultArea);
++
++        Element main = out.createElementNS(NS_XF, "xf:group");
++        main.setAttribute("id", "grp_main");
++        main.setAttribute("style", layoutConverter.buildMainAreaStyle(source));
++        resultArea.appendChild(main);
+         registerFormRootMapping(source);
+ 
+         Element sourceRoot = source.getDocumentElement();
+         convertChildren(
+                 out,
+                 sourceRoot,
+-                root,
++                main,
+                 "",
+                 analysis,
+-                0);
++                0,
++                null,
++                -1.0,
++                -1.0,
++                true);
+ 
+         finalizePageLoadBinding(body);
+         logUnmappedEventBindings(analysis);
+@@ -417,13 +439,32 @@
+                 "[UI 변환 완료] component count=" + componentIdMap.size());
+     }
+ 
++    /**
++     * [WebSquareGenerator] convertChildren -- percent-geometry basis 파라미터 추가(basisWidth/
++     * basisHeight/includePosition). onlyChild가 null이면 sourceParent의 모든 element 자식을
++     * 순회한다. onlyChild가 non-null이면 그 특정 자식 하나만 처리한다 -- Layout -> Table 구조
++     * 변환(convertLayoutAsTable)에서 이미 row/column으로 분류된 셀 하나를 targetParent 계층 안의
++     * 정확한 위치에 배치하기 위해, 이 메서드의 나머지 로직(mapped-component 생성, container 재귀,
++     * pass-through 재귀 등)을 전혀 수정하지 않고 그대로 재사용하는 용도다.
++     *
++     * <p>basisWidth/basisHeight는 {@code PERCENT_GEOMETRY_PARENT = IMMEDIATE_SOURCE_CONTAINER}
++     * 원칙에 따라 항상 "현재 순회 중인 자식들을 감싸는 가장 가까운 XPlatform Layout 자신의
++     * width/height"다. Div/Layouts/FDL/Form 등 pass-through 재귀에서는 이 basis를 그대로
++     * 전달하고(그 경계 자체는 좌표계를 바꾸지 않음), 새 {@code Layout}을 만났을 때만
++     * (convertLayoutAsTable 내부에서) 그 Layout 자신의 geometry로 basis를 갱신한다. 둘 다 <=0
++     * 이면(sentinel -1.0) percent 변환은 시도하지 않고 px로 fallback한다.
++     */
+     private void convertChildren(
+             Document out,
+             Element sourceParent,
+             Element targetParent,
+             String parentPath,
+             XfdlAnalysisResult analysis,
+-            int depth) {
++            int depth,
++            Element onlyChild,
++            double basisWidth,
++            double basisHeight,
++            boolean includePosition) {
+ 
+         if (depth > 200) {
+             throw new IllegalStateException(
+@@ -438,6 +479,9 @@
+             }
+ 
+             Element src = (Element) node;
++            if (onlyChild != null && src != onlyChild) {
++                continue;
++            }
+             String sourceTag = getSourceTagName(src);
+ 
+             if ("Layouts".equals(getSourceTagName(sourceParent))
+@@ -456,7 +500,9 @@
+             }
+ 
+             if ("Tab".equals(sourceTag) && componentMapping != null && targetTag != null) {
+-                convertTab(out, src, targetParent, parentPath, analysis, depth, componentMapping);
++                convertTab(
++                        out, src, targetParent, parentPath, analysis, depth, componentMapping,
++                        basisWidth, basisHeight, includePosition);
+                 continue;
+             }
+ 
+@@ -482,7 +528,7 @@
+                 target.setAttribute("id", targetId);
+                 targetComponentTypeMap.put(targetId, sourceTag);
+                 logPartialComponentMapping(componentMapping, sourcePath);
+-                copyBasicProperties(src, target);
++                copyBasicProperties(src, target, basisWidth, basisHeight, includePosition);
+                 applyComponentSpecificProperties(src, target, sourceTag, sourcePath);
+                 applyBindings(src, target, sourcePath, localId, targetId, sourceTag);
+                 bindEvents(target, sourcePath, localId, analysis);
+@@ -509,7 +555,40 @@
+                                     + layoutConverter.describeLayoutSource(src) + ")");
+                 }
+ 
+-                targetParent.appendChild(target);
++                // GRID_GROUP_STRUCTURE: XPlatform Grid는 그 자체로 container가 아니라서(위
++                // isContainerComponent 재귀 대상이 아님) 여기서 직접 Group wrapper로 감싼다.
++                // wrapper id는 row/col wrapper와 동일 원칙으로 synthetic(componentIdMap에는 추가
++                // 안 함, usedTargetIds 충돌 방지만)이며, Grid 자신의 sourcePath/targetId(스크립트가
++                // 참조하는 실제 id)는 무변경으로 보존한다. Grid 자신의 style은 wrapper가 위치를
++                // 담당하므로 100% fill로 대체한다.
++                if ("w2:gridView".equals(targetTag)) {
++                    Element gridWrapper = out.createElementNS(NS_XF, "xf:group");
++                    String wrapperId = createUniqueTargetId(buildSourcePath(sourcePath, "gridGroup"));
++                    gridWrapper.setAttribute("id", wrapperId);
++                    String wrapperStyle = layoutConverter.hasGeometry(src)
++                            ? ((basisWidth > 0.0 && basisHeight > 0.0)
++                                    ? layoutConverter.buildPercentComponentStyle(
++                                            src, basisWidth, basisHeight, true)
++                                    : null)
++                            : "";
++                    if (wrapperStyle == null) {
++                        wrapperStyle = layoutConverter.buildComponentStyle(src, true);
++                        System.out.println(
++                                "[UI PERCENT] UNRESOLVED(px fallback, Grid Group) id=" + wrapperId);
++                    } else if (wrapperStyle.length() > 0) {
++                        System.out.println(
++                                "[UI PERCENT] 적용 id=" + wrapperId + " style=" + wrapperStyle);
++                    }
++                    gridWrapper.setAttribute("style", sanitizeXml10(wrapperStyle));
++                    target.setAttribute("style", "width:100%;height:100%;");
++                    gridWrapper.appendChild(target);
++                    targetParent.appendChild(gridWrapper);
++                    System.out.println(
++                            "[UI GRID GROUP] " + sourcePath + " -> Group id=" + wrapperId
++                                    + " -> w2:gridView id=" + targetId);
++                } else {
++                    targetParent.appendChild(target);
++                }
+                 System.out.println(
+                         "[UI 변환] " + sourceTag + " " + sourcePath
+                                 + " -> " + targetTag + " id=" + targetId);
+@@ -521,7 +600,11 @@
+                             target,
+                             sourcePath,
+                             analysis,
+-                            depth + 1);
++                            depth + 1,
++                            null,
++                            basisWidth,
++                            basisHeight,
++                            true);
+                 }
+ 
+                 continue;
+@@ -539,15 +622,137 @@
+                                     + sourceTag + " id=" + wrapperId
+                                     + " (자식 좌표 기준 수동 확인 필요)");
+                 }
++                if ("Layout".equals(sourceTag)) {
++                    convertLayoutAsTable(out, src, targetParent, parentPath, analysis, depth + 1);
++                } else {
++                    convertChildren(
++                            out,
++                            src,
++                            targetParent,
++                            parentPath,
++                            analysis,
++                            depth + 1,
++                            null,
++                            basisWidth,
++                            basisHeight,
++                            includePosition);
++                }
++            }
++        }
++    }
++
++    /**
++     * XPlatform {@code Layout} 직계 자식들이 table topology({@code TABLE_LAYOUT_HIGH_CONFIDENCE})
++     * 로 판정되는 경우 row/column {@code xf:group} 구조를 생성한다. 겹침 등으로 계산이 불가능한
++     * 경우({@code ABSOLUTE_LAYOUT_FALLBACK}/{@code UNRESOLVED_LAYOUT})만 flat pass-through로
++     * 처리한다({@code Layout} 자체는 target element 없이 targetParent 아래 자식들을 직접 배치).
++     * v6 Design Structure + Table + Grid Group + Percentage Geometry Alignment 라운드부터는
++     * 1-row/1-column Layout(검색조건/버튼 바 등)도 table 대상이다(14번 규칙, 이전 라운드의
++     * row&gt;=2/column&gt;=2 요건 제거).
++     *
++     * <p>row/column wrapper는 XPlatform source component가 아니므로 componentIdMap에 새 키를
++     * 추가하지 않는다({@code usedTargetIds} 등록(충돌 방지)만 발생 -- grp_resultArea/grp_main과
++     * 동일한 원칙). 실제 셀 안의 컴포넌트는 원래 sourcePath({@code parentPath} 그대로)를
++     * 유지하며, {@link #convertChildren}의 mapped-component 처리 로직을 완전히 무수정으로
++     * 재사용한다(onlyChild 필터).
++     *
++     * <p>이 Layout 자신의 width/height가 이 Layout 직계 자식 전체(및 fallback 경로의 하위
++     * 재귀)의 percent 기준(basis)이 된다({@code PERCENT_GEOMETRY_PARENT =
++     * IMMEDIATE_SOURCE_CONTAINER}). row wrapper의 height%/cell wrapper의 width%도 동일 basis로
++     * 계산한다(19번 규칙 -- source 비율 실측, 균등분할 금지). row/cell 내부 실제 component는
++     * structural placement로 위치가 이미 결정되므로 left/top/position은 생성하지 않는다
++     * (includePosition=false, 20번 규칙).
++     *
++     * <p>12번 규칙: Table 판단 대상은 Div 내부 Layout이 핵심이며, Form root Layout 전체는 Table
++     * 대상이 아니다({@code parentPath}가 비어 있으면 -- 즉 아직 어떤 Div/container도 거치지 않은
++     * 최상위 Form Layout이면 -- classification과 무관하게 강제로 flat pass-through). 목표
++     * hierarchy(6번 규칙)가 {@code grp_main} 바로 아래 Div Group/Grid Group이 직접 나타나는
++     * 것이기 때문에, root Layout 자체를 1-column table로 감싸면 불필요한 추가 wrapper 계층이
++     * 생겨 이 목표와 어긋난다. Div 내부에서 다시 Layout을 만나면(parentPath가 그 Div의
++     * sourcePath로 비어있지 않음) 정상적으로 Table 판정 대상이 된다.
++     */
++    private void convertLayoutAsTable(
++            Document out,
++            Element layout,
++            Element targetParent,
++            String parentPath,
++            XfdlAnalysisResult analysis,
++            int depth) {
++
++        List<Element> children = directElementChildren(layout);
++        boolean isRootFormLayout = parentPath.length() == 0;
++        String classification = isRootFormLayout
++                ? "ROOT_FORM_LAYOUT_NOT_A_TABLE_TARGET"
++                : layoutConverter.classifyLayoutGeometry(children);
++        double[] basis = layoutConverter.resolveLayoutBasis(layout);
++        double basisWidth = basis == null ? -1.0 : basis[0];
++        double basisHeight = basis == null ? -1.0 : basis[1];
++        System.out.println(
++                "[UI TABLE] Layout " + (parentPath.length() == 0 ? "(root)" : parentPath)
++                        + " children=" + children.size() + " classification=" + classification
++                        + " basisWidth=" + basisWidth + " basisHeight=" + basisHeight);
++
++        if (!"TABLE_LAYOUT_HIGH_CONFIDENCE".equals(classification)) {
++            convertChildren(
++                    out, layout, targetParent, parentPath, analysis, depth, null,
++                    basisWidth, basisHeight, true);
++            return;
++        }
++
++        List<List<Element>> rows = layoutConverter.buildTableRows(children);
++        int rowIndex = 0;
++        for (List<Element> row : rows) {
++            Element rowGroup = out.createElementNS(NS_XF, "xf:group");
++            String rowTargetId = createUniqueTargetId(
++                    buildSourcePath(parentPath, "layoutTableRow" + rowIndex));
++            rowGroup.setAttribute("id", rowTargetId);
++            String rowStyle = layoutConverter.buildTableRowStyle(row, basisHeight);
++            if (rowStyle != null) {
++                rowGroup.setAttribute("style", rowStyle);
++                System.out.println("[UI PERCENT] 적용 id=" + rowTargetId + " style=" + rowStyle);
++            } else {
++                System.out.println("[UI PERCENT] UNRESOLVED(no style, row) id=" + rowTargetId);
++            }
++            targetParent.appendChild(rowGroup);
++
++            int colIndex = 0;
++            for (Element cell : row) {
++                Element cellGroup = out.createElementNS(NS_XF, "xf:group");
++                String cellTargetId = createUniqueTargetId(
++                        buildSourcePath(parentPath, "layoutTableRow" + rowIndex + "Col" + colIndex));
++                cellGroup.setAttribute("id", cellTargetId);
++                String cellStyle = layoutConverter.buildTableCellStyle(cell, basisWidth);
++                if (cellStyle != null) {
++                    cellGroup.setAttribute("style", cellStyle);
++                    System.out.println("[UI PERCENT] 적용 id=" + cellTargetId + " style=" + cellStyle);
++                } else {
++                    System.out.println("[UI PERCENT] UNRESOLVED(no style, cell) id=" + cellTargetId);
++                }
++                rowGroup.appendChild(cellGroup);
++
+                 convertChildren(
+-                        out,
+-                        src,
+-                        targetParent,
+-                        parentPath,
+-                        analysis,
+-                        depth + 1);
++                        out, layout, cellGroup, parentPath, analysis, depth, cell,
++                        basisWidth, basisHeight, false);
++                colIndex++;
++            }
++            rowIndex++;
++        }
++
++        System.out.println(
++                "[UI TABLE] Layout " + (parentPath.length() == 0 ? "(root)" : parentPath)
++                        + " -> table rows=" + rows.size());
++    }
++
++    private List<Element> directElementChildren(Element parent) {
++        List<Element> result = new ArrayList<Element>();
++        NodeList children = parent.getChildNodes();
++        for (int i = 0; i < children.getLength(); i++) {
++            Node node = children.item(i);
++            if (node.getNodeType() == Node.ELEMENT_NODE) {
++                result.add((Element) node);
+             }
+         }
++        return result;
+     }
+ 
+     /** Phase 3: XPlatform Tab/Tabpage tree -> WebSquare tabControl tabs/content pairs. */
+@@ -558,7 +763,10 @@
+             String parentPath,
+             XfdlAnalysisResult analysis,
+             int depth,
+-            ComponentMapping componentMapping) {
++            ComponentMapping componentMapping,
++            double basisWidth,
++            double basisHeight,
++            boolean includePosition) {
+ 
+         String localId = sanitizeXml10(src.getAttribute("id"));
+         if (localId.length() == 0) {
+@@ -574,11 +782,10 @@
+         Element tabControl = createTargetElement(out, "w2:tabControl");
+         tabControl.setAttribute("id", targetId);
+         targetComponentTypeMap.put(targetId, "Tab");
+-        // Inline Tabpage behavior keeps the Phase 3 baseline. External URL pages override
+-        // alwaysDraw per w2:content so XPlatform preload semantics can be preserved.
++        // 외부 URL page는 w2:content 단위로 alwaysDraw를 override해 preload semantic 보존.
+         tabControl.setAttribute("alwaysDraw", "true");
+         logPartialComponentMapping(componentMapping, sourcePath);
+-        copyBasicProperties(src, tabControl);
++        copyBasicProperties(src, tabControl, basisWidth, basisHeight, includePosition);
+         applyComponentSpecificProperties(src, tabControl, "Tab", sourcePath);
+         applyBindings(src, tabControl, sourcePath, localId, targetId, "Tab");
+         bindEvents(tabControl, sourcePath, localId, analysis);
+@@ -643,14 +850,15 @@
+                 continue;
+             }
+             if (isRuntimeSetUrlTarget(localId, pageLocalId)) {
+-                // No initial url, but script assigns content dynamically via set_url() at runtime.
+-                // Without frameMode=wframe the content element never becomes a real WFrame, so
+-                // frame.setSrc is unavailable when the runtime adapter later calls set_url.
++                // 런타임 set_url() 대상: frameMode=wframe 없으면 실제 WFrame이 안 돼 setSrc 불가.
+                 content.setAttribute("frameMode", "wframe");
+                 content.setAttribute("scope", "true");
+                 System.out.println("[TAB CONTENT] " + pagePath + " runtime set_url target -> frameMode=wframe placeholder");
+             }
+-            convertChildren(out, page, content, pagePath, analysis, depth + 1);
++            // Tabpage 내부는 독립 scope(별도 Frame)이므로 percent basis를 상속하지 않고
++            // fresh하게 시작한다(appendBody의 최초 진입과 동일 원칙) -- page 자신의 Layout을
++            // 만나는 시점에 convertLayoutAsTable이 새 basis를 다시 계산한다.
++            convertChildren(out, page, content, pagePath, analysis, depth + 1, null, -1.0, -1.0, true);
+         }
+     }
+ 
+@@ -900,39 +1108,42 @@
+         return normalized.startsWith("@") ? normalized.substring(1) : normalized;
+     }
+ 
++    /**
++     * [WebSquareGenerator] copyBasicProperties -- 기존 오버로드, px/position 항상 포함(basis
++     * 정보가 없는 호출부용, 동작 무변경).
++     */
+     private void copyBasicProperties(Element src, Element target) {
++        copyBasicProperties(src, target, -1.0, -1.0, true);
++    }
++
++    /**
++     * [WebSquareGenerator] copyBasicProperties -- 신규 오버로드. PERCENT_GEOMETRY_PARENT =
++     * IMMEDIATE_SOURCE_CONTAINER 원칙에 따라 basisWidth/basisHeight(둘 다 양수일 때만 유효)가
++     * 있으면 percentage style을 우선 시도하고, 계산 불가(PERCENT_GEOMETRY_UNRESOLVED)면 px로
++     * fallback한다(PIXEL_GEOMETRY_FALLBACK). includePosition=false면 Table 셀 내부처럼 structural
++     * placement가 이미 위치를 결정하는 경우로, percent/px 어느 경로든 position/left/top을 생성하지
++     * 않는다(20번 규칙).
++     */
++    private void copyBasicProperties(
++            Element src, Element target, double basisWidth, double basisHeight, boolean includePosition) {
+         String text = sanitizeXml10(src.getAttribute("text"));
+         if (text.length() == 0) {
+             text = sanitizeXml10(src.getAttribute("value"));
+         }
+         if (text.length() > 0) {
+-            // Real WebSquare only honors a plain static "value" attribute for action-caption
+-            // widgets (xf:trigger). Data-bearing widgets need their own real static-content
+-            // attribute name instead (confirmed against shipped docs/samples: a bare "value" is
+-            // silently ignored by the real engine for these): w2:span -> label ("컴포넌트의
+-            // value를 화면에 출력하려는 텍스트"), xf:input -> initValue ("초기의 input에 지정할
+-            // 초기값"). Other target tags keep "value" unchanged (xf:trigger already renders it
+-            // correctly; other data-bearing tags such as xf:textarea/w2:calendar/w2:progressbar
+-            // have no documented static-value attribute at all and are intentionally left as-is,
+-            // out of this fix's scope).
++            // 실제 엔진은 정적 "value"를 xf:trigger에서만 렌더링 -- data 위젯은 전용 속성 필요:
++            // w2:span -> label, xf:input -> initValue. 그 외 태그는 "value" 유지(xf:trigger는
++            // 정상 렌더링, textarea/calendar/progressbar는 static-value 속성 자체가 없어 범위 밖).
+             String targetTag = target.getTagName();
+             if ("w2:span".equals(targetTag)) {
+                 target.setAttribute("label", text);
+             } else if ("xf:input".equals(targetTag)) {
+                 target.setAttribute("initValue", text);
+             } else if ("w2:checkbox".equals(targetTag)) {
+-                // Real w2:checkbox (uiplugin.checkbox) renders an empty shell (<table
+-                // class="w2checkbox_main"></table>, no <input>, no label) when only a static
+-                // "value"/"label" attribute is set on the tag -- confirmed live against the
+-                // shipped engine (getConfiguredOptions() shows value/title are read but do not
+-                // drive rendering; the widget only produces a real <input type="checkbox">+
+-                // <label> row, and a working getValue()/click round-trip, once populated via its
+-                // real addItem(value, label) API). There is no shipped standalone w2:checkbox
+-                // sample to confirm a declarative XML equivalent, so the addItem call is emitted
+-                // into the same page-init bootstrap channel already used by BIND-1's
+-                // setRowPosition bootstrap. XPlatform CheckBox "value" becomes the checkbox
+-                // item's value; "text" becomes its visible label (falls back to the label text
+-                // when no separate "value" attribute is present in the source).
++                // 실제 w2:checkbox는 정적 value/label 속성을 렌더링하지 않고 빈 shell만 생성 --
++                // 실제 input/label은 addItem(value,label) API 호출로만 생성됨(엔진 실측 확인).
++                // 선언적 XML 대안이 없어 page-init bootstrap(BIND-1 setRowPosition과 동일 채널)
++                // 으로 addItem 호출을 내보낸다. XPlatform "value"->item value, "text"->label.
+                 String checkboxValue = sanitizeXml10(src.getAttribute("value"));
+                 if (checkboxValue.length() == 0) checkboxValue = text;
+                 String targetId = target.getAttribute("id");
+@@ -944,7 +1155,24 @@
+             }
+         }
+ 
+-        String style = sanitizeXml10(layoutConverter.buildComponentStyle(src));
++        String targetId = target.getAttribute("id");
++        String style;
++        if (layoutConverter.hasGeometry(src)) {
++            String percentStyle = (basisWidth > 0.0 && basisHeight > 0.0)
++                    ? layoutConverter.buildPercentComponentStyle(src, basisWidth, basisHeight, includePosition)
++                    : null;
++            if (percentStyle != null) {
++                style = percentStyle;
++                System.out.println("[UI PERCENT] 적용 id=" + targetId + " style=" + percentStyle);
++            } else {
++                style = layoutConverter.buildComponentStyle(src, includePosition);
++                System.out.println("[UI PERCENT] UNRESOLVED(px fallback) id=" + targetId
++                        + " basisWidth=" + basisWidth + " basisHeight=" + basisHeight);
++            }
++        } else {
++            style = layoutConverter.buildComponentStyle(src, includePosition);
++        }
++        style = sanitizeXml10(style);
+         if (style.length() > 0) {
+             target.setAttribute("style", style);
+         }
+@@ -961,6 +1189,46 @@
+         copyAttributeIfPresent(src, target, "taborder", "tabIndex");
+         copyAttributeIfPresent(src, target, "displaynulltext", "placeholder");
+         copyAttributeIfPresent(src, target, "maxlength", "maxLength");
++
++        // WebSquare AI v6 실제 폐쇄망 정상 화면(BCI01M0000) XML source 영상 직접 판독 evidence
++        // 기반 base class (component type과 1:1 대응, 이번 화면 내 예외 0건 -- 상세:
++        // analysis/v6-video-source-analysis.md). cssclass로 이미 설정된 class(위 줄)와 병합하고
++        // 중복 토큰은 추가하지 않는다. 다른 target QName에는 아무 영향 없음.
++        String videoBaseClass = resolveVideoEvidenceBaseClass(target.getTagName());
++        if (videoBaseClass != null) {
++            appendClassTokenIfAbsent(target, videoBaseClass);
++        }
++    }
++
++    /**
++     * v6 실제 폐쇄망 화면 영상 판독으로 확인된, component type만으로 결정되는 base class.
++     * 다른 QName은 이번 evidence로 확정 근거가 없어 매핑하지 않는다(UNRESOLVED) --
++     * analysis/v6-class-profile.md 참고.
++     */
++    private String resolveVideoEvidenceBaseClass(String targetTag) {
++        if ("xf:trigger".equals(targetTag)) {
++            return "btn_cm";
++        }
++        if ("w2:gridView".equals(targetTag)) {
++            return "wq_gvw";
++        }
++        return null;
++    }
++
++    /** class 속성에 token을 공백으로 추가한다. 이미 존재하면(중복 방지) 아무것도 하지 않는다. */
++    private void appendClassTokenIfAbsent(Element target, String token) {
++        String existing = target.getAttribute("class");
++        if (existing.length() == 0) {
++            target.setAttribute("class", token);
++            return;
++        }
++        String[] parts = existing.split("\\s+");
++        for (int i = 0; i < parts.length; i++) {
++            if (token.equals(parts[i])) {
++                return;
++            }
++        }
++        target.setAttribute("class", existing + " " + token);
+     }
+ 
+     private void applyComponentSpecificProperties(Element src, Element target, String sourceTag, String sourcePath) {
+@@ -969,6 +1237,11 @@
+             target.setAttribute("appearance", "full");
+         } else if ("Combo".equals(sourceTag)) {
+             target.setAttribute("appearance", "minimal");
++            // WebSquare AI v6 실제 폐쇄망 정상 화면(BCI01M0000) XML source 영상 직접 판독 evidence:
++            // 관측된 xf:select1(appearance=minimal) 3/3 전부 disabledClass="w2selectbox_disabled"를
++            // 가짐(component-intrinsic 고정값, source 조건 없음) -- 상세: analysis/v6-video-source-analysis.md.
++            // Radio(appearance=full)는 이번 evidence에 없어 별도 취급하지 않는다.
++            target.setAttribute("disabledClass", "w2selectbox_disabled");
+         } else if ("Calendar".equals(sourceTag)) {
+             String dateFormat = sanitizeXml10(src.getAttribute("dateformat"));
+             if (dateFormat.length() > 0) target.setAttribute("displayFormat", dateFormat);
+@@ -1145,14 +1418,21 @@
+         return found;
+     }
+ 
++    /**
++     * [WebSquareGenerator] registerFormRootMapping -- EXPECTED_SOURCE_TO_TARGET_MAP_DIFF: global
++     * grp_content wrapper 제거에 맞춰 Form root mapping을 grp_content에서 grp_main으로
++     * migration했다(다른 component mapping은 무변경). TabRuntimeScriptGenerator의
++     * component('grp_main').getScope()/w.grp_main도 동일 id로 함께 변경됨(id-string 기반 lookup
++     * 방식 자체는 무변경).
++     */
+     private void registerFormRootMapping(Document source) {
+         List<Element> forms = findDescendants(source.getDocumentElement(), "Form");
+         if (forms.isEmpty()) return;
+         String formId = canonicalizePath(sanitizeXml10(forms.get(0).getAttribute("id")));
+         if (formId.length() > 0 && !componentIdMap.containsKey(formId)) {
+-            componentIdMap.put(formId, "grp_content");
+-            targetComponentTypeMap.put("grp_content", "Form");
+-            System.out.println("[UI 매핑] Form " + formId + " -> grp_content (lifecycle obj 호환)");
++            componentIdMap.put(formId, "grp_main");
++            targetComponentTypeMap.put("grp_main", "Form");
++            System.out.println("[UI 매핑] Form " + formId + " -> grp_main (lifecycle obj 호환)");
+         }
+     }
+ 
+@@ -1219,12 +1499,9 @@
+             System.out.println("[BINDING 변환] " + sourcePath + " -> data:"
+                     + valueBinding.getDatasetId() + "." + valueBinding.getColumnId());
+ 
+-            // A scalar "data:dataset.column" ref only resolves once the target w2:dataList's
+-            // internal row cursor is set (real WebSquare: w2:dataList.setRowPosition(rowIndex);
+-            // unset by default, so the field renders blank even though the ref is correct).
+-            // XPlatform BindItem has no explicit row concept for a plain component bind, so the
+-            // first row (0) is the only safe, generalizable default. One bootstrap call per
+-            // dataset regardless of how many components bind into it.
++            // scalar ref는 w2:dataList의 row cursor가 설정돼야 실제로 값이 보임(기본 unset).
++            // XPlatform BindItem엔 row 개념이 없어 0번 row를 안전한 기본값으로 사용, dataset당
++            // 1회만 bootstrap.
+             String datasetId = valueBinding.getDatasetId();
+             if (datasetId != null && datasetId.length() > 0 && rowPositionBootstrapped.add(datasetId)) {
+                 pageLoadStatements.add(datasetId + ".setRowPosition(0);");
+--- BASELINE-ZIP/src/main/java/com/example/xfdltracker/project/XPlatformProjectConverter.java
++++ CANDIDATE/src/main/java/com/example/xfdltracker/project/XPlatformProjectConverter.java
+@@ -247,10 +247,14 @@
+             throw new IllegalStateException("Tab runtime 디렉터리를 생성할 수 없습니다: " + runtimeDir);
+         TextFileUtil.writeUtf8(new File(runtimeDir, "xplatform-tab-runtime.js"),
+                 new TabRuntimeScriptGenerator().generateStandaloneReference());
++        // v6 Design Structure + Table + Grid Group + Percentage Geometry Alignment 라운드:
++        // WebSquareGenerator가 실제 화면에서 더 이상 grp_content를 생성하지 않고 Form root를
++        // grp_main으로 등록하므로(EXPECTED_SOURCE_TO_TARGET_MAP_DIFF), Tab runtime의 빈 placeholder
++        // 페이지도 동일 id-string 규약을 따르도록 grp_content -> grp_main으로 함께 migration했다.
+         String empty = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                 + "<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:w2=\"http://www.inswave.com/websquare\">\n"
+                 + "  <head><script type=\"text/javascript\"><![CDATA[var scwin=(typeof scwin===\"undefined\")?{}:scwin;]]></script></head>\n"
+-                + "  <body><w2:group id=\"grp_content\" style=\"position:relative;width:100%;height:100%;\"/></body>\n"
++                + "  <body><w2:group id=\"grp_main\" style=\"position:relative;width:100%;height:100%;\"/></body>\n"
+                 + "</html>\n";
+         TextFileUtil.writeUtf8(new File(runtimeDir, "xplatform-tab-empty.xml"), empty);
+     }
+--- BASELINE-ZIP/src/main/java/com/example/xfdltracker/tab/TabRuntimeScriptGenerator.java
++++ CANDIDATE/src/main/java/com/example/xfdltracker/tab/TabRuntimeScriptGenerator.java
+@@ -95,8 +95,12 @@
+         s.append("    function childObject(tabId,page,id) { var w=requireReadyWindow(tabId,page,'child object read'),o=resolveInScope(w,id);if(!o)throw runtimeError('CHILD_COMPONENT_NOT_FOUND','child object unresolved: '+id,{tab:tabId,page:page,object:id});return o; }\n");
+         s.append("    function getChildValue(tabId,page,id) { var o=childObject(tabId,page,id);if(!o.getValue)throw runtimeError('CHILD_COMPONENT_NOT_FOUND','child value API unavailable: '+id,{tab:tabId,page:page,object:id});return o.getValue(); }\n");
+         s.append("    function setChildValue(tabId,page,id,value) { var tab=resolveTab(tabId);return enqueue(tab,page,'SET_CHILD_VALUE',function(){var ready=ensureChildReady(tab,page);function setValue(win){var o=resolveInScope(win,id);if(!o||!o.setValue)throw runtimeError('CHILD_COMPONENT_NOT_FOUND','child value setter unavailable: '+id,{tab:tabId,page:page,object:id});o.setValue(value);return value;}return isThenable(ready)?ready.then(setValue):setValue(ready);}); }\n");
+-        s.append("    function currentFrame(){var root=component('grp_content');if(!root||!root.getScope)throw runtimeError('PARENT_SCOPE_NOT_FOUND','current scoped WFrame unavailable');var frame=root.getScope();if(!frame)throw runtimeError('PARENT_SCOPE_NOT_FOUND','current page is not inside scope=true WFrame');return frame;}\n");
+-        s.append("    function parentWindow(depth) { var d=depth||1,frame=currentFrame(),w=null;try{w=frame.getScopeWindow?frame.getScopeWindow():null;}catch(e){throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent scope lookup failed',{depth:d,error:e});}for(var i=1;i<d;i++){if(!w||!w.grp_content||!w.grp_content.getScope)throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent depth exceeds available scoped frames',{depth:d,at:i});frame=w.grp_content.getScope();if(!frame||!frame.getScopeWindow)throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent WFrame unavailable',{depth:d,at:i});w=frame.getScopeWindow();}if(!w)throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent scope unavailable',{depth:d});return w; }\n");
++        // v6 Design Structure + Table + Grid Group + Percentage Geometry Alignment 라운드:
++        // WebSquareGenerator가 global grp_content wrapper를 제거하고 Form root mapping을
++        // grp_main으로 migration함에 따라(EXPECTED_SOURCE_TO_TARGET_MAP_DIFF), 이 두 리터럴도
++        // 동일 id-string 기반 lookup 방식은 무변경으로 grp_content -> grp_main만 함께 바꿨다.
++        s.append("    function currentFrame(){var root=component('grp_main');if(!root||!root.getScope)throw runtimeError('PARENT_SCOPE_NOT_FOUND','current scoped WFrame unavailable');var frame=root.getScope();if(!frame)throw runtimeError('PARENT_SCOPE_NOT_FOUND','current page is not inside scope=true WFrame');return frame;}\n");
++        s.append("    function parentWindow(depth) { var d=depth||1,frame=currentFrame(),w=null;try{w=frame.getScopeWindow?frame.getScopeWindow():null;}catch(e){throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent scope lookup failed',{depth:d,error:e});}for(var i=1;i<d;i++){if(!w||!w.grp_main||!w.grp_main.getScope)throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent depth exceeds available scoped frames',{depth:d,at:i});frame=w.grp_main.getScope();if(!frame||!frame.getScopeWindow)throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent WFrame unavailable',{depth:d,at:i});w=frame.getScopeWindow();}if(!w)throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent scope unavailable',{depth:d});return w; }\n");
+         s.append("    function callParent(depth,fn,args){var w=parentWindow(depth);if(!w.scwin||typeof w.scwin[fn]!=='function')throw runtimeError('PARENT_FUNCTION_NOT_FOUND','parent function unresolved: '+fn,{depth:depth,functionName:fn});return w.scwin[fn].apply(w.scwin,args||[]);}\n");
+         s.append("    function parentObject(depth,id){var w=parentWindow(depth),o=resolveInScope(w,id);if(!o)throw runtimeError('PARENT_COMPONENT_NOT_FOUND','parent object unresolved: '+id,{depth:depth,object:id});return o;}\n");
+         s.append("    function getParentValue(depth,id){var o=parentObject(depth,id);if(!o.getValue)throw runtimeError('PARENT_COMPONENT_NOT_FOUND','parent value API unavailable: '+id,{depth:depth,object:id});return o.getValue();}\n");

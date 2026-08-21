@@ -1,0 +1,977 @@
+{
+  "summary": {
+    "total_first_layout_count": 129,
+    "reason_buckets": {
+      "non_rectangular_or_incomplete_row": 1,
+      "too_few_children(<4)": 121,
+      "no_children": 7
+    },
+    "single/few-child direct-tag distribution (<4 children, all tags across those layouts)": {
+      "Edit": 9,
+      "Combo": 1,
+      "Radio": 1,
+      "Grid": 1,
+      "Div": 2,
+      "GroupBox": 1,
+      "Tab": 97,
+      "Button": 6,
+      "Static": 8
+    },
+    "zero_child_files_sample": [
+      "Form\\TabDynamicIndexedSetUrl.xfdl",
+      "Form\\TabDynamicIndexedSetUrl.xfdl",
+      "Form\\TabOpenerFunction.xfdl",
+      "Form\\TabParentAndOpener.xfdl",
+      "TabContent\\ParentDepth2Second.xfdl",
+      "TabContent\\ParentDepth3Third.xfdl",
+      "TabContent\\ParentDepthUnresolvedChild.xfdl"
+    ],
+    "multi_child_2_or_3_details": [
+      {
+        "file": "Form\\DatasetBinding.xfdl",
+        "children_count": 3,
+        "children_tags": [
+          "Edit",
+          "Combo",
+          "Radio"
+        ]
+      },
+      {
+        "file": "Form\\TabChildReadsParentComponent.xfdl",
+        "children_count": 2,
+        "children_tags": [
+          "Edit",
+          "Tab"
+        ]
+      },
+      {
+        "file": "Form\\TabContentIdIsolation.xfdl",
+        "children_count": 2,
+        "children_tags": [
+          "Button",
+          "Tab"
+        ]
+      },
+      {
+        "file": "TabContent\\Search.xfdl",
+        "children_count": 2,
+        "children_tags": [
+          "Button",
+          "Edit"
+        ]
+      }
+    ]
+  },
+  "all_records": [
+    {
+      "file": "Form\\ControlPropertyMatrix.xfdl",
+      "children_count": 17,
+      "children_tags": [
+        "Static",
+        "Button",
+        "Edit",
+        "MaskEdit",
+        "TextArea",
+        "Combo",
+        "ListBox",
+        "Radio",
+        "CheckBox",
+        "Calendar",
+        "Spin",
+        "ImageViewer",
+        "ProgressBar",
+        "PopupDiv",
+        "WebBrowser",
+        "FileUpload",
+        "FileDownload"
+      ]
+    },
+    {
+      "file": "Form\\DatasetBinding.xfdl",
+      "children_count": 3,
+      "children_tags": [
+        "Edit",
+        "Combo",
+        "Radio"
+      ]
+    },
+    {
+      "file": "Form\\GridAdvancedPhase3.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Grid"
+      ]
+    },
+    {
+      "file": "Form\\NestedContainer.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Div"
+      ]
+    },
+    {
+      "file": "Form\\NestedContainer.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "GroupBox"
+      ]
+    },
+    {
+      "file": "Form\\TabAddPage.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabAddPageOverloads.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabAddPageWithArguments.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabAsyncAddSetUrlCallChild.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabAsyncLazyCallChild.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabAsyncLazyReadComponent.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabAsyncLazyReadDataset.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabAsyncLazySyncReturn.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabAsyncLoadedSyncReturn.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabAsyncRapidSelection.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabAsyncRapidSetUrl.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabAsyncRemoveReAdd.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabAsyncStaleLoadCallback.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabChildArguments.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabChildCallsParent.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabChildReadsParentComponent.xfdl",
+      "children_count": 2,
+      "children_tags": [
+        "Edit",
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabChildReadsParentDataset.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabCircularScreenDependency.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabContainer.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabContainer.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Edit"
+      ]
+    },
+    {
+      "file": "Form\\TabContainer.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Button"
+      ]
+    },
+    {
+      "file": "Form\\TabContentIdIsolation.xfdl",
+      "children_count": 2,
+      "children_tags": [
+        "Button",
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabContentLifecycle.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabDuplicateContent.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabDynamicContent.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabDynamicIdCollision.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabDynamicIndexedSetUrl.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabDynamicIndexedSetUrl.xfdl",
+      "children_count": 0,
+      "children_tags": []
+    },
+    {
+      "file": "Form\\TabDynamicIndexedSetUrl.xfdl",
+      "children_count": 0,
+      "children_tags": []
+    },
+    {
+      "file": "Form\\TabDynamicPathXjs.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabDynamicReplaceState.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabDynamicRuntimeOnly.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabDynamicSameScreenMultiInstance.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabDynamicSelection.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabDynamicServicePath.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabDynamicSetUrlConditional.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabDynamicSetUrlStatic.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabDynamicSetUrlVariable.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabEagerLifecycle.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabExternalContent.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabExternalNested.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabExternalPreload.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabExternalXjs.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabInlineContent.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabInlineContent.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Button"
+      ]
+    },
+    {
+      "file": "Form\\TabInsertPage.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabInsertPageOverloads.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabLazyLifecycle.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabLifecycleDynamicAdd.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabLifecycleInactiveReplace.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabLifecycleOnloadFailure.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabLifecycleRemoveSelected.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabLifecycleSelectedReplace.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabLifecycleSetUrlReplace.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabLifecycleStaticEager.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabLifecycleStaticLazy.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabMissingContent.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabMixedContent.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabMixedContent.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Static"
+      ]
+    },
+    {
+      "file": "Form\\TabNestedDynamic.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabOnloadFailureHost.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabOpenerBridge.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Edit"
+      ]
+    },
+    {
+      "file": "Form\\TabOpenerFunction.xfdl",
+      "children_count": 0,
+      "children_tags": []
+    },
+    {
+      "file": "Form\\TabOwnerFrameComponent.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabOwnerFrameDataset.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabOwnerFrameFunction.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabOwnerFrameHost.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabParentAccess.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabParentAndOpener.xfdl",
+      "children_count": 0,
+      "children_tags": []
+    },
+    {
+      "file": "Form\\TabParentCallsChild.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabParentCallsChildIndexed.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabParentDepth2.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabParentDepth3.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabParentDepthMain.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabParentDirect.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabParentReadsChildComponent.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabParentReadsChildDataset.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabParentShadowHost.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabParentUnresolvedDepth.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabPreloadDynamicUrl.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabRemovePage.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabRemoveReAdd.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabRuntimeEvent.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabRuntimeLexicalProtection.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabSameScreenMultiInstance.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabStateArgumentIsolation.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabStateGenerationIsolation.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabStateRemoveCleanup.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabStateRetention.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabStateSameScreenMultiInstance.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabStateSwitchRetention.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabStateUrlReplacement.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabStateXjsGlobalIsolation.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabStaticDynamicMixed.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabUnresolvedChildComponent.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\TabUnresolvedChildFunction.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "Form\\Main\\TabExternalRelativePath.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Div"
+      ]
+    },
+    {
+      "file": "Form\\Main\\TabExternalRelativePath.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "TabContent\\ChildBridgeParent.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Edit"
+      ]
+    },
+    {
+      "file": "TabContent\\CircularTabA.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "TabContent\\CircularTabB.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "TabContent\\Detail.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Static"
+      ]
+    },
+    {
+      "file": "TabContent\\FirstTab.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "TabContent\\IdIsolationChild.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Button"
+      ]
+    },
+    {
+      "file": "TabContent\\LifecycleChild.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Static"
+      ]
+    },
+    {
+      "file": "TabContent\\NestedDynamicFirst.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "TabContent\\OnloadFailureChild.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Static"
+      ]
+    },
+    {
+      "file": "TabContent\\OwnerBridgeChild.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Edit"
+      ]
+    },
+    {
+      "file": "TabContent\\ParentAccessChild.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Edit"
+      ]
+    },
+    {
+      "file": "TabContent\\ParentDepth2First.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "TabContent\\ParentDepth2Second.xfdl",
+      "children_count": 0,
+      "children_tags": []
+    },
+    {
+      "file": "TabContent\\ParentDepth3First.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "TabContent\\ParentDepth3Second.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "TabContent\\ParentDepth3Third.xfdl",
+      "children_count": 0,
+      "children_tags": []
+    },
+    {
+      "file": "TabContent\\ParentDepthFirst.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "TabContent\\ParentDepthSecond.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Tab"
+      ]
+    },
+    {
+      "file": "TabContent\\ParentDepthThird.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Static"
+      ]
+    },
+    {
+      "file": "TabContent\\ParentDepthUnresolvedChild.xfdl",
+      "children_count": 0,
+      "children_tags": []
+    },
+    {
+      "file": "TabContent\\ParentShadowChild.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Static"
+      ]
+    },
+    {
+      "file": "TabContent\\RuntimeBridgeChild.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Edit"
+      ]
+    },
+    {
+      "file": "TabContent\\Search.xfdl",
+      "children_count": 2,
+      "children_tags": [
+        "Button",
+        "Edit"
+      ]
+    },
+    {
+      "file": "TabContent\\SearchXjs.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Button"
+      ]
+    },
+    {
+      "file": "TabContent\\SecondTab.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Static"
+      ]
+    },
+    {
+      "file": "TabContent\\StateXjsChild.xfdl",
+      "children_count": 1,
+      "children_tags": [
+        "Static"
+      ]
+    }
+  ]
+}
