@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="ParentDepthThird" width="500" height="300"><Layouts><Layout width="500" height="300"><Static id="sta" text="Third"/></Layout></Layouts><Script><![CDATA[
+function fnDepth(){ var a=parent.parent.fnSecond(); var b=parent.parent.parent.parent.fnFirst(); var c=parent.parent.parent.parent.parent.parent.fnMain(); return a+b+c; }
+function fnTooDeep(){ return parent.parent.parent.parent.parent.parent.parent.parent.fnMissing(); }
+]]></Script></Form></FDL>

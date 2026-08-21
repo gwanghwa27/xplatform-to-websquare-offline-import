@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="TabParentReadsChildDataset" width="700" height="420"><Layouts><Layout width="700" height="420"><Tab id="tabMain" preload="false" left="10" top="10" width="660" height="360" ><Tabpages><Tabpage id="pageChild" text="Child" url="../TabContent/RuntimeBridgeChild.xfdl"/></Tabpages></Tab></Layout></Layouts><Script><![CDATA[
+function fnRead(){ trace(this.tabMain.pageChild.form.dsSearch.getRowCount()); trace(this.tabMain.pageChild.form.dsSearch.getColumn(0,"NAME")); }
+]]></Script></Form></FDL>

@@ -1,0 +1,13 @@
+source,function,line,api
+"Form/ComponentMethodConversion.xfdl","m","1","getCellProperty"
+"Form/DatasetBinding.xfdl","DatasetBinding_onload","2","addRow"
+"Form/DatasetBinding.xfdl","DatasetBinding_onload","2","setColumn"
+"Form/DatasetBinding.xfdl","DatasetBinding_onload","2","getColumn"
+"Form/TabParentReadsChildDataset.xfdl","fnRead","2","getColumn"
+"Form/TransactionSample.xfdl","search","2","transaction"
+"Form/UnsupportedFeatures.xfdl","x","1","open"
+"Form/UnsupportedFeatures.xfdl","x","1","setTimer"
+"Script/ScopeHelper.xjs","gfnDatasetShadow","7","getColumn"
+"TabContent/OwnerBridgeChild.xfdl","fnOwnerCalls","3","getOwnerFrame"
+"TabContent/OwnerBridgeChild.xfdl","fnOwnerParent","4","getOwnerFrame"
+"TabContent/ParentAccessChild.xfdl","childOwner","2","getOwnerFrame"

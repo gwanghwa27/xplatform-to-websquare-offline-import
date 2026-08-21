@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="TabAsyncRapidSetUrl" width="700" height="420"><Layouts><Layout width="700" height="420"><Tab id="tabMain" preload="false"><Tabpages><Tabpage id="pageA" text="A" url="../TabContent/Search.xfdl"/></Tabpages></Tab></Layout></Layouts><Script><![CDATA[
+function fnRapid(){ this.tabMain.pageA.set_url("../TabContent/Detail.xfdl"); this.tabMain.pageA.set_url("../TabContent/Search.xfdl"); }
+]]></Script></Form></FDL>

@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="UTF-8"?><FDL version="1.5"><Form id="TabOpenerFunction" width="400" height="200"><Layouts><Layout width="400" height="200"/></Layouts><Script><![CDATA[
+function fnCall(){ return opener.fnCallback("A"); }
+]]></Script></Form></FDL>

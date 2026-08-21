@@ -1,0 +1,6 @@
+trace("side effect at include time");
+var gvSide:String = "SIDE";
+function gfnSideEffect()
+{
+    trace(gvSide);
+}

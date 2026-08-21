@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="TabExternalContent" width="700" height="450"><Layouts><Layout width="700" height="450">
+<Tab id="tabMain" tabindex="0" preload="false" left="10" top="10" width="660" height="390"><Tabpages>
+<Tabpage id="tabSearch" text="Search" url="../TabContent/Search.xfdl"/>
+<Tabpage id="tabDetail" text="Detail" url="TabForm::Detail.xfdl" enable="false" tooltiptext="detail-tip" cssclass="detail-tab"/>
+</Tabpages></Tab></Layout></Layouts><Script><![CDATA[function mainFn(){ trace("main"); }]]></Script></Form></FDL>

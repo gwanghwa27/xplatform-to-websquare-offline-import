@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TypeDefinition version="1.0">
+  <Services>
+    <Service prefixid="TabForm" type="form" url="./TabContent/"/>
+    <Service prefixid="Script" type="js" url="./Script/"/>
+  </Services>
+</TypeDefinition>

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="TabDynamicSetUrlStatic" width="700" height="420"><Layouts><Layout width="700" height="420"><Tab id="tabMain" preload="false" left="10" top="10" width="660" height="360" ><Tabpages><Tabpage id="pageSearch" text="Search"/></Tabpages></Tab></Layout></Layouts><Script><![CDATA[
+function fnOpen(){ this.tabMain.pageSearch.set_url("../TabContent/Search.xfdl"); }
+]]></Script></Form></FDL>

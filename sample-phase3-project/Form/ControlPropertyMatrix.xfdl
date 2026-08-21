@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><Form id="ControlPropertyMatrix" width="900" height="650"><Layouts><Layout width="900" height="650">
+<Static id="sta" text="Label" left="10" top="10" width="100" height="24" color="#112233" background="#eeeeee"/>
+<Button id="btn" text="Button" left="120" top="10" width="100" height="24" enable="false" tooltiptext="tip"/>
+<Edit id="edt" value="ABC" left="10" top="50" width="120" height="24" maxlength="10" displaynulltext="name"/>
+<MaskEdit id="mask" value="123" left="140" top="50" width="120" height="24"/>
+<TextArea id="txt" value="memo" left="270" top="50" width="120" height="60"/>
+<Combo id="cbo" left="10" top="120" width="120" height="24"/>
+<ListBox id="lst" left="140" top="120" width="120" height="80"/>
+<Radio id="rdo" left="270" top="120" width="160" height="60"/>
+<CheckBox id="chk" text="Use" left="440" top="120" width="100" height="24"/>
+<Calendar id="cal" value="20260817" dateformat="yyyy-MM-dd" left="10" top="220" width="140" height="24"/>
+<Spin id="spn" value="3" left="160" top="220" width="100" height="24"/>
+<ImageViewer id="img" image="url('a.png')" left="270" top="220" width="100" height="80"/>
+<ProgressBar id="prg" value="25" left="380" top="220" width="160" height="24"/>
+<PopupDiv id="pop" left="10" top="320" width="220" height="120"><Static id="popSta" text="Popup content" left="5" top="5" width="120" height="24"/></PopupDiv>
+<WebBrowser id="web" url="https://example.invalid" left="240" top="320" width="260" height="120"/>
+<FileUpload id="up" left="10" top="460" width="200" height="30"/>
+<FileDownload id="down" left="220" top="460" width="200" height="30"/>
+</Layout></Layouts><Script><![CDATA[function prop(){ cbo.index=0; trace(cbo.index); rdo.set_index(0); trace(rdo.get_index()); }]]></Script></Form></FDL>

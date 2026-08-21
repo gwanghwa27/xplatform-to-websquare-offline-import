@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../../default_typedef.xml"/><Form id="TabExternalRelativePath" width="600" height="400"><Layouts><Layout width="600" height="400">
+<Div id="divWrap" left="0" top="0" width="580" height="380"><Layouts><Layout width="580" height="380">
+<Tab id="tabNested" left="10" top="10" width="550" height="340"><Tabpages><Tabpage id="pageSearch" text="Search" url="../../TabContent/Search.xfdl"/><Tabpage id="pageDetail" text="Detail" url="..\\..\\TabContent\\Detail.xfdl"/><Tabpage id="pageProject" text="Project" url="TabContent/SecondTab.xfdl"/></Tabpages></Tab>
+</Layout></Layouts></Div></Layout></Layouts></Form></FDL>

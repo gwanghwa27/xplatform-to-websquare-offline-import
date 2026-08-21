@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5">
+  <Form id="TabDynamicIndexedSetUrl" width="600" height="360">
+    <Layouts><Layout width="600" height="360">
+      <Tab id="tabMain" left="10" top="10" width="560" height="320" preload="false">
+        <Tabpage id="pageSearch" text="Search"><Layouts><Layout/></Layouts></Tabpage>
+        <Tabpage id="pageDetail" text="Detail"><Layouts><Layout/></Layouts></Tabpage>
+      </Tab>
+    </Layout></Layouts>
+    <Script type="xscript5.1"><![CDATA[
+function fnByIndex(){ this.tabMain.tabpages[0].set_url("../TabContent/Search.xfdl"); }
+function fnByName(){ this.tabMain.tabpages["pageDetail"].set_url("../TabContent/Detail.xfdl"); }
+]]></Script>
+  </Form>
+</FDL>

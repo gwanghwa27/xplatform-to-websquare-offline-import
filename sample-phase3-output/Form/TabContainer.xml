@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<html xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:w2="http://www.inswave.com/websquare" xmlns:xf="http://www.w3.org/2002/xforms" xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+        <w2:type>DEFAULT</w2:type>
+        <w2:buildDate/>
+        <xf:model>
+            <xf:instance>
+                <data xmlns=""/>
+            </xf:instance>
+            <w2:dataCollection baseNode="map"/>
+            <w2:workflowCollection/>
+        </xf:model>
+        <script type="text/javascript"><![CDATA[// ============================================================
+// [XPlatform 원본 스크립트 - 주석으로 보존]
+// ============================================================
+// function read(){ trace(tabMain.pageA.edtA.value); }
+// 
+// ============================================================
+
+// ============================================================
+// [WebSquare 변환 스크립트 - 1차 변환]
+// 운영 적용 전에 TODO 표시 항목을 확인하세요.
+// ============================================================
+var scwin = (typeof scwin === "undefined") ? {} : scwin;
+
+// TODO: WebSquare submission을 구성한 뒤 이 호환 함수를 교체하세요.
+scwin.xpTransaction = function() {
+    console.warn("[마이그레이션 TODO] XPlatform transaction 호출을 WebSquare submission으로 변환해야 합니다.", arguments);
+};
+
+scwin.read = function(){ console.log(tabMain_pageA_edtA.getValue()); }
+]]></script>
+        <style type="text/css"/>
+    </head>
+    <body>
+        <xf:group id="grp_resultArea" style="">
+            <xf:group id="grp_main" style="height:400px;">
+                <xf:group id="grp_content" style="width:600px;height:400px;">
+                    <w2:tabControl alwaysDraw="true" id="tabMain" selectedTabIndex="0" style="position:absolute;left:10px;top:10px;width:560px;height:340px;">
+                        <w2:tabs id="tabMain_pageA_tab" label="기본"/>
+                        <w2:content id="tabMain_pageA_content" style="position:relative;width:100%;height:100%;">
+                            <xf:input id="tabMain_pageA_edtA" initValue="A" style="position:absolute;left:10px;top:10px;width:120px;height:24px;"/>
+                        </w2:content>
+                        <w2:tabs id="tabMain_pageB_tab" label="상세"/>
+                        <w2:content id="tabMain_pageB_content" style="position:relative;width:100%;height:100%;">
+                            <xf:trigger class="btn_cm" id="tabMain_pageB_btnB" style="position:absolute;left:20px;top:20px;width:80px;height:24px;" value="B"/>
+                        </w2:content>
+                    </w2:tabControl>
+                </xf:group>
+            </xf:group>
+        </xf:group>
+    </body>
+</html>

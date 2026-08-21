@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="IdIsolationChild" width="400" height="240"><Layouts><Layout width="400" height="240"><Button id="btnSave" text="Child Save" left="10" top="10" width="100" height="24"/></Layout></Layouts><Script><![CDATA[function readChild(){ trace(this.btnSave.text); }]]></Script></Form></FDL>

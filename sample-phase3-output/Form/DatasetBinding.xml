@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<html xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:w2="http://www.inswave.com/websquare" xmlns:xf="http://www.w3.org/2002/xforms" xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+        <w2:type>DEFAULT</w2:type>
+        <w2:buildDate/>
+        <xf:model>
+            <xf:instance>
+                <data xmlns=""/>
+            </xf:instance>
+            <w2:dataCollection baseNode="map">
+                <w2:dataList baseNode="list" id="dsMain" repeatNode="map">
+                    <w2:columnInfo>
+                        <w2:column dataType="text" id="CODE"/>
+                        <w2:column dataType="text" id="NAME"/>
+                    </w2:columnInfo>
+                    <w2:data use="true">
+                        <w2:row>
+                            <CODE xmlns=""><![CDATA[A]]></CODE>
+                            <NAME xmlns=""><![CDATA[Alpha]]></NAME>
+                        </w2:row>
+                        <w2:row>
+                            <CODE xmlns=""><![CDATA[B]]></CODE>
+                            <NAME xmlns=""><![CDATA[Beta]]></NAME>
+                        </w2:row>
+                    </w2:data>
+                </w2:dataList>
+                <w2:dataList baseNode="list" id="dsCode" repeatNode="map">
+                    <w2:columnInfo>
+                        <w2:column dataType="text" id="CD"/>
+                        <w2:column dataType="text" id="NM"/>
+                    </w2:columnInfo>
+                    <w2:data use="true">
+                        <w2:row>
+                            <CD xmlns=""><![CDATA[1]]></CD>
+                            <NM xmlns=""><![CDATA[One]]></NM>
+                        </w2:row>
+                    </w2:data>
+                </w2:dataList>
+            </w2:dataCollection>
+            <w2:workflowCollection/>
+        </xf:model>
+        <script type="text/javascript"><![CDATA[// ============================================================
+// [XPlatform 원본 스크립트 - 주석으로 보존]
+// ============================================================
+// 
+// function DatasetBinding_onload(obj:Form,e:LoadEventInfo) { var r = dsMain.addRow(); dsMain.setColumn(r,"NAME","New"); trace(dsMain.getColumn(0,"NAME")); }
+// 
+// 
+// ============================================================
+
+// ============================================================
+// [WebSquare 변환 스크립트 - 1차 변환]
+// 운영 적용 전에 TODO 표시 항목을 확인하세요.
+// ============================================================
+var scwin = (typeof scwin === "undefined") ? {} : scwin;
+
+// TODO: WebSquare submission을 구성한 뒤 이 호환 함수를 교체하세요.
+scwin.xpTransaction = function() {
+    console.warn("[마이그레이션 TODO] XPlatform transaction 호출을 WebSquare submission으로 변환해야 합니다.", arguments);
+};
+
+// XPlatform Dataset.addRow() 반환 index 의미를 보존하기 위한 DataList 호환 helper.
+scwin.xpAddDataListRow = function(dataList) {
+    var row = dataList.getRowCount();
+    dataList.insertRow(row);
+    return row;
+};
+
+
+scwin.DatasetBinding_onload = function(e) { var r = scwin.xpAddDataListRow(dsMain); dsMain.setCellData(r,"NAME","New"); console.log(dsMain.getCellData(0,"NAME")); }
+
+
+// Phase 3: Dataset itemset binding bootstrap.
+scwin.__xpws_initBindings = function() {
+    dsMain.setRowPosition(0);
+    cboCode.setNodeSet("data:dsCode", "NM", "CD");
+    rdoCode.setNodeSet("data:dsCode", "NM", "CD");
+};
+
+scwin.__xpws_onpageload = function(e) {
+    scwin.__xpws_initBindings();
+    if (typeof scwin.DatasetBinding_onload === "function") {
+        return scwin.DatasetBinding_onload(e);
+    }
+};
+]]></script>
+        <style type="text/css"/>
+    </head>
+    <body ev:onpageload="scwin.__xpws_onpageload">
+        <xf:group id="grp_resultArea" style="">
+            <xf:group id="grp_main" style="height:320px;">
+                <xf:group id="grp_content" style="width:700px;height:320px;">
+                    <xf:input id="edtName" ref="data:dsMain.NAME" style="position:absolute;left:10px;top:10px;width:160px;height:24px;"/>
+                    <xf:select1 appearance="minimal" disabledClass="w2selectbox_disabled" id="cboCode" style="position:absolute;left:180px;top:10px;width:160px;height:24px;"/>
+                    <xf:select1 appearance="full" id="rdoCode" style="position:absolute;left:10px;top:50px;width:300px;height:40px;"/>
+                </xf:group>
+            </xf:group>
+        </xf:group>
+    </body>
+</html>

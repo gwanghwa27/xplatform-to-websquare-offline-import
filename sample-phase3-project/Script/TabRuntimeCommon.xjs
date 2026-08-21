@@ -1,0 +1,2 @@
+var gvRuntimePath = "../TabContent/Search.xfdl";
+function gfnRuntimePath(){ return gvRuntimePath; }

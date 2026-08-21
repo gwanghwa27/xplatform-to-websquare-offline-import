@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><Form id="UnsupportedFeatures" width="500" height="300"><FileDownload id="download" left="10" top="10" width="100" height="24"/><Grid id="grd" left="10" top="50" width="300" height="160"><Formats><Format id="default"><Columns><Column size="100"/></Columns><Rows><Row size="24"/></Rows><Band id="body"><Cell text="expr:1+1" displaytype="treeitemcontrol"/></Band></Format></Formats></Grid><Script><![CDATA[function x(){ gfnUnknown(); open("x"); setTimer(1,1000); }]]></Script></Form></FDL>

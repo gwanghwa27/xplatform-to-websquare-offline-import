@@ -1,0 +1,27 @@
+# Phase 3 Runtime Verification Required
+
+- [REAL_RUNTIME_REQUIRED] `Form/TabAsyncAddSetUrlCallChild.xfdl:2` PARENT_TO_CHILD fnGetValue — lazy child 함수 호출은 activateTab 이후 Promise 반환 가능
+- [REAL_RUNTIME_REQUIRED] `Form/TabAsyncLazyCallChild.xfdl:2` PARENT_TO_CHILD fnGetValue — lazy child 함수 호출은 activateTab 이후 Promise 반환 가능
+- [REAL_RUNTIME_REQUIRED] `Form/TabAsyncLazyReadComponent.xfdl:2` PARENT_TO_CHILD edtName — lazy child Component/Dataset 동기 접근은 child render 전 사용할 수 없어 runtime 확인 필요
+- [REAL_RUNTIME_REQUIRED] `Form/TabAsyncLazyReadDataset.xfdl:2` PARENT_TO_CHILD dsSearch — lazy child Component/Dataset 동기 접근은 child render 전 사용할 수 없어 runtime 확인 필요
+- [REAL_RUNTIME_REQUIRED] `Form/TabAsyncLazySyncReturn.xfdl:2` PARENT_TO_CHILD fnGetValue — lazy child 함수 호출은 activateTab 이후 Promise 반환 가능
+- [REAL_RUNTIME_REQUIRED] `Form/TabLazyLifecycle.xfdl:2` PARENT_TO_CHILD fnGetValue — lazy child 함수 호출은 activateTab 이후 Promise 반환 가능
+- [REAL_RUNTIME_REQUIRED] `Form/TabLifecycleOnloadFailure.xfdl:2` PARENT_TO_CHILD fnValue — lazy child 함수 호출은 activateTab 이후 Promise 반환 가능
+- [REAL_RUNTIME_REQUIRED] `Form/TabOnloadFailureHost.xfdl:2` PARENT_TO_CHILD fnValue — lazy child 함수 호출은 activateTab 이후 Promise 반환 가능
+- [REAL_RUNTIME_REQUIRED] `Form/TabOpenerBridge.xfdl:2` POPUP_OPENER depth=0 — Popup opener는 Tab parent와 별도 scope; 명시적 opener scope/window가 있을 때 runtime bridge 사용
+- [REAL_RUNTIME_REQUIRED] `Form/TabOpenerFunction.xfdl:2` POPUP_OPENER depth=0 — Popup opener는 Tab parent와 별도 scope; 명시적 opener scope/window가 있을 때 runtime bridge 사용
+- [REAL_RUNTIME_REQUIRED] `Form/TabParentAccess.xfdl:2` PARENT_TO_CHILD edtChild — lazy child Component/Dataset 동기 접근은 child render 전 사용할 수 없어 runtime 확인 필요
+- [REAL_RUNTIME_REQUIRED] `Form/TabParentAndOpener.xfdl:2` POPUP_OPENER depth=0 — Popup opener는 Tab parent와 별도 scope; 명시적 opener scope/window가 있을 때 runtime bridge 사용
+- [REAL_RUNTIME_REQUIRED] `Form/TabParentCallsChild.xfdl:2` PARENT_TO_CHILD fnSearch — lazy child 함수 호출은 activateTab 이후 Promise 반환 가능
+- [REAL_RUNTIME_REQUIRED] `Form/TabParentReadsChildComponent.xfdl:2` PARENT_TO_CHILD edtName — lazy child Component/Dataset 동기 접근은 child render 전 사용할 수 없어 runtime 확인 필요
+- [REAL_RUNTIME_REQUIRED] `Form/TabParentReadsChildComponent.xfdl:2` PARENT_TO_CHILD edtName — lazy child Component/Dataset 동기 접근은 child render 전 사용할 수 없어 runtime 확인 필요
+- [REAL_RUNTIME_REQUIRED] `Form/TabParentReadsChildDataset.xfdl:2` PARENT_TO_CHILD dsSearch — lazy child Component/Dataset 동기 접근은 child render 전 사용할 수 없어 runtime 확인 필요
+- [REAL_RUNTIME_REQUIRED] `Form/TabParentReadsChildDataset.xfdl:2` PARENT_TO_CHILD dsSearch — lazy child Component/Dataset 동기 접근은 child render 전 사용할 수 없어 runtime 확인 필요
+- [REAL_RUNTIME_REQUIRED] `Form/TabSameScreenMultiInstance.xfdl:2` PARENT_TO_CHILD edtKeyword — lazy child Component/Dataset 동기 접근은 child render 전 사용할 수 없어 runtime 확인 필요
+- [REAL_RUNTIME_REQUIRED] `Form/TabSameScreenMultiInstance.xfdl:2` PARENT_TO_CHILD edtKeyword — lazy child Component/Dataset 동기 접근은 child render 전 사용할 수 없어 runtime 확인 필요
+- [REAL_RUNTIME_REQUIRED] `Form/TabStateSameScreenMultiInstance.xfdl:2` PARENT_TO_CHILD edtName — lazy child Component/Dataset 동기 접근은 child render 전 사용할 수 없어 runtime 확인 필요
+- [REAL_RUNTIME_REQUIRED] `Form/TabStateSameScreenMultiInstance.xfdl:2` PARENT_TO_CHILD edtName — lazy child Component/Dataset 동기 접근은 child render 전 사용할 수 없어 runtime 확인 필요
+- [REAL_RUNTIME_REQUIRED] `Form/TabStateSwitchRetention.xfdl:2` PARENT_TO_CHILD edtName — lazy child Component/Dataset 동기 접근은 child render 전 사용할 수 없어 runtime 확인 필요
+- [REAL_RUNTIME_REQUIRED] `Form/TabStateSwitchRetention.xfdl:2` PARENT_TO_CHILD edtName — lazy child Component/Dataset 동기 접근은 child render 전 사용할 수 없어 runtime 확인 필요
+- [REAL_RUNTIME_REQUIRED] `TabContent/OwnerBridgeChild.xfdl:4` OWNER_FRAME depth=1 — 다중 getOwnerFrame() chain은 Frame tree 문맥이 필요하여 runtime owner resolver 사용
+- [REAL_RUNTIME_REQUIRED] `TabContent/OwnerBridgeChild.xfdl:3` OWNER_FRAME depth=0 — Owner Frame arguments는 WFrame parameter/dataObject bridge로 변환하며 실제 argument reference semantics는 runtime 확인 필요

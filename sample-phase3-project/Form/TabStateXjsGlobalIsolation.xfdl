@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="TabStateXjsGlobalIsolation" width="700" height="420"><Layouts><Layout width="700" height="420"><Tab id="tabMain" preload="true"><Tabpages><Tabpage id="A" text="A" url="../TabContent/StateXjsChild.xfdl"/><Tabpage id="B" text="B" url="../TabContent/StateXjsChild.xfdl"/></Tabpages></Tab></Layout></Layouts><Script><![CDATA[
+function fnCheck(){ var a=this.tabMain.A.form.fnNext(); var b=this.tabMain.B.form.fnNext(); return a+":"+b; }
+]]></Script></Form></FDL>

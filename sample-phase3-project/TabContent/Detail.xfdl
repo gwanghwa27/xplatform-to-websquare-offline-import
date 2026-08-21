@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="Detail" width="500" height="300"><Layouts><Layout width="500" height="300">
+<Static id="staDetail" text="Detail" left="10" top="10" width="100" height="24"/>
+</Layout></Layouts><Script><![CDATA[function detailFn(){ trace("detail"); }]]></Script></Form></FDL>

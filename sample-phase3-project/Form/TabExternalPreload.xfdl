@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="TabExternalPreload" width="600" height="400"><Layouts><Layout width="600" height="400"><Tab id="tabPreload" preload="true" tabindex="1" left="10" top="10" width="560" height="340"><Tabpages><Tabpage id="pageSearch" text="Search" url="../TabContent/Search.xfdl"/><Tabpage id="pageDetail" text="Detail" url="../TabContent/Detail.xfdl"/></Tabpages></Tab></Layout></Layouts></Form></FDL>

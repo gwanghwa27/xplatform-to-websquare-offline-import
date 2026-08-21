@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5">
+  <Form id="CommentProtection" width="800" height="600" onload="STT_onload">
+    <Layouts>
+      <Layout width="800" height="600">
+        <Div id="Div00" left="10" top="10" width="350" height="200">
+          <Layouts>
+            <Layout width="350" height="200">
+              <Button id="btn_xxxx" text="버튼" left="10" top="10" width="100" height="30"/>
+            </Layout>
+          </Layouts>
+        </Div>
+        <Div id="Div01" left="10" top="230" width="350" height="200">
+          <Layouts>
+            <Layout width="350" height="200">
+              <Edit id="edt_xxx" left="10" top="10" width="100" height="30"/>
+            </Layout>
+          </Layouts>
+        </Div>
+      </Layout>
+    </Layouts>
+    <Script><![CDATA[
+/*********************************************************************************************
+ * 온로드 
+ **********************************************************************************************/
+function STT_onload(obj:Form, e:LoadEventInfo){
+   gfn_OnLoad(e.url);   // 화면 공통처리
+   //Div00.btn_xxxx.enable = false;
+   /*
+      Div00.btn_xxxx
+      Div00.btn_xxxx
+   */
+   Div00.btn_xxxx.enable = true;
+   if (condition) {  // 주석
+     doSomething();
+   }
+   Div01.edt_xxx.text = "테스트";
+}
+    ]]></Script>
+  </Form>
+</FDL>

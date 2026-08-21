@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="TabRuntimeEvent" width="600" height="360"><Layouts><Layout width="600" height="360"><Tab id="tabMain" preload="false" left="10" top="10" width="560" height="320" canchange="tabMain_canchange" onchanged="tabMain_onchanged"><Tabpages><Tabpage id="a" text="A"/><Tabpage id="b" text="B"/></Tabpages></Tab></Layout></Layouts><Script><![CDATA[
+function tabMain_canchange(obj:Tab,e:TabIndexChangeEventInfo){ trace("can:"+e.preindex+"->"+e.postindex); return e.postindex != 9; }
+function tabMain_onchanged(obj:Tab,e:TabIndexChangeEventInfo){ trace(e.preindex+"->"+e.postindex); }
+]]></Script></Form></FDL>

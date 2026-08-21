@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="Search" width="500" height="300" onload="Search_onload"><Layouts><Layout width="500" height="300">
+<Button id="btnSave" text="Search Save" left="10" top="10" width="100" height="24"/>
+<Edit id="edtKeyword" value="" left="10" top="45" width="180" height="24"/>
+</Layout></Layouts><Script><![CDATA[
+function Search_onload(obj:Form,e:LoadEventInfo){ trace("search-load"); }
+function getKeyword(){ return this.edtKeyword.value; }
+]]></Script></Form></FDL>

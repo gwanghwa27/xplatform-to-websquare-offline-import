@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<html xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:w2="http://www.inswave.com/websquare" xmlns:xf="http://www.w3.org/2002/xforms" xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+        <w2:type>DEFAULT</w2:type>
+        <w2:buildDate/>
+        <xf:model>
+            <xf:instance>
+                <data xmlns=""/>
+            </xf:instance>
+            <w2:dataCollection baseNode="map"/>
+            <w2:workflowCollection/>
+        </xf:model>
+        <script type="text/javascript"><![CDATA[// ============================================================
+// [XPlatform 원본 스크립트 - 주석으로 보존]
+// ============================================================
+// function x(){ gfnUnknown(); open("x"); setTimer(1,1000); }
+// 
+// ============================================================
+
+// ============================================================
+// [WebSquare 변환 스크립트 - 1차 변환]
+// 운영 적용 전에 TODO 표시 항목을 확인하세요.
+// ============================================================
+var scwin = (typeof scwin === "undefined") ? {} : scwin;
+
+// TODO: WebSquare submission을 구성한 뒤 이 호환 함수를 교체하세요.
+scwin.xpTransaction = function() {
+    console.warn("[마이그레이션 TODO] XPlatform transaction 호출을 WebSquare submission으로 변환해야 합니다.", arguments);
+};
+
+scwin.x = function(){ gfnUnknown(); open("x"); setTimer(1,1000); }
+]]></script>
+        <style type="text/css"/>
+    </head>
+    <body>
+        <xf:group id="grp_resultArea" style="">
+            <xf:group id="grp_main" style="height:300px;">
+                <xf:group id="grp_content" style="width:500px;height:300px;">
+                    <w2:gridView class="wq_gvw" defaultCellHeight="24" id="grd" style="position:absolute;left:10px;top:50px;width:300px;height:160px;">
+                        <w2:gBody id="grd_gBody">
+                            <w2:row height="24" id="grd_bodyRow_0">
+                                <w2:column id="grd_body_r0_c0" readOnly="true" width="100"/>
+                            </w2:row>
+                        </w2:gBody>
+                    </w2:gridView>
+                </xf:group>
+            </xf:group>
+        </xf:group>
+    </body>
+</html>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><Form id="ExternalXjsBasic" width="400" height="200">
+<Button id="btn" text="Call" left="10" top="10" width="80" height="24" onclick="btn_onclick"/>
+<Script><![CDATA[
+include "Script::Common.xjs";
+function btn_onclick(obj:Button, e:ClickEventInfo) { gfnHello(); }
+]]></Script></Form></FDL>

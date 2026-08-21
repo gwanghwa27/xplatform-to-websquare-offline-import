@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="TabInlineContent" width="600" height="400"><Layouts><Layout width="600" height="400">
+<Tab id="tabMain" tabindex="0" left="10" top="10" width="560" height="340"><Tabpages>
+<Tabpage id="pageInline" text="Inline"><Layouts><Layout width="540" height="290"><Button id="btnInline" text="Inline" left="10" top="10" width="80" height="24"/></Layout></Layouts></Tabpage>
+</Tabpages></Tab></Layout></Layouts><Script><![CDATA[function readInline(){ trace(tabMain.pageInline.btnInline.text); }]]></Script></Form></FDL>

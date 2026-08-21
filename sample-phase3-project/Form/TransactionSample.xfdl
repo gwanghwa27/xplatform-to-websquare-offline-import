@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><Form id="TransactionSample" width="400" height="200"><Objects><Dataset id="dsIn"><ColumnInfo><Column id="A" type="STRING"/></ColumnInfo></Dataset><Dataset id="dsOut"><ColumnInfo><Column id="B" type="STRING"/></ColumnInfo></Dataset></Objects><Script><![CDATA[
+function search(){ this.transaction("search", "/svc/search.do", "dsIn=dsIn", "dsOut=dsOut", "user=kim", "fnCallback", true); }
+function fnCallback(svc,code,msg){ trace(code); }
+]]></Script></Form></FDL>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><Form id="ExternalXjsDuplicateFunction" width="400" height="200"><Script><![CDATA[
+include "Script::DupA.xjs";
+include "Script::DupB.xjs";
+function run() { gfnDuplicate(); }
+]]></Script></Form></FDL>

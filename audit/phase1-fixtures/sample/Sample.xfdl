@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5">
+  <Form id="Sample" width="800" height="600">
+    <Objects>
+      <Dataset id="dsSearch">
+        <ColumnInfo>
+          <Column id="KEYWORD" type="STRING" size="256" />
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="dsList">
+        <ColumnInfo>
+          <Column id="ID" type="INT" />
+          <Column id="NAME" type="STRING" size="100" />
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Static id="staTitle" text="샘플 조회" left="20" top="20" width="150" height="24" />
+    <Edit id="edtKeyword" left="20" top="60" width="200" height="24" />
+    <Button id="btnSearch" text="조회" left="230" top="60" width="80" height="24" onclick="btnSearch_onclick" />
+    <Grid id="grdList" left="20" top="100" width="600" height="300" binddataset="dsList" />
+    <Script><![CDATA[
+this.btnSearch_onclick = function(obj:Button, e:ClickEventInfo)
+{
+    trace(obj.id);
+    fnSearch();
+};
+
+this.fnSearch = function()
+{
+    this.transaction("search", "/sample/search.do", "dsSearch=dsSearch", "dsList=dsList", "", "fnCallback");
+};
+
+this.fnCallback = function(svcId, errCode, errMsg)
+{
+    fnSetResult();
+};
+
+this.fnSetResult = function()
+{
+    trace("완료");
+};
+
+this.fnUnused = function()
+{
+    trace("미사용");
+};
+    ]]></Script>
+  </Form>
+</FDL>

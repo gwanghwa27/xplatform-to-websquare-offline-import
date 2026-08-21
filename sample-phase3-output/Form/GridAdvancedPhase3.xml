@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<html xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:w2="http://www.inswave.com/websquare" xmlns:xf="http://www.w3.org/2002/xforms" xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+        <w2:type>DEFAULT</w2:type>
+        <w2:buildDate/>
+        <xf:model>
+            <xf:instance>
+                <data xmlns=""/>
+            </xf:instance>
+            <w2:dataCollection baseNode="map">
+                <w2:dataList baseNode="list" id="dsMain" repeatNode="map">
+                    <w2:columnInfo>
+                        <w2:column dataType="text" id="CODE"/>
+                        <w2:column dataType="text" id="NAME"/>
+                        <w2:column dataType="text" id="TYPE"/>
+                    </w2:columnInfo>
+                </w2:dataList>
+                <w2:dataList baseNode="list" id="dsCodes" repeatNode="map">
+                    <w2:columnInfo>
+                        <w2:column dataType="text" id="CODE"/>
+                        <w2:column dataType="text" id="NAME"/>
+                    </w2:columnInfo>
+                </w2:dataList>
+            </w2:dataCollection>
+            <w2:workflowCollection/>
+        </xf:model>
+        <script type="text/javascript"><![CDATA[// ============================================================
+// [XPlatform 원본 스크립트 - 주석으로 보존]
+// ============================================================
+// 
+// function GridAdvancedPhase3_onload(obj:Form, e:LoadEventInfo) { trace("grid advanced"); }
+// 
+// 
+// ============================================================
+
+// ============================================================
+// [WebSquare 변환 스크립트 - 1차 변환]
+// 운영 적용 전에 TODO 표시 항목을 확인하세요.
+// ============================================================
+var scwin = (typeof scwin === "undefined") ? {} : scwin;
+
+// TODO: WebSquare submission을 구성한 뒤 이 호환 함수를 교체하세요.
+scwin.xpTransaction = function() {
+    console.warn("[마이그레이션 TODO] XPlatform transaction 호출을 WebSquare submission으로 변환해야 합니다.", arguments);
+};
+
+
+scwin.GridAdvancedPhase3_onload = function(e) { console.log("grid advanced"); }
+
+]]></script>
+        <style type="text/css"/>
+    </head>
+    <body>
+        <xf:group id="grp_resultArea" style="">
+            <xf:group id="grp_main" style="height:400px;">
+                <xf:group id="grp_content" style="width:700px;height:400px;">
+                    <w2:gridView class="wq_gvw" dataList="dsMain" defaultCellHeight="28" id="grdMain" style="position:absolute;left:10px;top:10px;width:600px;height:260px;">
+                        <w2:header id="grdMain_header">
+                            <w2:row height="26" id="grdMain_headRow_0">
+                                <w2:column id="grdMain_head_r0_c0" inputType="text" value="코드" width="100"/>
+                                <w2:column id="grdMain_head_r0_c1" inputType="text" value="이름" width="220"/>
+                                <w2:column id="grdMain_head_r0_c2" inputType="text" value="유형" width="120"/>
+                            </w2:row>
+                        </w2:header>
+                        <w2:gBody id="grdMain_gBody">
+                            <w2:row height="28" id="grdMain_bodyRow_0">
+                                <w2:column id="CODE" inputType="text" width="100"/>
+                                <w2:column id="grdMain_body_r0_c1" inputType="text" readOnly="true" width="220"/>
+                                <w2:column id="TYPE" inputType="select" width="120">
+                                    <w2:choices>
+                                        <w2:itemset nodeset="data:dsCodes">
+                                            <w2:label ref="NAME"/>
+                                            <w2:value ref="CODE"/>
+                                        </w2:itemset>
+                                    </w2:choices>
+                                </w2:column>
+                            </w2:row>
+                        </w2:gBody>
+                        <w2:footer id="grdMain_footer">
+                            <w2:row height="24" id="grdMain_summRow_0">
+                                <w2:column colSpan="3" displayMode="label" id="grdMain_summ_r0_c0" inputType="text" value="summary" width="440"/>
+                            </w2:row>
+                        </w2:footer>
+                    </w2:gridView>
+                </xf:group>
+            </xf:group>
+        </xf:group>
+    </body>
+</html>

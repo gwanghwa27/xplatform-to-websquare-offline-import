@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="UTF-8"?><FDL version="1.5"><Form id="TabInsertPageOverloads" width="600" height="360"><Layouts><Layout width="600" height="360"><Tab id="tabMain"><Tabpages><Tabpage id="seed"/></Tabpages></Tab></Layout></Layouts><Script><![CDATA[
+function fnInsert(){ this.tabMain.insertTabpage("inserted",0,"Inserted"); }
+]]></Script></Form></FDL>

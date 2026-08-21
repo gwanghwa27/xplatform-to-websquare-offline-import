@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="StateXjsChild" width="420" height="240"><Layouts><Layout width="420" height="240"><Static id="sta" text="XJS State"/></Layout></Layouts><Script><![CDATA[
+include "Script::TabRuntimeState.xjs";
+function fnNext(){ return gfnNextChildCounter(); }
+]]></Script></Form></FDL>

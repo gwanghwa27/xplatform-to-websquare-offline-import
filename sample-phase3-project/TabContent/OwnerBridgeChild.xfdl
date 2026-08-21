@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="OwnerBridgeChild" width="500" height="300"><Objects><Dataset id="dsOwner"><ColumnInfo><Column id="V" type="STRING"/></ColumnInfo></Dataset></Objects><Layouts><Layout width="500" height="300"><Edit id="edtOwner" value="OWNER"/></Layout></Layouts><Script><![CDATA[
+function fnLocalOwner(v){ return "LOCAL:"+v; }
+function fnOwnerCalls(){ var a=this.getOwnerFrame().form.fnLocalOwner("A"); var b=this.getOwnerFrame().form.edtOwner.value; var c=this.getOwnerFrame().form.dsOwner.getRowCount(); var args=this.getOwnerFrame().arguments; return a+b+c; }
+function fnOwnerParent(){ return this.getOwnerFrame().getOwnerFrame().form.fnHost(); }
+]]></Script></Form></FDL>

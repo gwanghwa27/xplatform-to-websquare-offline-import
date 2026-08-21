@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="UTF-8"?><FDL version="1.5"><Form id="TabParentAndOpener" width="400" height="200"><Layouts><Layout width="400" height="200"/></Layouts><Script><![CDATA[
+function fnBoth(){ var a=parent.parent.fnParent(); var b=opener.fnCallback(); return a+b; }
+]]></Script></Form></FDL>

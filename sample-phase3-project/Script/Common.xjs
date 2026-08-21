@@ -1,0 +1,18 @@
+include "Utility.xjs";
+var gvCommonPrefix:String = "COMMON";
+function gfnHello()
+{
+    trace("hello");
+}
+function gfnA()
+{
+    gfnB();
+}
+function gfnUser()
+{
+    return gvUserId;
+}
+function gfnUnused()
+{
+    trace("unused");
+}

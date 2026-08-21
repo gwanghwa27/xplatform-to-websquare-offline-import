@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="ParentAccessChild" width="400" height="240"><Layouts><Layout width="400" height="240"><Edit id="edtChild" value="child" left="10" top="10" width="120" height="24"/></Layout></Layouts><Script><![CDATA[
+function childOwner(){ var owner = this.getOwnerFrame(); trace(owner); }
+]]></Script></Form></FDL>

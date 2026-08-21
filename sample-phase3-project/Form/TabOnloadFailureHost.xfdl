@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="TabOnloadFailureHost" width="700" height="420"><Layouts><Layout width="700" height="420"><Tab id="tabMain" preload="false"><Tabpages><Tabpage id="failChild" text="Fail" url="../TabContent/OnloadFailureChild.xfdl"/></Tabpages></Tab></Layout></Layouts><Script><![CDATA[
+function fnCall(){ return this.tabMain.failChild.form.fnValue(); }
+]]></Script></Form></FDL>

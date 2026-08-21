@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="UTF-8"?><FDL version="1.5"><Form id="TabAddPageOverloads" width="600" height="360"><Layouts><Layout width="600" height="360"><Tab id="tabMain" preload="false"><Tabpages><Tabpage id="seed" text="Seed"/></Tabpages></Tab></Layout></Layouts><Script><![CDATA[
+function fnOverloads(){ this.tabMain.addTabpage("A"); this.tabMain.addTabpage("B","Bee"); this.tabMain.addTabpage("C","See",{MODE:"C"}); }
+]]></Script></Form></FDL>

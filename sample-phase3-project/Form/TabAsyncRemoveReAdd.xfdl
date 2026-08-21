@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="TabAsyncRemoveReAdd" width="700" height="420"><Layouts><Layout width="700" height="420"><Tab id="tabMain" preload="false"><Tabpages><Tabpage id="seed" text="Seed"/></Tabpages></Tab></Layout></Layouts><Script><![CDATA[
+function fnCycle(){ this.tabMain.addTabpage("A","A"); this.tabMain.A.set_url("../TabContent/Search.xfdl"); this.tabMain.removeTabpage("A"); this.tabMain.addTabpage("A","A2"); this.tabMain.A.set_url("../TabContent/Detail.xfdl"); }
+]]></Script></Form></FDL>

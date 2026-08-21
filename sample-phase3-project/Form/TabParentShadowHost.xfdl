@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="TabParentShadowHost" width="600" height="360"><Layouts><Layout width="600" height="360"><Tab id="tabMain" preload="false"><Tabpages><Tabpage id="shadowChild" text="Shadow" url="../TabContent/ParentShadowChild.xfdl"/></Tabpages></Tab></Layout></Layouts><Script><![CDATA[
+function fnHost(v){ return v; }
+]]></Script></Form></FDL>

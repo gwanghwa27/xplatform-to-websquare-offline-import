@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5">
+  <Form id="GridAdvancedPhase3" width="700" height="400">
+    <Dataset id="dsMain">
+      <ColumnInfo>
+        <Column id="CODE" type="STRING" size="10"/>
+        <Column id="NAME" type="STRING" size="50"/>
+        <Column id="TYPE" type="STRING" size="10"/>
+      </ColumnInfo>
+    </Dataset>
+    <Dataset id="dsCodes">
+      <ColumnInfo>
+        <Column id="CODE" type="STRING" size="10"/>
+        <Column id="NAME" type="STRING" size="50"/>
+      </ColumnInfo>
+    </Dataset>
+    <Layouts>
+      <Layout>
+        <Grid id="grdMain" binddataset="dsMain" left="10" top="10" width="600" height="260">
+          <Formats>
+            <Format id="default">
+              <Columns><Column size="100"/><Column size="220"/><Column size="120"/></Columns>
+              <Rows><Row size="26" band="head"/><Row size="28" band="body"/><Row size="24" band="summ"/></Rows>
+              <Band id="head"><Cell text="코드"/><Cell col="1" text="이름"/><Cell col="2" text="유형"/></Band>
+              <Band id="body">
+                <Cell text="bind:CODE"/>
+                <Cell col="1" text="expr:NAME + ':' + CODE"/>
+                <Cell col="2" text="bind:TYPE" displaytype="combo" edittype="combo"
+                      combodataset="dsCodes" combocodecol="CODE" combodatacol="NAME"/>
+              </Band>
+              <Band id="summ"><Cell text="summary" colspan="3"/></Band>
+            </Format>
+            <Format id="alternate">
+              <Columns><Column size="300"/></Columns>
+              <Rows><Row size="28" band="body"/></Rows>
+              <Band id="body"><Cell text="bind:NAME"/></Band>
+            </Format>
+          </Formats>
+        </Grid>
+      </Layout>
+    </Layouts>
+    <Script><![CDATA[
+function GridAdvancedPhase3_onload(obj:Form, e:LoadEventInfo) { trace("grid advanced"); }
+]]></Script>
+  </Form>
+</FDL>

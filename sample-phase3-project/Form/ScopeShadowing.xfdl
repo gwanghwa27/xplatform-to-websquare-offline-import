@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><Form id="ScopeShadowing" width="500" height="260">
+<Objects><Dataset id="dsMain"><ColumnInfo><Column id="NAME" type="STRING"/></ColumnInfo><Rows><Row><Col id="NAME">DATA</Col></Row></Rows></Dataset></Objects>
+<Button id="btnSame" text="screen" left="10" top="10" width="100" height="24"/>
+<Script><![CDATA[
+include "Script::ScopeHelper.xjs";
+function run() { gfnShadow(); gfnDatasetShadow(); }
+function localTest(btnSame) { trace(btnSame.value); }
+]]></Script></Form></FDL>

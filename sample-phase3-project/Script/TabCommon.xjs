@@ -1,0 +1,4 @@
+function gfnTabSearch()
+{
+    trace("tab xjs search");
+}
