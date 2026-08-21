@@ -679,3 +679,28 @@ Production 기능 semantic 변경 없음(순수 audit + comment normalization �
 재확인 PASS. 상세는 `analysis/baseline-zip-vs-candidate-function-diff.md`,
 `analysis/baseline-zip-vs-candidate-production.diff`,
 `analysis/baseline-zip-vs-candidate-functional.diff` 참고.
+
+## 실제 Studio 실패 기반 Percentage Geometry Root Cause Fix 라운드
+
+사용자가 실제 폐쇄망 Studio에서 확인(`USER_CONFIRMED_CLOSED_NETWORK_STUDIO`): Design/Preview
+양쪽 모두 업무 화면이 좌측 상단 좁은 영역으로 압축(`STUDIO_DESIGN_FAILED`,
+`STUDIO_DESIGN_REPRODUCED`). 첨부 영상은 도구 제약(ffmpeg/ImageMagick video delegate 부재)으로
+판독 불가 — 로컬 재현/재생성 XML로 cross-check.
+
+Root cause(`SOURCE_PIXEL_GEOMETRY_REMAINS_IN_GENERATED_STRUCTURE` 확정): `[WebSquareGenerator]
+convertLayoutAsTable`/`appendBody`가 percent basis를 오직 "현재 Layout 자신의 width/height"
+에서만 얻었는데, 실제 업무 화면 중 (a) component가 `Layouts`/`Layout` wrapper 없이 `Form` 직계
+자식으로 존재하거나, (b) `Layout`은 있지만 자신에게 width/height가 없는 경우가 있어 이 두 패턴에서
+basis가 영원히 미확보되어 전체 화면이 px fallback으로 떨어졌다. 이전 라운드까지 존재하던
+`grp_content`(px로 폭을 고정해주던 wrapper)가 제거된 상태라 그 px 절대좌표가 폭 미정의 컨테이너
+위에서 렌더링되며 화면이 좁게 collapse.
+
+수정: `[ComponentLayoutConverter] resolveFormBasis`(신규, 기존 `findFormGeometry` 재사용) 추가,
+`appendBody`/`convertLayoutAsTable`이 Layout 자신의 geometry가 없을 때 Form 전체로 fallback하도록
+2곳 연결. corpus 실측: `PIXEL_GEOMETRY_FALLBACK_COUNT` 13 → **0**, `UI PERCENT 적용` 124 →
+137건. `SOURCE_TO_TARGET_ID_MAP_EXPECTED_ONLY`/invariant class/QName 전부 무변경 재확인.
+
+최종 `PERCENT_GEOMETRY = FIX_CANDIDATE` / `STATIC_VERIFIED` / `STUDIO_DESIGN_REQUIRED`. 상세는
+`analysis/freeze-vs-candidate-function-diff.md`의 "후속 라운드 — 실제 Studio 실패 기반
+Percentage Geometry Root Cause Fix" 섹션, raw diff는
+`analysis/git-baseline-vs-candidate-production.diff` 참고.

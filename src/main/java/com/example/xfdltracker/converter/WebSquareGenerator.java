@@ -420,6 +420,16 @@ public class WebSquareGenerator {
         resultArea.appendChild(main);
         registerFormRootMapping(source);
 
+        // STUDIO_DESIGN_FAILED root cause: source content가 Form 바로 아래(Layouts/Layout
+        // wrapper 없이) 있거나 최상위 Layout에 width/height가 없는 실제 업무 화면이 있다 --
+        // 초기 basis를 -1(unresolved)로 고정하면 그런 화면은 첫 Layout을 만나기 전까지(또는
+        // 영원히) 전부 PIXEL_GEOMETRY_FALLBACK으로 떨어진다. Form 자신의 선언 geometry를
+        // 초기 basis로 사용해(findFormGeometry 재사용, 화면별 하드코딩 없음), 첫 Layout을 만나면
+        // 그 Layout의 basis로 다시 갱신된다(기존 동작 그대로).
+        double[] formBasis = layoutConverter.resolveFormBasis(source);
+        double initialBasisWidth = formBasis == null ? -1.0 : formBasis[0];
+        double initialBasisHeight = formBasis == null ? -1.0 : formBasis[1];
+
         Element sourceRoot = source.getDocumentElement();
         convertChildren(
                 out,
@@ -429,8 +439,8 @@ public class WebSquareGenerator {
                 analysis,
                 0,
                 null,
-                -1.0,
-                -1.0,
+                initialBasisWidth,
+                initialBasisHeight,
                 true);
 
         finalizePageLoadBinding(body);
@@ -685,6 +695,11 @@ public class WebSquareGenerator {
                 ? "ROOT_FORM_LAYOUT_NOT_A_TABLE_TARGET"
                 : layoutConverter.classifyLayoutGeometry(children);
         double[] basis = layoutConverter.resolveLayoutBasis(layout);
+        if (basis == null) {
+            // 이 Layout 자신에게 width/height가 없는 실제 업무 화면 대응(STUDIO_DESIGN_FAILED
+            // root cause) -- Form 자신의 선언 geometry로 fallback(화면별 하드코딩 없음).
+            basis = layoutConverter.resolveFormBasis(layout.getOwnerDocument());
+        }
         double basisWidth = basis == null ? -1.0 : basis[0];
         double basisHeight = basis == null ? -1.0 : basis[1];
         System.out.println(

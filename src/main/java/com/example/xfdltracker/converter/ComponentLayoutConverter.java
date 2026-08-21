@@ -121,6 +121,31 @@ public class ComponentLayoutConverter {
     }
 
     /**
+     * STT00030 계열 실제 업무 화면 Studio 실패(STUDIO_DESIGN_FAILED) root cause fix: XPlatform
+     * source는 component가 {@code Form} 바로 아래(Layouts/Layout wrapper 없이) 있거나, 최상위
+     * {@code Layout} 자신에 width/height가 없는 경우가 실존한다 -- 이 경우 {@link
+     * #resolveLayoutBasis}가 첫 {@code Layout}을 만날 때까지(또는 영원히) basis를 못 얻어
+     * 전체 화면이 PIXEL_GEOMETRY_FALLBACK으로 떨어지며, 그 px 좌표가 grp_content(이번 라운드
+     * 이전까지 존재하던, 폭 자체를 px로 고정해주던 wrapper) 없이 렌더링돼 Design/Preview에서
+     * 좌측 상단 좁은 영역으로 collapse한다({@code SOURCE_PIXEL_GEOMETRY_REMAINS_IN_GENERATED_
+     * STRUCTURE}). {@code findFormGeometry}(기존, {@link #buildMainAreaStyle}이 재사용 중인
+     * Form-우선/Layout-차선 fallback)를 재사용해 Form 전체를 초기/최후 basis로 제공한다 --
+     * 특정 화면의 width/height를 하드코딩하지 않고, Form 자신의 실제 선언값만 사용한다.
+     */
+    public double[] resolveFormBasis(Document source) {
+        Geometry g = findFormGeometry(source);
+        if (g == null || isEmpty(g.width) || isEmpty(g.height)) {
+            return null;
+        }
+        ParsedLength w = parseLength(g.width);
+        ParsedLength h = parseLength(g.height);
+        if (w == null || h == null || w.value <= 0.0 || h.value <= 0.0) {
+            return null;
+        }
+        return new double[] {w.value, h.value};
+    }
+
+    /**
      * source의 left/top/width/height를 basis(immediate source Layout의 width/height) 기준
      * percentage style로 변환한다. {@code includePosition=false}면 left/top을 emit하지 않는다
      * (Table 셀 내부처럼 structural placement가 이미 위치를 결정하는 경우 -- 20번 규칙).

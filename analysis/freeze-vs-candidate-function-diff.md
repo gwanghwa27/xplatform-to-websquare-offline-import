@@ -550,8 +550,183 @@ Layout은 table화되지 않고, `div_search`/`div_summary` 내부 Layout만 tab
 | invariant class/QName | `btn_cm=12`, `wq_gvw=3`, disabledClass=4, Calendar=1, `xf:trigger=12`, `w2:gridView=3`, `w2:span=9` 전부 Base와 동일 |
 | `INVALID_PERCENT_STYLE_COUNT` | 0(NaN%/Infinity%/음수% 없음) |
 
+## 후속 라운드 — 실제 Studio 실패 기반 Percentage Geometry Root Cause Fix
+
+Baseline: `GIT-BASELINE-XPWS-OFFLINE-FREEZE-20260820-02`(commit `549a998`). 상세 raw diff:
+`analysis/git-baseline-vs-candidate-production.diff`(910줄, 이 라운드 이전 전체 누적 변경 포함).
+
+### Evidence
+
+사용자가 실제 폐쇄망 WebSquare Studio에서 변환 결과를 확인한 결과
+(`USER_CONFIRMED_CLOSED_NETWORK_STUDIO`): Design/Preview 양쪽 모두 업무 화면 전체가 좌측 상단의
+좁은 영역으로 압축되어 표시됨(`STUDIO_DESIGN_FAILED`, `STUDIO_DESIGN_REPRODUCED` — Design
+전용 버그가 아니라 실제 generated geometry 문제로 재확인). 별첨 영상(현재 변환된 Design Source
+화면 녹화)은 `.mp4` 바이너리이며 이 환경에 설치된 도구(ImageMagick, ffmpeg 부재)로 프레임 추출이
+불가능해 **판독하지 못했다** — 24번 규칙("흐린 값 추측 금지")에 따라 영상 내용은 이번 root
+cause 판단에 사용하지 않았고, 대신 로컬에서 직접 재현/재생성한 generated XML로 cross-check했다
+(정상적인 해석 방법, 24번 규칙이 요구하는 local output 재확인과 일치). 비교 참고용 정상 화면
+스크린샷(이미지 3, `BCI01M0000`)은 시각적 convention 참고로만 사용했고 class/style을 그대로
+복제하지 않았다(`NO_PAIRED_LEGACY_TO_V6_REFERENCE_AVAILABLE_BY_PROJECT_NATURE`).
+
+### Root cause
+
+사용자가 제공한 예시(`style="position:absolute;left:0px;top:...px;width:1145px;height:...px;"`)
+는 Div Group/Table Row/Cell/일반 component/Grid Group 전 범주에서 percentage 변환이 전혀
+적용되지 않고 원본 px가 그대로 남아있음을 보여준다 — 이는 개별 계산식 오류가 아니라 **basis
+자체가 전혀 확보되지 않았음**을 시사했다.
+
+기존 코드(`[WebSquareGenerator] convertLayoutAsTable`)는 basis를 오직 현재 순회 중인 XPlatform
+`Layout` 엘리먼트 **자신의** width/height 속성에서만 얻었고, 최초 진입 시(`appendBody`)에는
+basis를 항상 `-1.0`(unresolved)로 고정했다. 실제 corpus를 재조사한 결과, 다음 두 가지 실존
+패턴이 이 가정을 깬다:
+
+1. 일부 XPlatform 화면은 component가 `Layouts`/`Layout` wrapper 없이 **`Form` 바로 아래**
+   존재한다(예: corpus `sample-phase3-project/Form/ComponentMethodConversion.xfdl`처럼 `Combo`/
+   `Grid`가 `Form`의 직계 자식) — 이 경우 `"Layout"` 태그를 절대 만나지 못하므로 basis가
+   전체 화면에서 영원히 `-1`로 남는다.
+2. `Layout` 태그가 존재하더라도 그 자신에게 width/height가 없는 경우(실제 업무 화면에서 확인,
+   corpus 자체 예시는 이번 조사로 재구성함) — 첫 Layout 진입 시점에 basis 확보가 실패해 그
+   이하 전체가 unresolved로 떨어진다.
+
+두 경우 모두 `[WebSquareGenerator] copyBasicProperties`가 `basisWidth<=0`이므로 percent를
+시도조차 하지 않고 무조건 기존 px(`buildComponentStyle`)로 fallback한다 — 이 자체는 안전한
+fallback이지만, 이전 라운드까지 존재하던 `grp_content`(폭을 px로 고정해주던 wrapper)가 이번
+percent-geometry 라운드에서 제거됐기 때문에, 그 px 절대좌표가 실제 폭이 정의되지 않은 컨테이너
+체인 위에서 렌더링되며 화면이 좁게 collapse하는 것으로 판단된다
+(`SOURCE_PIXEL_GEOMETRY_REMAINS_IN_GENERATED_STRUCTURE` 확정).
+
+corpus 재실측: 이전 라운드 기준 `PIXEL_GEOMETRY_FALLBACK_COUNT=13`이었던 항목(`grd`, `cbo`,
+`btn` 등, 로그상 전부 `basisWidth=-1.0`)이 정확히 이 두 패턴에 해당함을 확인했다(root cause와
+실측 fallback 목록이 일치).
+
+### [ComponentLayoutConverter] resolveFormBasis — 신규 함수
+
+- 변경 분류: `PERCENT_GEOMETRY`
+- 목적: 기존 `findFormGeometry`(Form 우선, 없으면 첫 `Layout` 차선 — `buildMainAreaStyle`이
+  이미 재사용 중인 private helper)를 재사용해 Form 전체를 초기/최후 basis로 제공한다. 신규
+  Production class 없음, 기존 helper 재연결(21번 규칙 준수).
+- Caller: `[WebSquareGenerator] appendBody`(초기 basis), `[WebSquareGenerator]
+  convertLayoutAsTable`(Layout 자신에 geometry 없을 때 fallback).
+- Callee: 기존 `findFormGeometry`(무수정), `parseLength`(무수정).
+
+BEFORE: 없음(신규).
+AFTER:
+```java
+public double[] resolveFormBasis(Document source) {
+    Geometry g = findFormGeometry(source);
+    if (g == null || isEmpty(g.width) || isEmpty(g.height)) {
+        return null;
+    }
+    ParsedLength w = parseLength(g.width);
+    ParsedLength h = parseLength(g.height);
+    if (w == null || h == null || w.value <= 0.0 || h.value <= 0.0) {
+        return null;
+    }
+    return new double[] {w.value, h.value};
+}
+```
+
+### [WebSquareGenerator] appendBody — 초기 basis를 Form 기준으로 수정
+
+BEFORE:
+```java
+        Element sourceRoot = source.getDocumentElement();
+        convertChildren(
+                out, sourceRoot, main, "", analysis, 0, null,
+                -1.0,
+                -1.0,
+                true);
+```
+AFTER:
+```java
+        double[] formBasis = layoutConverter.resolveFormBasis(source);
+        double initialBasisWidth = formBasis == null ? -1.0 : formBasis[0];
+        double initialBasisHeight = formBasis == null ? -1.0 : formBasis[1];
+
+        Element sourceRoot = source.getDocumentElement();
+        convertChildren(
+                out, sourceRoot, main, "", analysis, 0, null,
+                initialBasisWidth,
+                initialBasisHeight,
+                true);
+```
+Generated XML BEFORE(`Form` 직계 자식 component, corpus 실측, 이전 라운드):
+`<w2:gridView class="wq_gvw" id="grd" style="position:absolute;left:10px;top:60px;width:300px;height:120px;"/>`
+Generated XML AFTER(동일 컴포넌트, 이번 수정, corpus 실측 basisWidth=600.0/basisHeight=400.0
+— Form 자신의 선언값):
+`style="position:absolute;left:1.6667%;top:16.6667%;width:50%;height:40%;"`(Grid Group wrapper
+경유, 아래 참고).
+영향 output 수: corpus 실측 fallback 13건 전부 해소(`PIXEL_GEOMETRY_FALLBACK_COUNT: 13 -> 0`).
+
+### [WebSquareGenerator] convertLayoutAsTable — Layout 자신에 geometry 없을 때 Form fallback 추가
+
+BEFORE:
+```java
+        double[] basis = layoutConverter.resolveLayoutBasis(layout);
+        double basisWidth = basis == null ? -1.0 : basis[0];
+        double basisHeight = basis == null ? -1.0 : basis[1];
+```
+AFTER:
+```java
+        double[] basis = layoutConverter.resolveLayoutBasis(layout);
+        if (basis == null) {
+            basis = layoutConverter.resolveFormBasis(layout.getOwnerDocument());
+        }
+        double basisWidth = basis == null ? -1.0 : basis[0];
+        double basisHeight = basis == null ? -1.0 : basis[1];
+```
+Caller/Callee: 무변경(기존과 동일 — `convertChildren` pass-through 분기가 유일한 caller).
+Generated XML impact: `PERCENT_GEOMETRY`. 영향 output 수: real corpus 13건(위와 동일 모수,
+Layout 미존재/geometry 없음 두 패턴 합산).
+
+### Structural proxy 재검증(SYNTHETIC_STRUCTURAL_PROXY_VERIFIED)
+
+기존 `BusinessDivLayoutGridProxy` 재실행(무변경, 여전히 percent 정상). 신규 합성 fixture 2건으로
+이번 두 패턴을 직접 재현/검증:
+
+- `NoLayoutWrapperProxy.xfdl`(Div/Grid가 `Layouts`/`Layout` 없이 `Form` 직계 자식) — 수정 전
+  가정상 basis 영원히 `-1`이었을 케이스, 수정 후 실측 `div_search style="...left:0.7407%;
+  top:1.25%;width:98.5185%;height:15%;"`, `grd_list_gridGroup`도 동일 패턴으로 percent 정상
+  적용, Table 구조(1-row) 유지 확인.
+- `LayoutMissingSizeProxy.xfdl`(`<Layouts><Layout>` 존재하지만 `Layout` 자신에 width/height
+  없음, `Form`에만 존재) — 동일하게 Form fallback으로 정상 percent 적용 확인.
+
+두 fixture 모두 corpus/Production count에 미포함, `SYNTHETIC_STRUCTURAL_PROXY_VERIFIED`까지만
+— 사용자의 실제 폐쇄망 Studio 재확인을 대신하지 않는다.
+
+### Regression(이번 라운드)
+
+| 항목 | 결과 |
+|---|---|
+| clean compile | PASS(0 errors) |
+| project conversion | 149/149 성공, 0 실패 |
+| XML parse | 136/136 well-formed |
+| standalone JS | 15/15(무변경) |
+| Phase1 SHA | 2/2 PASS |
+| `SOURCE_TO_TARGET_ID_MAP_EXPECTED_ONLY` | PASS(403/403 key, 135건 `grp_content->grp_main`만, 그 외 0건 — 무변경 재확인, id 생성 로직 자체는 이번 라운드에 안 건드림) |
+| invariant class/QName | `btn_cm=12`, `wq_gvw=3`, disabledClass=4, Calendar=1 전부 무변경 |
+| `UI PERCENT 적용` | 137건(이전 124건 -> 137건) |
+| `UI PERCENT UNRESOLVED` | **0건(이전 13건 -> 0건)** |
+| `INVALID_PERCENT_STYLE_COUNT` | 0(NaN%/Infinity%/음수% 없음) |
+
+### Completion Gate
+
+`STRUCTURE_TOPOLOGY_PRESERVED = PASS`(Div/Table/Grid Group 계층 구조 자체는 이번 라운드에서
+전혀 건드리지 않음 — basis 계산 로직만 수정). `ROOT_WRAPPER_GEOMETRY_UNCHANGED = PASS`
+(`grp_resultArea style=""`, `grp_main style="height:Npx;"` 무변경 실측). `PERCENT_GEOMETRY_
+CONVERSION = PASS`, `PERCENT_GEOMETRY_PARENT_SEMANTIC = PASS`(basis는 여전히 "가장 가까운
+XPlatform Layout 자신의 width/height" 우선, 없을 때만 Form 전체로 fallback — 원칙 자체는
+불변). `DIV_PERCENT_GEOMETRY = PASS`, `TABLE_ROW_COLUMN_PERCENT_GEOMETRY = PASS`,
+`GRID_GROUP_PERCENT_GEOMETRY = PASS`. `COMPONENT_QNAME_PRESERVED = PASS`,
+`EXISTING_CLASS_PRESERVED = PASS`(`btn_cm`/`wq_gvw`/disabledClass/Calendar 전부 무변경).
+`BODY_LIFECYCLE_ATTRIBUTES_PRESERVED = PASS`(무변경, 이번 라운드 미접촉 영역).
+
+`ABSOLUTE_PX_GEOMETRY_REMAINING_COUNT = 0`, `PERCENT_GEOMETRY_UNRESOLVED_COUNT = 0`,
+`PIXEL_GEOMETRY_FALLBACK_COUNT = 0`, `INVALID_PERCENT_STYLE_COUNT = 0`, `NaN% = 0`,
+`Infinity% = 0`.
+
 ## Status
 
 모든 변경 함수: `STATIC_VERIFIED`(compile/conversion/canonical map/invariant 실측 완료).
 `STUDIO_DESIGN_VERIFIED`는 선언하지 않음 — 사용자의 실제 폐쇄망 Studio 확인 필요
-(`STUDIO_DESIGN_REQUIRED`).
+(`STUDIO_DESIGN_REQUIRED`). 최종 `PERCENT_GEOMETRY = FIX_CANDIDATE`.
