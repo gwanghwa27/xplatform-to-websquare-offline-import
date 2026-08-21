@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><Form id="ComponentMethodConversion" width="600" height="300"><Objects><Dataset id="ds"><ColumnInfo><Column id="CODE" type="STRING"/></ColumnInfo></Dataset></Objects>
+<Combo id="cbo" left="10" top="10" width="100" height="24"/><Grid id="grd" binddataset="ds" left="10" top="50" width="300" height="120"><Formats><Format id="default"><Columns><Column size="100"/></Columns><Rows><Row size="24" band="head"/><Row size="24"/></Rows><Band id="head"><Cell text="Code"/></Band><Band id="body"><Cell text="bind:CODE"/></Band></Format></Formats></Grid>
+<Script><![CDATA[function m(){ cbo.index=1; trace(cbo.index); trace(grd.getBindCellIndex("body", "CODE")); trace(grd.getCellProperty("body",0,"text")); }]]></Script></Form></FDL>

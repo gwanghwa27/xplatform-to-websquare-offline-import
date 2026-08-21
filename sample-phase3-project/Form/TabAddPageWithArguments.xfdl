@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="UTF-8"?><FDL version="1.5"><Form id="TabAddPageWithArguments" width="600" height="360"><Layouts><Layout width="600" height="360"><Tab id="tabMain"><Tabpages><Tabpage id="seed"/></Tabpages></Tab></Layout></Layouts><Script><![CDATA[
+function fnAdd(){ this.tabMain.addTabpage("argPage","Args",{USER_ID:100,MODE:"EDIT"}); this.tabMain.argPage.set_url("../TabContent/RuntimeBridgeChild.xfdl"); }
+]]></Script></Form></FDL>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="RuntimeBridgeChild" width="700" height="420" onload="RuntimeBridgeChild_onload"><Objects><Dataset id="dsSearch"><ColumnInfo><Column id="NAME" type="STRING"/></ColumnInfo><Rows><Row><Col id="NAME">INIT</Col></Row></Rows></Dataset></Objects><Layouts><Layout width="500" height="300"><Edit id="edtName" value="child" left="10" top="10" width="140" height="24"/></Layout></Layouts><Script><![CDATA[
+include "Script::TabChildCommon.xjs";
+function RuntimeBridgeChild_onload(obj:Form,e:LoadEventInfo){ gfnChildLoaded(); }
+function fnSearch(v){ this.edtName.value=v; return this.edtName.value; }
+function fnGetValue(){ return this.edtName.value; }
+]]></Script></Form></FDL>

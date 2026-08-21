@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="TabDynamicSelection" width="700" height="420"><Layouts><Layout width="700" height="420"><Tab id="tabMain" preload="false" left="10" top="10" width="660" height="360" ><Tabpages><Tabpage id="a" text="A"/><Tabpage id="b" text="B"/></Tabpages></Tab></Layout></Layouts><Script><![CDATA[
+function fnSelect(){ this.tabMain.set_tabindex(1); }
+]]></Script></Form></FDL>

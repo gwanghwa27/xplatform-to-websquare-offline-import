@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xp:FDL xmlns:xp="urn:test" version="1.5"><xp:Form id="NamespacePrefixed" width="400" height="200" onload="NamespacePrefixed_onload"><xp:Objects><xp:Dataset id="ds"><xp:ColumnInfo><xp:Column id="A" type="STRING"/></xp:ColumnInfo></xp:Dataset></xp:Objects><xp:Button id="btn" text="N" left="10" top="10" width="80" height="24"/><xp:Script><![CDATA[function NamespacePrefixed_onload(obj:Form,e:LoadEventInfo){ trace("n"); }]]></xp:Script></xp:Form></xp:FDL>

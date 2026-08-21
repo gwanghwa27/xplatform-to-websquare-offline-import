@@ -1,0 +1,5 @@
+include "CircularA.xjs";
+function gfnCycleB()
+{
+    gfnCycleA();
+}

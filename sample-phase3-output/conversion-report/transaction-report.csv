@@ -1,0 +1,2 @@
+screen,line,serviceId,url,inputDatasets,outputDatasets,arguments,callback,async
+"Form/TransactionSample.xfdl","2","""search""","""/svc/search.do""","""dsIn=dsIn""","""dsOut=dsOut""","""user=kim""","""fnCallback""","true"

@@ -1,0 +1,14 @@
+{
+  "cases": [
+    {
+      "name": "Sample",
+      "xml": "phase1-fixtures/reference-output/Sample.xml",
+      "expected": "f82379cfb619d611ae4137032af43fd10faf3df88f018ca5db3b72c490f4d3fe"
+    },
+    {
+      "name": "CommentProtection",
+      "xml": "phase1-fixtures/reference-output/CommentProtection.xml",
+      "expected": "14f3466acde50241698ccf21edec5807464a2a6e903854c78ed59332c7b2b987"
+    }
+  ]
+}

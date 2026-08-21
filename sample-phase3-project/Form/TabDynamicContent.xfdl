@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="TabDynamicContent" width="600" height="400"><Layouts><Layout width="600" height="400"><Tab id="tabDynamic" left="10" top="10" width="560" height="340"><Tabpages><Tabpage id="pageA" text="A"/></Tabpages></Tab></Layout></Layouts><Script><![CDATA[
+function changePage(){ this.tabDynamic.pageA.set_url("../TabContent/Search.xfdl"); }
+function changePage2(){ this.tabDynamic.pageA.url = "../TabContent/Detail.xfdl"; }
+function mutate(){ tabDynamic.addTabpage("pageB"); tabDynamic.removeTabpage("pageA"); }
+]]></Script></Form></FDL>

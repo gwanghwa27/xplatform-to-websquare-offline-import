@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="TabMixedContent" width="600" height="400"><Layouts><Layout width="600" height="400"><Tab id="tabMixed" left="10" top="10" width="560" height="340"><Tabpages><Tabpage id="pageMixed" text="Mixed" url="../TabContent/Search.xfdl"><Layouts><Layout width="500" height="280"><Static id="staInline" text="inline" left="5" top="5" width="80" height="24"/></Layout></Layouts></Tabpage></Tabpages></Tab></Layout></Layouts></Form></FDL>

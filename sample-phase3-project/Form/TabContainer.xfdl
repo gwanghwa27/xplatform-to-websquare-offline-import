@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><Form id="TabContainer" width="600" height="400"><Layouts><Layout width="600" height="400">
+<Tab id="tabMain" tabindex="0" left="10" top="10" width="560" height="340"><Tabpages>
+<Tabpage id="pageA" text="기본"><Layouts><Layout width="540" height="290"><Edit id="edtA" value="A" left="10" top="10" width="120" height="24"/></Layout></Layouts></Tabpage>
+<Tabpage id="pageB" text="상세"><Layouts><Layout width="540" height="290"><Button id="btnB" text="B" left="20" top="20" width="80" height="24"/></Layout></Layouts></Tabpage>
+</Tabpages></Tab>
+</Layout></Layouts><Script><![CDATA[function read(){ trace(tabMain.pageA.edtA.value); }]]></Script></Form></FDL>

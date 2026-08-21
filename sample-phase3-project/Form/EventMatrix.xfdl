@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><Form id="EventMatrix" width="500" height="260" onload="EventMatrix_onload" onsize="EventMatrix_onsize">
+<Button id="btn" text="E" left="10" top="10" width="80" height="24" onclick="btn_onclick" ondblclick="btn_ondblclick" onkeyup="btn_onkeyup" onkeydown="btn_onkeydown" onsetfocus="btn_onsetfocus" onkillfocus="btn_onkillfocus" onmouseenter="btn_onmouseenter" onmouseleave="btn_onmouseleave"/>
+<Combo id="cbo" left="10" top="50" width="100" height="24" onitemchanged="cbo_onitemchanged" ondropdown="cbo_ondropdown" oncloseup="cbo_oncloseup"/>
+<Script><![CDATA[
+function EventMatrix_onload(obj:Form,e:LoadEventInfo){ trace("load"); }
+function EventMatrix_onsize(obj:Form,e:SizeEventInfo){ trace("size"); }
+function btn_onclick(obj:Button,e:ClickEventInfo){}
+function btn_ondblclick(obj:Button,e:ClickEventInfo){}
+function btn_onkeyup(obj:Button,e:KeyEventInfo){}
+function btn_onkeydown(obj:Button,e:KeyEventInfo){}
+function btn_onsetfocus(obj:Button,e:SetFocusEventInfo){}
+function btn_onkillfocus(obj:Button,e:KillFocusEventInfo){}
+function btn_onmouseenter(obj:Button,e:MouseEventInfo){}
+function btn_onmouseleave(obj:Button,e:MouseEventInfo){}
+function cbo_onitemchanged(obj:Combo,e:ItemChangeEventInfo){}
+function cbo_ondropdown(obj:Combo,e:EventInfo){}
+function cbo_oncloseup(obj:Combo,e:EventInfo){}
+]]></Script></Form></FDL>

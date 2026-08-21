@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="ParentDepthFirst" width="600" height="360"><Layouts><Layout width="600" height="360"><Tab id="tabFirst"><Tabpages><Tabpage id="second" text="Second" url="ParentDepthSecond.xfdl"/></Tabpages></Tab></Layout></Layouts><Script><![CDATA[
+function fnFirst(){ return "FIRST"; }
+]]></Script></Form></FDL>

@@ -1,0 +1,12 @@
+function gfnShadow()
+{
+    var btnSame = { value:"LOCAL" };
+    trace(btnSame.value);
+    this.btnSame.value = "SCREEN";
+}
+function gfnDatasetShadow()
+{
+    var dsMain = { getColumn:function(r,c){ return "local"; } };
+    trace(dsMain.getColumn(0, "NAME"));
+    trace(this.dsMain.getColumn(0, "NAME"));
+}

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="TabParentAccess" width="600" height="400"><Layouts><Layout width="600" height="400"><Tab id="tabParent" preload="false" left="10" top="10" width="560" height="340"><Tabpages><Tabpage id="pageChild" text="Child" url="../TabContent/ParentAccessChild.xfdl"/></Tabpages></Tab></Layout></Layouts><Script><![CDATA[
+function readChildFromParent(){ trace(this.tabParent.pageChild.edtChild.value); }
+]]></Script></Form></FDL>

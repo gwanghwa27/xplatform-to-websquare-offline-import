@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<html xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:w2="http://www.inswave.com/websquare" xmlns:xf="http://www.w3.org/2002/xforms" xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+        <w2:type>DEFAULT</w2:type>
+        <w2:buildDate/>
+        <xf:model>
+            <xf:instance>
+                <data xmlns=""/>
+            </xf:instance>
+            <w2:dataCollection baseNode="map"/>
+            <w2:workflowCollection/>
+        </xf:model>
+        <script type="text/javascript"><![CDATA[// ============================================================
+// [XPlatform 원본 스크립트 - 주석으로 보존]
+// ============================================================
+// 
+// function EventMatrix_onload(obj:Form,e:LoadEventInfo){ trace("load"); }
+// function EventMatrix_onsize(obj:Form,e:SizeEventInfo){ trace("size"); }
+// function btn_onclick(obj:Button,e:ClickEventInfo){}
+// function btn_ondblclick(obj:Button,e:ClickEventInfo){}
+// function btn_onkeyup(obj:Button,e:KeyEventInfo){}
+// function btn_onkeydown(obj:Button,e:KeyEventInfo){}
+// function btn_onsetfocus(obj:Button,e:SetFocusEventInfo){}
+// function btn_onkillfocus(obj:Button,e:KillFocusEventInfo){}
+// function btn_onmouseenter(obj:Button,e:MouseEventInfo){}
+// function btn_onmouseleave(obj:Button,e:MouseEventInfo){}
+// function cbo_onitemchanged(obj:Combo,e:ItemChangeEventInfo){}
+// function cbo_ondropdown(obj:Combo,e:EventInfo){}
+// function cbo_oncloseup(obj:Combo,e:EventInfo){}
+// 
+// 
+// ============================================================
+
+// ============================================================
+// [WebSquare 변환 스크립트 - 1차 변환]
+// 운영 적용 전에 TODO 표시 항목을 확인하세요.
+// ============================================================
+var scwin = (typeof scwin === "undefined") ? {} : scwin;
+
+// TODO: WebSquare submission을 구성한 뒤 이 호환 함수를 교체하세요.
+scwin.xpTransaction = function() {
+    console.warn("[마이그레이션 TODO] XPlatform transaction 호출을 WebSquare submission으로 변환해야 합니다.", arguments);
+};
+
+
+scwin.EventMatrix_onload = function(e){ console.log("load"); }
+scwin.EventMatrix_onsize = function(e){ console.log("size"); }
+scwin.btn_onclick = function(e){}
+scwin.btn_ondblclick = function(e){}
+scwin.btn_onkeyup = function(e){}
+scwin.btn_onkeydown = function(e){}
+scwin.btn_onsetfocus = function(e){}
+scwin.btn_onkillfocus = function(e){}
+scwin.btn_onmouseenter = function(e){}
+scwin.btn_onmouseleave = function(e){}
+scwin.cbo_onitemchanged = function(e){}
+scwin.cbo_ondropdown = function(e){}
+scwin.cbo_oncloseup = function(e){}
+
+]]></script>
+        <style type="text/css"/>
+    </head>
+    <body ev:onpageload="scwin.EventMatrix_onload" ev:onresize="scwin.EventMatrix_onsize">
+        <xf:group id="grp_resultArea" style="">
+            <xf:group id="grp_main" style="height:260px;">
+                <xf:group id="grp_content" style="width:500px;height:260px;">
+                    <xf:trigger class="btn_cm" ev:onblur="scwin.btn_onkillfocus" ev:onclick="scwin.btn_onclick" ev:ondblclick="scwin.btn_ondblclick" ev:onfocus="scwin.btn_onsetfocus" ev:onkeydown="scwin.btn_onkeydown" ev:onkeyup="scwin.btn_onkeyup" ev:onmouseout="scwin.btn_onmouseleave" ev:onmouseover="scwin.btn_onmouseenter" id="btn" style="position:absolute;left:10px;top:10px;width:80px;height:24px;" value="E"/>
+                    <xf:select1 appearance="minimal" disabledClass="w2selectbox_disabled" ev:onchange="scwin.cbo_onitemchanged" ev:oncloseup="scwin.cbo_oncloseup" ev:ondropdown="scwin.cbo_ondropdown" id="cbo" style="position:absolute;left:10px;top:50px;width:100px;height:24px;"/>
+                </xf:group>
+            </xf:group>
+        </xf:group>
+    </body>
+</html>

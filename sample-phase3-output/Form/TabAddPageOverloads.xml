@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<html xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:w2="http://www.inswave.com/websquare" xmlns:xf="http://www.w3.org/2002/xforms" xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+        <w2:type>DEFAULT</w2:type>
+        <w2:buildDate/>
+        <xf:model>
+            <xf:instance>
+                <data xmlns=""/>
+            </xf:instance>
+            <w2:dataCollection baseNode="map"/>
+            <w2:workflowCollection/>
+        </xf:model>
+        <script type="text/javascript"><![CDATA[// ============================================================
+// [Phase 3 Runtime Finalization Adapter - generated]
+// Static external Tab XML remains native; runtime/state bridges are emitted only when required.
+// ============================================================
+scwin.__xpComponentIdMap = {"TabAddPageOverloads":"grp_content","tabMain":"tabMain","tabMain.seed":"tabMain_seed_content"};
+scwin.__xpTabRuntime = (function() {
+    var pathMap = {};
+    var emptyPage = "../runtime/xplatform-tab-empty.xml";
+    var dynamicIds = {};
+    var dynamicData = {};
+    var operationQueues = {};
+    var instanceRegistry = {};
+    var generationCounters = {};
+    var generationSequence = 0;
+    var READY_TIMEOUT_MS = 10000;
+    var READY_POLL_MS = 25;
+    var debugEnabled = false;
+    function log(level, message, meta) {
+        if (typeof console === 'undefined') return;
+        var fn = console[level] || console.log;
+        if (!fn) return;
+        if (level === 'debug' && !debugEnabled) return;
+        if (meta !== undefined) fn.call(console, '[TAB RUNTIME] ' + message, meta);
+        else fn.call(console, '[TAB RUNTIME] ' + message);
+    }
+    function runtimeError(code, message, meta) {
+        var e = new Error('[TAB RUNTIME][' + code + '] ' + message);
+        e.code = code;
+        e.meta = meta || null;
+        log('error', code + ': ' + message, meta);
+        return e;
+    }
+    function component(id) {
+        try { if (typeof $p !== 'undefined' && $p.getComponentById) { var c=$p.getComponentById(id); if(c) return c; } }
+        catch(e1) { log('debug','component lookup by $p failed: '+id,e1); }
+        try { if (typeof window !== 'undefined' && window[id]) return window[id]; }
+        catch(e2) { log('debug','component lookup by window failed: '+id,e2); }
+        return null;
+    }
+    function resolveTab(id) { var t=component(id); if(!t) throw runtimeError('TAB_NOT_FOUND','tab not found: '+id,{tab:id}); return t; }
+    function normalizePath(v) { var x=(v==null?'':String(v)).replace(/\\/g,'/'); while(x.indexOf('./')===0)x=x.substring(2); return x; }
+    function targetPath(raw, fixed) { if(fixed) return fixed; var k=normalizePath(raw); var v=pathMap[k]; if(!v)throw runtimeError('PATH_UNRESOLVED','screen path unresolved at runtime: '+raw,{source:raw}); return v; }
+    function safeId(v) { var x=String(v==null?'tabpage':v).replace(/[^A-Za-z0-9_$]/g,'_'); if(!x)x='_tabpage'; if(/^[0-9]/.test(x))x='_'+x; return x; }
+    function tabKey(tab) { try{return tab.getID?tab.getID():String(tab);}catch(e){return String(tab);} }
+    function idMap(tab) { var k=tabKey(tab); if(!dynamicIds[k])dynamicIds[k]={}; return dynamicIds[k]; }
+    function dataMap(tab) { var k=tabKey(tab); if(!dynamicData[k])dynamicData[k]={}; return dynamicData[k]; }
+    function stateKey(tab,raw){return tabKey(tab)+'|'+String(raw);}
+    function generationKey(tab,raw){return stateKey(tab,raw);}
+    function stateFor(tab,raw,create){var k=stateKey(tab,raw),s=instanceRegistry[k];if(!s&&create){s={key:k,tab:tabKey(tab),logicalPage:String(raw),runtimePage:String(raw),generation:generationCounters[k]||0,state:'NOT_CREATED',target:'',arguments:undefined,selected:false,createdOrder:0,lastOperation:'',pendingOperations:0,error:null};instanceRegistry[k]=s;}return s;}
+    function nextGeneration(tab,raw){var k=generationKey(tab,raw);generationSequence++;generationCounters[k]=generationSequence;return generationSequence;}
+    function transition(s,state,operation){if(!s)return;s.state=state;if(operation)s.lastOperation=operation;s.error=null;log('debug',s.key+' -> '+state,{generation:s.generation,operation:s.lastOperation,target:s.target});}
+    function failState(s,e){if(s){s.state='ERROR';s.error=e&&e.message?e.message:String(e);}return e;}
+    function tabIndex(tab, ref) { if(typeof ref==='number')return ref; try{var n=tab.getTabIndex(ref);if(typeof n==='number'&&n>=0)return n;}catch(e){log('debug','getTabIndex failed for '+ref,e);} return ref; }
+    function pageRef(tab, raw) { if(typeof raw==='number')return raw; var m=idMap(tab); var k=String(raw); return m[k] || raw; }
+    function reservedId(m,id){for(var k in m)if(Object.prototype.hasOwnProperty.call(m,k)&&m[k]===id)return true;return false;}
+    function allocatePageId(tab, raw) { var m=idMap(tab), k=String(raw), base=safeId(k), c=base, n=2; if(m[k])return m[k]; while(true){var idx=-1;try{idx=tab.getTabIndex(c);}catch(e){} if(!reservedId(m,c)&&!(typeof idx==='number'&&idx>=0))break;c=base+'_'+(n++);}m[k]=c;return c;}
+    function forgetPage(tab, raw) { var tk=tabKey(tab),m=idMap(tab),d=dataMap(tab),k=String(raw),sk=stateKey(tab,raw),actual=m[k]||raw;delete m[k];delete d[k];delete instanceRegistry[sk];delete generationCounters[sk];var any=false,x;for(x in m)if(Object.prototype.hasOwnProperty.call(m,x)){any=true;break;}if(!any)delete dynamicIds[tk];any=false;for(x in d)if(Object.prototype.hasOwnProperty.call(d,x)){any=true;break;}if(!any)delete dynamicData[tk];return actual;}
+    function isThenable(v){return v&&typeof v.then==='function';}
+    function queueKey(tab,raw){return stateKey(tab,raw);}
+    function enqueue(tab,raw,operation,action){var k=queueKey(tab,raw),prev=operationQueues[k],st=stateFor(tab,raw,true);st.pendingOperations++;function run(){st.lastOperation=operation;return action();}function done(v){st.pendingOperations=Math.max(0,st.pendingOperations-1);return v;}function failed(e){st.pendingOperations=Math.max(0,st.pendingOperations-1);throw e;}var result=isThenable(prev)?prev.then(run,run):run();if(isThenable(result)){var chain;chain=result.then(function(v){if(operationQueues[k]===chain)delete operationQueues[k];return done(v);},function(e){if(operationQueues[k]===chain)delete operationQueues[k];return failed(e);});operationQueues[k]=chain;return chain;}if(operationQueues[k]===result)delete operationQueues[k];return done(result);}
+    function contentOptions(src, eager, data) { var o={src:src,alwaysDraw:!!eager,frameMode:'wframe',scope:true}; if(data!==undefined){o.dataObject={type:'json',name:'xpArguments',data:data};} return o; }
+    function setSrcOptions(data){return data===undefined?undefined:{dataObject:{type:'json',name:'xpArguments',data:data}};}
+    function frameFor(tab,raw){var ref=pageRef(tab,raw);try{return tab.getFrame?tab.getFrame(ref):null;}catch(e){log('debug','getFrame failed: '+raw,e);return null;}}
+    function observeFrame(tab,raw,generation){var frame=frameFor(tab,raw);if(!frame)return null;frame.__xpTabRuntimeMeta={key:stateKey(tab,raw),generation:generation};if(!frame.__xpTabRuntimeBound&&frame.bind){var loadHandler=function(){var m=frame.__xpTabRuntimeMeta,s=m?instanceRegistry[m.key]:null;if(!s||s.generation!==m.generation){log('debug','STALE_OPERATION: old wframe load ignored',m);return;}transition(s,'LOADED','WFRAME_LOAD');try{probeReadyByState(tab,raw,s);}catch(e){failState(s,e);log('error','child WFrame load completed with page error',{page:raw,generation:s.generation,error:e});}};var unloadHandler=function(){var m=frame.__xpTabRuntimeMeta,s=m?instanceRegistry[m.key]:null;if(!s||s.generation!==m.generation)return;if(s.state!=='DESTROYING'&&s.state!=='DESTROYED')transition(s,'LOADING','WFRAME_UNLOAD');};frame.bind('onwframeload',loadHandler);frame.bind('onwframeunload',unloadHandler);frame.__xpTabRuntimeBound=true;frame.__xpTabRuntimeHandlers={load:loadHandler,unload:unloadHandler};}return frame;}
+    function unobserveFrame(frame){if(!frame||!frame.__xpTabRuntimeHandlers)return;var h=frame.__xpTabRuntimeHandlers;if(frame.unbind){try{frame.unbind('onwframeload',h.load);}catch(e1){log('debug','onwframeload unbind failed',e1);}try{frame.unbind('onwframeunload',h.unload);}catch(e2){log('debug','onwframeunload unbind failed',e2);}}frame.__xpTabRuntimeHandlers=null;frame.__xpTabRuntimeBound=false;frame.__xpTabRuntimeMeta=null;}
+    function currentWindow(tab,raw){var ref=pageRef(tab,raw);try{return tab.getWindow?tab.getWindow(ref):null;}catch(e){log('debug','getWindow failed: '+raw,e);return null;}}
+    function probeReadyByState(tab,raw,st){if(!st)return null;if((generationCounters[stateKey(tab,raw)]||0)!==st.generation)return null;var win=currentWindow(tab,raw);if(!win)return null;if(win.scwin&&win.scwin.__xpRuntimePageLoadError){throw failState(st,runtimeError('CHILD_LOAD_FAILED','child onload failed: '+raw,{page:raw,generation:st.generation,error:win.scwin.__xpRuntimePageLoadError}));}if(win.scwin&&win.scwin.__xpRuntimePageReady===true){transition(st,'READY','CHILD_READY');return win;}if(win.scwin&&st.state!=='READY')transition(st,'LOADED','CHILD_SCWIN_CREATED');return null;}
+    function pollReady(tab,raw,generation){var st=stateFor(tab,raw,true),immediate=probeReadyByState(tab,raw,st);if(immediate)return immediate;if(typeof Promise==='undefined'||typeof setTimeout==='undefined')throw runtimeError('CONTENT_NOT_READY','child requires asynchronous ready wait but Promise/setTimeout is unavailable',{page:raw,generation:generation});return new Promise(function(resolve,reject){var started=(new Date()).getTime();function check(){var cur=stateFor(tab,raw,false);if(!cur||cur.generation!==generation){reject(runtimeError('STALE_OPERATION','child generation changed while waiting',{page:raw,generation:generation}));return;}try{var w=probeReadyByState(tab,raw,cur);if(w){resolve(w);return;}}catch(e){reject(e);return;}if((new Date()).getTime()-started>=READY_TIMEOUT_MS){reject(runtimeError('CONTENT_NOT_READY','child did not reach READY within timeout',{page:raw,generation:generation,state:cur.state}));return;}setTimeout(check,READY_POLL_MS);}check();});}
+    function ensureChildReady(tab,raw){var st=stateFor(tab,raw,true),w=probeReadyByState(tab,raw,st);if(w)return w;var ref=pageRef(tab,raw),idx=tabIndex(tab,ref),activation=null;transition(st,st.state==='NOT_CREATED'?'CREATED':st.state,'ENSURE_CHILD_READY');if(tab.activateTab){activation=tab.activateTab(idx);}function afterActivate(){observeFrame(tab,raw,st.generation);var ready=probeReadyByState(tab,raw,st);return ready||pollReady(tab,raw,st.generation);}return isThenable(activation)?activation.then(afterActivate):afterActivate();}
+    function setUrlNow(tab, rawPage, rawUrl, fixedTarget, eager, data) {
+        var ref=pageRef(tab,rawPage),src=targetPath(rawUrl,fixedTarget),dm=dataMap(tab),dk=String(rawPage),st=stateFor(tab,rawPage,true),oldTarget=st.target,gen=nextGeneration(tab,rawPage);st.generation=gen;st.runtimePage=String(ref);st.target=src;if(data===undefined)data=dm[dk];else dm[dk]=data;st.arguments=data;transition(st,oldTarget&&oldTarget!==src?'REPLACING':'LOADING','SET_URL');
+        var loaded=false;try{loaded=tab.isLoaded?tab.isLoaded(tabIndex(tab,ref)):false;}catch(e){log('debug','isLoaded failed: '+rawPage,e);}var frame=observeFrame(tab,rawPage,gen);
+        if(loaded&&frame&&frame.setSrc){var setResult;try{setResult=frame.setSrc(src,setSrcOptions(data));}catch(e1){throw failState(st,e1);}transition(st,'LOADING','SET_URL');function afterSet(v){if(st.generation!==gen)throw runtimeError('STALE_OPERATION','setUrl generation was replaced before READY',{page:rawPage,generation:gen,current:st.generation});observeFrame(tab,rawPage,gen);var w=probeReadyByState(tab,rawPage,st);if(w)return v;var waited=pollReady(tab,rawPage,gen);return isThenable(waited)?waited.then(function(){return v;}):v;}if(isThenable(setResult))return setResult.then(afterSet,function(e){throw failState(st,e);});return afterSet(setResult);}
+        var label=String(rawPage);try{var idx=tab.getTabIndex(ref);if(idx>=0&&tab.getLabelText)label=tab.getLabelText(idx);}catch(e2){log('debug','label lookup failed: '+rawPage,e2);}if(tab.addTab){var addResult=tab.addTab(ref,{openAction:'exist',label:label},contentOptions(src,eager,data));if(isThenable(addResult))return addResult.then(function(v){if(st.generation===gen){observeFrame(tab,rawPage,gen);transition(st,eager?'LOADING':'CREATED','SET_URL_ADDED');}return v;},function(e){throw failState(st,e);});observeFrame(tab,rawPage,gen);transition(st,eager?'LOADING':'CREATED','SET_URL_ADDED');return addResult;}
+        if(frame&&frame.setSrc)return frame.setSrc(src);throw failState(st,runtimeError('TAB_PAGE_NOT_FOUND','setUrl target page/frame not found: '+rawPage,{page:rawPage,target:src}));
+    }
+    function setUrl(tabId, rawPage, rawUrl, fixedTarget, eager, data) { var tab=resolveTab(tabId);return enqueue(tab,rawPage,'SET_URL',function(){return setUrlNow(tab,rawPage,rawUrl,fixedTarget,eager,data);}); }
+    function addPage(tabId, rawId, label, data, eager) { var tab=resolveTab(tabId);return enqueue(tab,rawId,'ADD_PAGE',function(){var id=allocatePageId(tab,rawId),st=stateFor(tab,rawId,true),gen=nextGeneration(tab,rawId);st.generation=gen;st.runtimePage=id;st.target=emptyPage;if(data!==undefined)dataMap(tab)[String(rawId)]=data;st.arguments=data;transition(st,'CREATED','ADD_PAGE');var result=tab.addTab(id,{openAction:'new',label:(label==null?String(rawId):label)},contentOptions(emptyPage,eager,data));if(isThenable(result))return result.then(function(v){if(st.generation===gen){observeFrame(tab,rawId,gen);transition(st,eager?'LOADING':'CREATED','ADD_PAGE_DONE');}return v;},function(e){throw failState(st,e);});observeFrame(tab,rawId,gen);return result;}); }
+    function insertPage(tabId, rawId, index, label, data, eager) { var tab=resolveTab(tabId);return enqueue(tab,rawId,'INSERT_PAGE',function(){var id=allocatePageId(tab,rawId),st=stateFor(tab,rawId,true),gen=nextGeneration(tab,rawId);st.generation=gen;st.runtimePage=id;st.target=emptyPage;if(data!==undefined)dataMap(tab)[String(rawId)]=data;st.arguments=data;transition(st,'CREATED','INSERT_PAGE');var result=tab.addTab(id,{openAction:'new',label:(label==null?String(rawId):label),addTabIndex:index},contentOptions(emptyPage,eager,data));if(isThenable(result))return result.then(function(v){if(st.generation===gen){observeFrame(tab,rawId,gen);transition(st,eager?'LOADING':'CREATED','INSERT_PAGE_DONE');}return v;},function(e){throw failState(st,e);});observeFrame(tab,rawId,gen);return result;}); }
+    function removePage(tabId, rawPage) { var tab=resolveTab(tabId),pre=stateFor(tab,rawPage,true),cancelGen=nextGeneration(tab,rawPage);pre.generation=cancelGen;transition(pre,'DESTROYING','REMOVE_REQUESTED');return enqueue(tab,rawPage,'REMOVE_PAGE',function(){var ref=pageRef(tab,rawPage),st=stateFor(tab,rawPage,true),gen=nextGeneration(tab,rawPage),frame=frameFor(tab,rawPage);st.generation=gen;transition(st,'DESTROYING','REMOVE_PAGE');unobserveFrame(frame);var result;try{result=tab.deleteTab(ref);}catch(e){throw failState(st,e);}function cleanup(v){transition(st,'DESTROYED','REMOVE_PAGE_DONE');forgetPage(tab,rawPage);syncSelected(tab,null);return v;}if(isThenable(result))return result.then(cleanup,function(e){throw failState(st,e);});return cleanup(result);});}
+    function syncSelected(tab, preferredRaw) { var tk=tabKey(tab),selectedId=null;try{if(tab.getSelectedTabID)selectedId=tab.getSelectedTabID();else if(tab.getSelectedTabIndex&&tab.getTabID){var si=tab.getSelectedTabIndex();selectedId=tab.getTabID(si);}}catch(e){log('debug','selected tab lookup failed',e);}for(var k in instanceRegistry)if(Object.prototype.hasOwnProperty.call(instanceRegistry,k)){var s=instanceRegistry[k];if(s.tab!==tk)continue;s.selected=(selectedId!=null)?String(s.runtimePage)===String(selectedId):(preferredRaw!=null&&s.logicalPage===String(preferredRaw));}}
+    function selectPage(tabId, rawPage) { var tab=resolveTab(tabId);return enqueue(tab,rawPage,'SELECT_PAGE',function(){var ref=pageRef(tab,rawPage),result=tab.setSelectedTabIndex(ref);function selected(v){var st=stateFor(tab,rawPage,true);st.lastOperation='SELECT_PAGE';syncSelected(tab,rawPage);return v;}return isThenable(result)?result.then(selected):selected(result);}); }
+    function resolveInScope(win, sourceId) { if(!win)return null;var id=sourceId;try{if(win.scwin&&win.scwin.__xpComponentIdMap&&win.scwin.__xpComponentIdMap[sourceId])id=win.scwin.__xpComponentIdMap[sourceId];}catch(e){log('debug','scope id map lookup failed: '+sourceId,e);}return win[id]||null; }
+    function callChild(tabId,page,fn,args) { var tab=resolveTab(tabId);return enqueue(tab,page,'CALL_CHILD',function(){var ready=ensureChildReady(tab,page);function invoke(win){if(!win||!win.scwin||typeof win.scwin[fn]!=='function')throw runtimeError('CHILD_FUNCTION_NOT_FOUND','child function unresolved: '+fn,{tab:tabId,page:page,functionName:fn});return win.scwin[fn].apply(win.scwin,args||[]);}return isThenable(ready)?ready.then(invoke):invoke(ready);});}
+    function requireReadyWindow(tabId,page,operation){var tab=resolveTab(tabId),st=stateFor(tab,page,true),win=probeReadyByState(tab,page,st);if(!win)throw runtimeError('UNSUPPORTED_SYNC_SEMANTIC',operation+' requires an already READY child',{tab:tabId,page:page,state:st.state,generation:st.generation});return win;}
+    function childObject(tabId,page,id) { var w=requireReadyWindow(tabId,page,'child object read'),o=resolveInScope(w,id);if(!o)throw runtimeError('CHILD_COMPONENT_NOT_FOUND','child object unresolved: '+id,{tab:tabId,page:page,object:id});return o; }
+    function getChildValue(tabId,page,id) { var o=childObject(tabId,page,id);if(!o.getValue)throw runtimeError('CHILD_COMPONENT_NOT_FOUND','child value API unavailable: '+id,{tab:tabId,page:page,object:id});return o.getValue(); }
+    function setChildValue(tabId,page,id,value) { var tab=resolveTab(tabId);return enqueue(tab,page,'SET_CHILD_VALUE',function(){var ready=ensureChildReady(tab,page);function setValue(win){var o=resolveInScope(win,id);if(!o||!o.setValue)throw runtimeError('CHILD_COMPONENT_NOT_FOUND','child value setter unavailable: '+id,{tab:tabId,page:page,object:id});o.setValue(value);return value;}return isThenable(ready)?ready.then(setValue):setValue(ready);}); }
+    function currentFrame(){var root=component('grp_content');if(!root||!root.getScope)throw runtimeError('PARENT_SCOPE_NOT_FOUND','current scoped WFrame unavailable');var frame=root.getScope();if(!frame)throw runtimeError('PARENT_SCOPE_NOT_FOUND','current page is not inside scope=true WFrame');return frame;}
+    function parentWindow(depth) { var d=depth||1,frame=currentFrame(),w=null;try{w=frame.getScopeWindow?frame.getScopeWindow():null;}catch(e){throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent scope lookup failed',{depth:d,error:e});}for(var i=1;i<d;i++){if(!w||!w.grp_content||!w.grp_content.getScope)throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent depth exceeds available scoped frames',{depth:d,at:i});frame=w.grp_content.getScope();if(!frame||!frame.getScopeWindow)throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent WFrame unavailable',{depth:d,at:i});w=frame.getScopeWindow();}if(!w)throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent scope unavailable',{depth:d});return w; }
+    function callParent(depth,fn,args){var w=parentWindow(depth);if(!w.scwin||typeof w.scwin[fn]!=='function')throw runtimeError('PARENT_FUNCTION_NOT_FOUND','parent function unresolved: '+fn,{depth:depth,functionName:fn});return w.scwin[fn].apply(w.scwin,args||[]);}
+    function parentObject(depth,id){var w=parentWindow(depth),o=resolveInScope(w,id);if(!o)throw runtimeError('PARENT_COMPONENT_NOT_FOUND','parent object unresolved: '+id,{depth:depth,object:id});return o;}
+    function getParentValue(depth,id){var o=parentObject(depth,id);if(!o.getValue)throw runtimeError('PARENT_COMPONENT_NOT_FOUND','parent value API unavailable: '+id,{depth:depth,object:id});return o.getValue();}
+    function setParentValue(depth,id,value){var o=parentObject(depth,id);if(!o.setValue)throw runtimeError('PARENT_COMPONENT_NOT_FOUND','parent value setter unavailable: '+id,{depth:depth,object:id});o.setValue(value);return value;}
+    function ownerFrame(depth){var d=depth||0,f=currentFrame();for(var i=0;i<d;i++){if(!f.getParentFrame)throw runtimeError('OWNER_FRAME_NOT_FOUND','owner frame chain unavailable',{depth:d,at:i});f=f.getParentFrame();if(!f)throw runtimeError('OWNER_FRAME_NOT_FOUND','owner frame depth exceeds available frames',{depth:d,at:i});}return f;}
+    function ownerWindow(depth){if((depth||0)===0){var f=ownerFrame(0);if(f.getWindow)return f.getWindow();}try{var of=ownerFrame(depth||0);if(of&&of.getWindow)return of.getWindow();}catch(e){if((depth||0)===0)throw e;}return parentWindow(depth||1);}
+    function callOwner(depth,fn,args){var w=ownerWindow(depth);if(!w||!w.scwin||typeof w.scwin[fn]!=='function')throw runtimeError('OWNER_FUNCTION_NOT_FOUND','owner form function unresolved: '+fn,{depth:depth,functionName:fn});return w.scwin[fn].apply(w.scwin,args||[]);}
+    function ownerObject(depth,id){var w=ownerWindow(depth),o=resolveInScope(w,id);if(!o)throw runtimeError('OWNER_OBJECT_NOT_FOUND','owner form object unresolved: '+id,{depth:depth,object:id});return o;}
+    function getOwnerValue(depth,id){var o=ownerObject(depth,id);if(!o.getValue)throw runtimeError('OWNER_OBJECT_NOT_FOUND','owner value API unavailable: '+id,{depth:depth,object:id});return o.getValue();}
+    function setOwnerValue(depth,id,value){var o=ownerObject(depth,id);if(!o.setValue)throw runtimeError('OWNER_OBJECT_NOT_FOUND','owner value setter unavailable: '+id,{depth:depth,object:id});o.setValue(value);return value;}
+    function ownerArguments(depth){var w=ownerWindow(depth);try{if(w&&w.$p&&w.$p.getParameter)return w.$p.getParameter();if(w&&w.$p&&w.$p.getParamter)return w.$p.getParamter();}catch(e){throw runtimeError('OWNER_ARGUMENTS_UNAVAILABLE','owner arguments lookup failed',{depth:depth,error:e});}if((depth||0)===0)return argumentsObject();throw runtimeError('OWNER_ARGUMENTS_UNAVAILABLE','owner arguments unavailable',{depth:depth});}
+    function openerWindow(){if(scwin&&scwin.__xpOpenerScope)return scwin.__xpOpenerScope;try{if(typeof window!=='undefined'&&window.opener)return window.opener;}catch(e){throw runtimeError('OPENER_SCOPE_NOT_FOUND','window.opener access failed',{error:e});}throw runtimeError('OPENER_SCOPE_NOT_FOUND','popup opener scope is not available; inject scwin.__xpOpenerScope for framework popup bridges');}
+    function callOpener(fn,args){var w=openerWindow(),scope=w.scwin?w:w;if(!scope.scwin||typeof scope.scwin[fn]!=='function')throw runtimeError('OPENER_FUNCTION_NOT_FOUND','opener function unresolved: '+fn,{functionName:fn});return scope.scwin[fn].apply(scope.scwin,args||[]);}
+    function openerObject(id){var w=openerWindow(),o=resolveInScope(w,id);if(!o)throw runtimeError('OPENER_OBJECT_NOT_FOUND','opener object unresolved: '+id,{object:id});return o;}
+    function getOpenerValue(id){var o=openerObject(id);if(!o.getValue)throw runtimeError('OPENER_OBJECT_NOT_FOUND','opener value API unavailable: '+id,{object:id});return o.getValue();}
+    function setOpenerValue(id,value){var o=openerObject(id);if(!o.setValue)throw runtimeError('OPENER_OBJECT_NOT_FOUND','opener value setter unavailable: '+id,{object:id});o.setValue(value);return value;}
+    function argumentsObject(){try{if(typeof $p!=='undefined'&&$p.getParameter)return $p.getParameter();if(typeof $p!=='undefined'&&$p.getParamter)return $p.getParamter();}catch(e){throw runtimeError('ARGUMENTS_UNAVAILABLE','page arguments lookup failed',{error:e});}return null;}
+    function stateSnapshot(){var out={instances:{},queueKeys:[],dynamicIdTabs:0,dynamicDataTabs:0,generationKeys:0};for(var k in instanceRegistry)if(Object.prototype.hasOwnProperty.call(instanceRegistry,k)){var s=instanceRegistry[k];out.instances[k]={logicalPage:s.logicalPage,runtimePage:s.runtimePage,generation:s.generation,state:s.state,target:s.target,selected:s.selected,lastOperation:s.lastOperation,pendingOperations:s.pendingOperations,error:s.error};}for(var qk in operationQueues)if(Object.prototype.hasOwnProperty.call(operationQueues,qk))out.queueKeys.push(qk);for(var a in dynamicIds)if(Object.prototype.hasOwnProperty.call(dynamicIds,a))out.dynamicIdTabs++;for(var b in dynamicData)if(Object.prototype.hasOwnProperty.call(dynamicData,b))out.dynamicDataTabs++;for(var g in generationCounters)if(Object.prototype.hasOwnProperty.call(generationCounters,g))out.generationKeys++;return out;}
+    function setDebug(v){debugEnabled=!!v;return debugEnabled;}
+    return {setUrl:setUrl,addPage:addPage,insertPage:insertPage,removePage:removePage,selectPage:selectPage,callChild:callChild,childObject:childObject,getChildValue:getChildValue,setChildValue:setChildValue,parentWindow:parentWindow,callParent:callParent,parentObject:parentObject,getParentValue:getParentValue,setParentValue:setParentValue,ownerFrame:ownerFrame,ownerWindow:ownerWindow,callOwner:callOwner,ownerObject:ownerObject,getOwnerValue:getOwnerValue,setOwnerValue:setOwnerValue,ownerArguments:ownerArguments,openerWindow:openerWindow,callOpener:callOpener,openerObject:openerObject,getOpenerValue:getOpenerValue,setOpenerValue:setOpenerValue,argumentsObject:argumentsObject,translatePath:targetPath,debugSnapshot:stateSnapshot,setDebug:setDebug};
+})();
+
+// ============================================================
+// [XPlatform 원본 스크립트 - 주석으로 보존]
+// ============================================================
+// 
+// function fnOverloads(){ this.tabMain.addTabpage("A"); this.tabMain.addTabpage("B","Bee"); this.tabMain.addTabpage("C","See",{MODE:"C"}); }
+// 
+// 
+// ============================================================
+
+// ============================================================
+// [WebSquare 변환 스크립트 - 1차 변환]
+// 운영 적용 전에 TODO 표시 항목을 확인하세요.
+// ============================================================
+var scwin = (typeof scwin === "undefined") ? {} : scwin;
+
+// TODO: WebSquare submission을 구성한 뒤 이 호환 함수를 교체하세요.
+scwin.xpTransaction = function() {
+    console.warn("[마이그레이션 TODO] XPlatform transaction 호출을 WebSquare submission으로 변환해야 합니다.", arguments);
+};
+
+
+scwin.fnOverloads = function(){ scwin.__xpTabRuntime.addPage("tabMain","A","A",undefined,false); scwin.__xpTabRuntime.addPage("tabMain","B","Bee",undefined,false); scwin.__xpTabRuntime.addPage("tabMain","C","See",{MODE:"C"},false); }
+
+]]></script>
+        <style type="text/css"/>
+    </head>
+    <body>
+        <xf:group id="grp_resultArea" style="">
+            <xf:group id="grp_main" style="height:360px;">
+                <xf:group id="grp_content" style="width:600px;height:360px;">
+                    <w2:tabControl alwaysDraw="true" id="tabMain">
+                        <w2:tabs id="tabMain_seed_tab" label="Seed"/>
+                        <w2:content id="tabMain_seed_content" style="position:relative;width:100%;height:100%;"/>
+                    </w2:tabControl>
+                </xf:group>
+            </xf:group>
+        </xf:group>
+    </body>
+</html>

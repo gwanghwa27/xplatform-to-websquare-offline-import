@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="TabStateArgumentIsolation" width="700" height="420"><Layouts><Layout width="700" height="420"><Tab id="tabMain" preload="false" left="10" top="10" width="660" height="360"><Tabpages><Tabpage id="seed" text="Seed"/></Tabpages></Tab></Layout></Layouts><Script><![CDATA[
+function fnArgs(){ this.tabMain.addTabpage("A","A",{MODE:"A"}); this.tabMain.A.set_url("../TabContent/RuntimeBridgeChild.xfdl"); this.tabMain.addTabpage("B","B",{MODE:"B"}); this.tabMain.B.set_url("../TabContent/RuntimeBridgeChild.xfdl"); }
+]]></Script></Form></FDL>

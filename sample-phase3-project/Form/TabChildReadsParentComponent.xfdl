@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="TabChildReadsParentComponent" width="700" height="420"><Layouts><Layout width="700" height="420"><Edit id="edtParent" value="parent" left="10" top="375" width="120" height="24"/><Tab id="tabMain" preload="false" left="10" top="10" width="660" height="350"><Tabpages><Tabpage id="pageChild" text="Child" url="../TabContent/ChildBridgeParent.xfdl"/></Tabpages></Tab></Layout></Layouts><Script><![CDATA[
+function fnParent(v){ return v; }
+]]></Script></Form></FDL>

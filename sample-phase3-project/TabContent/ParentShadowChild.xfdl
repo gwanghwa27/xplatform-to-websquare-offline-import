@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="ParentShadowChild" width="500" height="300"><Layouts><Layout width="500" height="300"><Static id="sta" text="shadow"/></Layout></Layouts><Script><![CDATA[
+function fnShadow(){ var parent={parent:{fnHost:function(v){return "LOCAL:"+v;}}}; return parent.parent.fnHost("X"); }
+]]></Script></Form></FDL>

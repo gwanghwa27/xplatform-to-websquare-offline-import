@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><Form id="DatasetBinding" width="700" height="320" onload="DatasetBinding_onload">
+<Objects>
+<Dataset id="dsMain"><ColumnInfo><Column id="CODE" type="STRING"/><Column id="NAME" type="STRING"/></ColumnInfo><Rows><Row><Col id="CODE">A</Col><Col id="NAME">Alpha</Col></Row><Row><Col id="CODE">B</Col><Col id="NAME">Beta</Col></Row></Rows></Dataset>
+<Dataset id="dsCode"><ColumnInfo><Column id="CD" type="STRING"/><Column id="NM" type="STRING"/></ColumnInfo><Rows><Row><Col id="CD">1</Col><Col id="NM">One</Col></Row></Rows></Dataset>
+</Objects>
+<Bind><BindItem id="b1" compid="edtName" propid="value" datasetid="dsMain" columnid="NAME"/></Bind>
+<Layouts><Layout width="700" height="320"><Edit id="edtName" left="10" top="10" width="160" height="24"/><Combo id="cboCode" innerdataset="dsCode" codecolumn="CD" datacolumn="NM" left="180" top="10" width="160" height="24"/><Radio id="rdoCode" innerdataset="dsCode" codecolumn="CD" datacolumn="NM" left="10" top="50" width="300" height="40"/></Layout></Layouts>
+<Script><![CDATA[
+function DatasetBinding_onload(obj:Form,e:LoadEventInfo) { var r = dsMain.addRow(); dsMain.setColumn(r,"NAME","New"); trace(dsMain.getColumn(0,"NAME")); }
+]]></Script></Form></FDL>

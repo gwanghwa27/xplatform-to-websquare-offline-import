@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="OnloadFailureChild" width="500" height="300" onload="OnloadFailureChild_onload"><Layouts><Layout width="500" height="300"><Static id="sta" text="FAIL"/></Layout></Layouts><Script><![CDATA[
+function OnloadFailureChild_onload(obj:Form,e:LoadEventInfo){ throw new Error("fixture onload failure"); }
+function fnValue(){ return "NEVER_READY"; }
+]]></Script></Form></FDL>

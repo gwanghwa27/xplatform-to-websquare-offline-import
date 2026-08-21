@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><Form id="ExternalXjsDependency" width="400" height="200"><Script><![CDATA[
+include "Script::Common.xjs";
+function run() { gfnA(); }
+]]></Script></Form></FDL>

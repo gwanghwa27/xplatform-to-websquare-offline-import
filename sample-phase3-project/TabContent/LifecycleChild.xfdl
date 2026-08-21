@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="LifecycleChild" width="400" height="240" onload="LifecycleChild_onload"><Layouts><Layout width="400" height="240"><Static id="staLoad" text="load" left="10" top="10" width="80" height="24"/></Layout></Layouts><Script><![CDATA[function LifecycleChild_onload(obj:Form,e:LoadEventInfo){ trace("child-onload"); }]]></Script></Form></FDL>

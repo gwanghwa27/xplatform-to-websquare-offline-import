@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<html xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:w2="http://www.inswave.com/websquare" xmlns:xf="http://www.w3.org/2002/xforms" xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+        <w2:type>DEFAULT</w2:type>
+        <w2:buildDate/>
+        <xf:model>
+            <xf:instance>
+                <data xmlns=""/>
+            </xf:instance>
+            <w2:dataCollection baseNode="map">
+                <w2:dataList baseNode="list" id="dsSearch" repeatNode="map">
+                    <w2:columnInfo>
+                        <w2:column dataType="text" id="KEYWORD"/>
+                    </w2:columnInfo>
+                </w2:dataList>
+                <w2:dataList baseNode="list" id="dsList" repeatNode="map">
+                    <w2:columnInfo>
+                        <w2:column dataType="number" id="ID"/>
+                        <w2:column dataType="text" id="NAME"/>
+                    </w2:columnInfo>
+                </w2:dataList>
+            </w2:dataCollection>
+            <w2:workflowCollection/>
+        </xf:model>
+        <script type="text/javascript"><![CDATA[// ============================================================
+// [XPlatform 원본 스크립트 - 주석으로 보존]
+// ============================================================
+// 
+// this.btnSearch_onclick = function(obj:Button, e:ClickEventInfo)
+// {
+//     trace(obj.id);
+//     fnSearch();
+// };
+// 
+// this.fnSearch = function()
+// {
+//     this.transaction("search", "/sample/search.do", "dsSearch=dsSearch", "dsList=dsList", "", "fnCallback");
+// };
+// 
+// this.fnCallback = function(svcId, errCode, errMsg)
+// {
+//     fnSetResult();
+// };
+// 
+// this.fnSetResult = function()
+// {
+//     trace("완료");
+// };
+// 
+// this.fnUnused = function()
+// {
+//     trace("미사용");
+// };
+//     
+// 
+// ============================================================
+
+// ============================================================
+// [WebSquare 변환 스크립트 - 1차 변환]
+// 운영 적용 전에 TODO 표시 항목을 확인하세요.
+// ============================================================
+var scwin = (typeof scwin === "undefined") ? {} : scwin;
+
+// TODO: WebSquare submission을 구성한 뒤 이 호환 함수를 교체하세요.
+scwin.xpTransaction = function() {
+    console.warn("[마이그레이션 TODO] XPlatform transaction 호출을 WebSquare submission으로 변환해야 합니다.", arguments);
+};
+
+
+scwin.btnSearch_onclick = function(e)
+{
+    var obj = $p.getComponentById("btnSearch");
+    console.log(obj.getID());
+    scwin.fnSearch();
+};
+
+scwin.fnSearch = function()
+{
+    scwin.xpTransaction("search", "/sample/search.do", "dsSearch=dsSearch", "dsList=dsList", "", "fnCallback");
+};
+
+scwin.fnCallback = function(svcId, errCode, errMsg)
+{
+    scwin.fnSetResult();
+};
+
+scwin.fnSetResult = function()
+{
+    console.log("완료");
+};
+
+scwin.fnUnused = function()
+{
+    console.log("미사용");
+};
+    
+]]></script>
+        <style type="text/css"/>
+    </head>
+    <body>
+        <w2:group id="grp_content" style="position:relative;overflow:hidden;width:800px;height:600px;">
+            <w2:span id="staTitle" label="샘플 조회" style="position:absolute;left:20px;top:20px;width:150px;height:24px;"/>
+            <xf:input id="edtKeyword" style="position:absolute;left:20px;top:60px;width:200px;height:24px;"/>
+            <xf:trigger ev:onclick="scwin.btnSearch_onclick" id="btnSearch" style="position:absolute;left:230px;top:60px;width:80px;height:24px;" value="조회"/>
+            <w2:gridView dataList="dsList" id="grdList" style="position:absolute;left:20px;top:100px;width:600px;height:300px;"/>
+        </w2:group>
+    </body>
+</html>

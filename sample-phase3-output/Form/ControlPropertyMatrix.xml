@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<html xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:w2="http://www.inswave.com/websquare" xmlns:xf="http://www.w3.org/2002/xforms" xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+        <w2:type>DEFAULT</w2:type>
+        <w2:buildDate/>
+        <xf:model>
+            <xf:instance>
+                <data xmlns=""/>
+            </xf:instance>
+            <w2:dataCollection baseNode="map"/>
+            <w2:workflowCollection/>
+        </xf:model>
+        <script type="text/javascript"><![CDATA[// ============================================================
+// [XPlatform 원본 스크립트 - 주석으로 보존]
+// ============================================================
+// function prop(){ cbo.index=0; trace(cbo.index); rdo.set_index(0); trace(rdo.get_index()); }
+// 
+// ============================================================
+
+// ============================================================
+// [WebSquare 변환 스크립트 - 1차 변환]
+// 운영 적용 전에 TODO 표시 항목을 확인하세요.
+// ============================================================
+var scwin = (typeof scwin === "undefined") ? {} : scwin;
+
+// TODO: WebSquare submission을 구성한 뒤 이 호환 함수를 교체하세요.
+scwin.xpTransaction = function() {
+    console.warn("[마이그레이션 TODO] XPlatform transaction 호출을 WebSquare submission으로 변환해야 합니다.", arguments);
+};
+
+scwin.prop = function(){ cbo.setSelectedIndex(0); console.log(cbo.getSelectedIndex()); rdo.setSelectedIndex(0); console.log(rdo.getSelectedIndex()); }
+
+// Phase 3: Dataset itemset binding bootstrap.
+scwin.__xpws_initBindings = function() {
+    chk.addItem("Use", "Use");
+};
+
+scwin.__xpws_onpageload = function(e) {
+    scwin.__xpws_initBindings();
+};
+]]></script>
+        <style type="text/css"/>
+    </head>
+    <body ev:onpageload="scwin.__xpws_onpageload">
+        <xf:group id="grp_resultArea" style="">
+            <xf:group id="grp_main" style="height:650px;">
+                <xf:group id="grp_content" style="width:900px;height:650px;">
+                    <w2:span id="sta" label="Label" style="position:absolute;left:10px;top:10px;width:100px;height:24px;color:#112233;background:#eeeeee;"/>
+                    <xf:trigger class="btn_cm" disabled="true" id="btn" style="position:absolute;left:120px;top:10px;width:100px;height:24px;" title="tip" value="Button"/>
+                    <xf:input id="edt" initValue="ABC" maxLength="10" placeholder="name" style="position:absolute;left:10px;top:50px;width:120px;height:24px;"/>
+                    <xf:input id="mask" initValue="123" style="position:absolute;left:140px;top:50px;width:120px;height:24px;"/>
+                    <xf:textarea id="txt" style="position:absolute;left:270px;top:50px;width:120px;height:60px;" value="memo"/>
+                    <xf:select1 appearance="minimal" disabledClass="w2selectbox_disabled" id="cbo" style="position:absolute;left:10px;top:120px;width:120px;height:24px;"/>
+                    <xf:select1 id="lst" style="position:absolute;left:140px;top:120px;width:120px;height:80px;"/>
+                    <xf:select1 appearance="full" id="rdo" style="position:absolute;left:270px;top:120px;width:160px;height:60px;"/>
+                    <w2:checkbox id="chk" style="position:absolute;left:440px;top:120px;width:100px;height:24px;"/>
+                    <w2:inputCalendar displayFormat="yyyy-MM-dd" id="cal" style="position:absolute;left:10px;top:220px;width:140px;height:24px;" value="20260817"/>
+                    <w2:spinner id="spn" style="position:absolute;left:160px;top:220px;width:100px;height:24px;" value="3"/>
+                    <w2:image id="img" style="position:absolute;left:270px;top:220px;width:100px;height:80px;"/>
+                    <w2:progressbar id="prg" style="position:absolute;left:380px;top:220px;width:160px;height:24px;" value="25"/>
+                    <w2:group id="pop" style="position:absolute;left:10px;top:320px;width:220px;height:120px;">
+                        <w2:span id="pop_popSta" label="Popup content" style="position:absolute;left:5px;top:5px;width:120px;height:24px;"/>
+                    </w2:group>
+                    <w2:wframe id="web" style="position:absolute;left:240px;top:320px;width:260px;height:120px;"/>
+                    <w2:upload id="up" style="position:absolute;left:10px;top:460px;width:200px;height:30px;"/>
+                </xf:group>
+            </xf:group>
+        </xf:group>
+    </body>
+</html>

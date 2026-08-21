@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="FirstTab" width="450" height="280"><Layouts><Layout width="450" height="280">
+<Tab id="innerTab" preload="false" left="0" top="0" width="430" height="250"><Tabpages><Tabpage id="innerPage" text="Second" url="./SecondTab.xfdl"/></Tabpages></Tab>
+</Layout></Layouts></Form></FDL>

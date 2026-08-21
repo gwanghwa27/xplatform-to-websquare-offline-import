@@ -1,0 +1,2 @@
+var gvChildCounter = 0;
+function gfnNextChildCounter(){ gvChildCounter = gvChildCounter + 1; return gvChildCounter; }

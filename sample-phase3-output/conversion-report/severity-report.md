@@ -1,0 +1,375 @@
+# Phase 3 Severity Report
+
+- FATAL: 0 (startup/output-root failures abort before a complete project report can be written)
+- ERROR: 0
+- WARNING: 6
+- TODO: 361
+- INFO(successful file conversions): 149
+
+- [WARNING] `Form/ExternalXjsDuplicateFunction.xfdl` ambiguous XJS symbol: FUNCTION gfnDuplicate -> Script/DupA.xjs:1|Script/DupB.xjs:1
+- [WARNING] `Form/ExternalXjsSameFileDuplicate.xfdl` ambiguous XJS symbol: FUNCTION gfnSameFile -> Script/SameFileDuplicate.xjs:1|Script/SameFileDuplicate.xjs:2
+- [TODO] `Form/ExternalXjsTopLevelInit.xfdl` XJS include/init: TOP_LEVEL_XJS_INIT: Script/SideEffect.xjs -> [line 1: trace("side effect at include time");]
+- [WARNING] `Form/UnsupportedFeatures.xfdl` unresolved function: gfnUnknown
+- [WARNING] `TabContent/OnloadFailureChild.xfdl` unresolved function: Error
+- [TODO] `Form/ComponentMethodConversion.xfdl`: PARTIAL COMPONENT Combo: itemset binding supported in Phase 3
+- [TODO] `Form/ComponentMethodConversion.xfdl`: PARTIAL COMPONENT Grid: Formats/head/body/bind and selected input types
+- [TODO] `Form/ComponentMethodConversion.xfdl` API: COMPONENT index -> getSelectedIndex/setSelectedIndex : select/radio only
+- [TODO] `Form/ComponentMethodConversion.xfdl` API: COMPONENT getCellProperty -> TODO : GridView property API is not 1:1
+- [TODO] `Form/ComponentMethodConversion.xfdl` API: COMPONENT getBindCellIndex -> getColumnIndex : body bind column only
+- [TODO] `Form/ControlPropertyMatrix.xfdl`: PARTIAL COMPONENT MaskEdit: mask semantics require property/script review
+- [TODO] `Form/ControlPropertyMatrix.xfdl`: PARTIAL COMPONENT Combo: itemset binding supported in Phase 3
+- [TODO] `Form/ControlPropertyMatrix.xfdl`: PARTIAL COMPONENT ListBox: visual list behavior may differ
+- [TODO] `Form/ControlPropertyMatrix.xfdl`: PARTIAL COMPONENT Radio: itemset binding supported in Phase 3
+- [TODO] `Form/ControlPropertyMatrix.xfdl`: PARTIAL COMPONENT CheckBox: single-value checkbox baseline
+- [TODO] `Form/ControlPropertyMatrix.xfdl`: PARTIAL COMPONENT Calendar: date/edit format partially mapped; uiplugin.inputCalendar (edit box + picker), not bare uiplugin.calendar (picker-only) -- see V6_COMPONENT_MAPPING_MISMATCH fix
+- [TODO] `Form/ControlPropertyMatrix.xfdl`: PARTIAL COMPONENT Spin: basic geometry/value only
+- [TODO] `Form/ControlPropertyMatrix.xfdl`: PARTIAL COMPONENT ImageViewer: basic image source/property mapping only
+- [TODO] `Form/ControlPropertyMatrix.xfdl`: PROPERTY ImageViewer.image: XPlatform URL/service alias must be resolved before WebSquare src mapping
+- [TODO] `Form/ControlPropertyMatrix.xfdl`: PARTIAL COMPONENT ProgressBar: basic value/property mapping only
+- [TODO] `Form/ControlPropertyMatrix.xfdl`: PARTIAL COMPONENT PopupDiv: popup runtime behavior requires manual migration
+- [TODO] `Form/ControlPropertyMatrix.xfdl`: PARTIAL COMPONENT WebBrowser: URL/navigation semantics require review
+- [TODO] `Form/ControlPropertyMatrix.xfdl`: PROPERTY WebBrowser.url: component-specific URL semantics; Tabpage static XFDL URL is handled by TabContentResolver
+- [TODO] `Form/ControlPropertyMatrix.xfdl`: PARTIAL COMPONENT FileUpload: server protocol/manual migration required
+- [TODO] `Form/ControlPropertyMatrix.xfdl`: COMPONENT FileDownload: no safe static UI mapping selected
+- [TODO] `Form/ControlPropertyMatrix.xfdl` API: COMPONENT index -> getSelectedIndex/setSelectedIndex : select/radio only
+- [TODO] `Form/DatasetBinding.xfdl`: PARTIAL COMPONENT Combo: itemset binding supported in Phase 3
+- [TODO] `Form/DatasetBinding.xfdl`: PARTIAL COMPONENT Radio: itemset binding supported in Phase 3
+- [TODO] `Form/EventMatrix.xfdl`: PARTIAL COMPONENT Combo: itemset binding supported in Phase 3
+- [TODO] `Form/EventMatrix.xfdl`: PARTIAL EVENT onsize: resize payload differs
+- [TODO] `Form/EventMatrix.xfdl`: PARTIAL EVENT onmouseenter: mouseenter vs mouseover bubbling semantics differ
+- [TODO] `Form/EventMatrix.xfdl`: PARTIAL EVENT onmouseleave: mouseleave vs mouseout bubbling semantics differ
+- [TODO] `Form/EventMatrix.xfdl`: PARTIAL EVENT oncloseup: component-specific support
+- [TODO] `Form/EventMatrix.xfdl`: PARTIAL EVENT ondropdown: component-specific support
+- [TODO] `Form/EventMatrix.xfdl`: PARTIAL EVENT onitemchanged: item payload differs by component
+- [TODO] `Form/GridAdvancedPhase3.xfdl`: PARTIAL COMPONENT Grid: Formats/head/body/bind and selected input types
+- [TODO] `Form/Main/TabExternalRelativePath.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/Main/TabExternalRelativePath.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/NestedContainer.xfdl`: PARTIAL COMPONENT GroupBox: group semantics/title require review
+- [TODO] `Form/TabAddPage.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabAddPage.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabAddPage.xfdl` API: COMPONENT addTabpage -> scwin.__xpTabRuntime.addPage : common id/label/data pattern mapped to async addTab; uncommon overloads require review
+- [TODO] `Form/TabAddPageOverloads.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabAddPageOverloads.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabAddPageOverloads.xfdl` API: COMPONENT addTabpage -> scwin.__xpTabRuntime.addPage : common id/label/data pattern mapped to async addTab; uncommon overloads require review
+- [TODO] `Form/TabAddPageWithArguments.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabAddPageWithArguments.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabAddPageWithArguments.xfdl` API: COMPONENT addTabpage -> scwin.__xpTabRuntime.addPage : common id/label/data pattern mapped to async addTab; uncommon overloads require review
+- [TODO] `Form/TabAsyncAddSetUrlCallChild.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabAsyncAddSetUrlCallChild.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabAsyncAddSetUrlCallChild.xfdl` API: COMPONENT addTabpage -> scwin.__xpTabRuntime.addPage : common id/label/data pattern mapped to async addTab; uncommon overloads require review
+- [TODO] `Form/TabAsyncLazyCallChild.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabAsyncLazyCallChild.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabAsyncLazyReadComponent.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabAsyncLazyReadComponent.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabAsyncLazyReadDataset.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabAsyncLazyReadDataset.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabAsyncLazySyncReturn.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabAsyncLazySyncReturn.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabAsyncLoadedSyncReturn.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabAsyncLoadedSyncReturn.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabAsyncRapidSelection.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabAsyncRapidSelection.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabAsyncRapidSetUrl.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabAsyncRapidSetUrl.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabAsyncRemoveReAdd.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabAsyncRemoveReAdd.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabAsyncRemoveReAdd.xfdl` API: COMPONENT addTabpage -> scwin.__xpTabRuntime.addPage : common id/label/data pattern mapped to async addTab; uncommon overloads require review
+- [TODO] `Form/TabAsyncStaleLoadCallback.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabAsyncStaleLoadCallback.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabChildArguments.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabChildArguments.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabChildArguments.xfdl` API: COMPONENT addTabpage -> scwin.__xpTabRuntime.addPage : common id/label/data pattern mapped to async addTab; uncommon overloads require review
+- [TODO] `Form/TabChildCallsParent.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabChildCallsParent.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabChildReadsParentComponent.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabChildReadsParentComponent.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabChildReadsParentDataset.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabChildReadsParentDataset.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabCircularScreenDependency.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabCircularScreenDependency.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabContainer.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabContainer.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabContentIdIsolation.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabContentIdIsolation.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabContentIdIsolation.xfdl` API: COMPONENT text -> getValue/setValue : label/text semantics component-specific
+- [TODO] `Form/TabContentLifecycle.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabContentLifecycle.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabDuplicateContent.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabDuplicateContent.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabDynamicContent.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabDynamicContent.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabDynamicContent.xfdl` API: COMPONENT addTabpage -> scwin.__xpTabRuntime.addPage : common id/label/data pattern mapped to async addTab; uncommon overloads require review
+- [TODO] `Form/TabDynamicIdCollision.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabDynamicIdCollision.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabDynamicIdCollision.xfdl` API: COMPONENT addTabpage -> scwin.__xpTabRuntime.addPage : common id/label/data pattern mapped to async addTab; uncommon overloads require review
+- [TODO] `Form/TabDynamicIndexedSetUrl.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabDynamicIndexedSetUrl.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabDynamicPathXjs.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabDynamicPathXjs.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabDynamicReplaceState.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabDynamicReplaceState.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabDynamicRuntimeOnly.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabDynamicRuntimeOnly.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabDynamicSameScreenMultiInstance.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabDynamicSameScreenMultiInstance.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabDynamicSameScreenMultiInstance.xfdl` API: COMPONENT addTabpage -> scwin.__xpTabRuntime.addPage : common id/label/data pattern mapped to async addTab; uncommon overloads require review
+- [TODO] `Form/TabDynamicSelection.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabDynamicSelection.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabDynamicServicePath.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabDynamicServicePath.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabDynamicSetUrlConditional.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabDynamicSetUrlConditional.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabDynamicSetUrlStatic.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabDynamicSetUrlStatic.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabDynamicSetUrlVariable.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabDynamicSetUrlVariable.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabEagerLifecycle.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabEagerLifecycle.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabExternalContent.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabExternalContent.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabExternalNested.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabExternalNested.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabExternalPreload.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabExternalPreload.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabExternalXjs.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabExternalXjs.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabInlineContent.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabInlineContent.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabInlineContent.xfdl` API: COMPONENT text -> getValue/setValue : label/text semantics component-specific
+- [TODO] `Form/TabInsertPage.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabInsertPage.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabInsertPage.xfdl` API: COMPONENT insertTabpage -> scwin.__xpTabRuntime.insertPage : mapped with addTabIndex; uncommon overloads require review
+- [TODO] `Form/TabInsertPageOverloads.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabInsertPageOverloads.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabInsertPageOverloads.xfdl` API: COMPONENT insertTabpage -> scwin.__xpTabRuntime.insertPage : mapped with addTabIndex; uncommon overloads require review
+- [TODO] `Form/TabLazyLifecycle.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabLazyLifecycle.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabLifecycleDynamicAdd.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabLifecycleDynamicAdd.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabLifecycleDynamicAdd.xfdl` API: COMPONENT addTabpage -> scwin.__xpTabRuntime.addPage : common id/label/data pattern mapped to async addTab; uncommon overloads require review
+- [TODO] `Form/TabLifecycleInactiveReplace.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabLifecycleInactiveReplace.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabLifecycleOnloadFailure.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabLifecycleOnloadFailure.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabLifecycleRemoveSelected.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabLifecycleRemoveSelected.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabLifecycleSelectedReplace.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabLifecycleSelectedReplace.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabLifecycleSetUrlReplace.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabLifecycleSetUrlReplace.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabLifecycleStaticEager.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabLifecycleStaticEager.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabLifecycleStaticLazy.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabLifecycleStaticLazy.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabMissingContent.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabMissingContent.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabMixedContent.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabMixedContent.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabNestedDynamic.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabNestedDynamic.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabOnloadFailureHost.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabOnloadFailureHost.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabOwnerFrameComponent.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabOwnerFrameComponent.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabOwnerFrameDataset.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabOwnerFrameDataset.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabOwnerFrameFunction.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabOwnerFrameFunction.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabOwnerFrameHost.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabOwnerFrameHost.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabParentAccess.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabParentAccess.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabParentCallsChild.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabParentCallsChild.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabParentCallsChildIndexed.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabParentCallsChildIndexed.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabParentDepth2.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabParentDepth2.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabParentDepth3.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabParentDepth3.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabParentDepthMain.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabParentDepthMain.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabParentDirect.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabParentDirect.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabParentReadsChildComponent.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabParentReadsChildComponent.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabParentReadsChildDataset.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabParentReadsChildDataset.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabParentShadowHost.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabParentShadowHost.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabParentUnresolvedDepth.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabParentUnresolvedDepth.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabPreloadDynamicUrl.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabPreloadDynamicUrl.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabRemovePage.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabRemovePage.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabRemoveReAdd.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabRemoveReAdd.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabRemoveReAdd.xfdl` API: COMPONENT addTabpage -> scwin.__xpTabRuntime.addPage : common id/label/data pattern mapped to async addTab; uncommon overloads require review
+- [TODO] `Form/TabRuntimeEvent.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabRuntimeEvent.xfdl`: PROPERTY Tab.canchange (inventory 없음)
+- [TODO] `Form/TabRuntimeEvent.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabRuntimeEvent.xfdl`: PARTIAL EVENT canchange: Tab cancellable pre/post index payload requires adapter
+- [TODO] `Form/TabRuntimeEvent.xfdl`: PARTIAL EVENT onchanged: old/new value payload differs by component
+- [TODO] `Form/TabRuntimeLexicalProtection.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabRuntimeLexicalProtection.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabSameScreenMultiInstance.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabSameScreenMultiInstance.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabStateArgumentIsolation.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabStateArgumentIsolation.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabStateArgumentIsolation.xfdl` API: COMPONENT addTabpage -> scwin.__xpTabRuntime.addPage : common id/label/data pattern mapped to async addTab; uncommon overloads require review
+- [TODO] `Form/TabStateGenerationIsolation.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabStateGenerationIsolation.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabStateRemoveCleanup.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabStateRemoveCleanup.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabStateRemoveCleanup.xfdl` API: COMPONENT addTabpage -> scwin.__xpTabRuntime.addPage : common id/label/data pattern mapped to async addTab; uncommon overloads require review
+- [TODO] `Form/TabStateRetention.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabStateRetention.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabStateSameScreenMultiInstance.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabStateSameScreenMultiInstance.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabStateSwitchRetention.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabStateSwitchRetention.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabStateUrlReplacement.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabStateUrlReplacement.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabStateXjsGlobalIsolation.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabStateXjsGlobalIsolation.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabStaticDynamicMixed.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabStaticDynamicMixed.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabUnresolvedChildComponent.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabUnresolvedChildComponent.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabUnresolvedChildFunction.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `Form/TabUnresolvedChildFunction.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TransactionSample.xfdl`: transaction -> WebSquare submission manual migration required
+- [TODO] `Form/TransactionSample.xfdl` API: GLOBAL transaction -> scwin.xpTransaction : structured transaction report; submission manual migration
+- [TODO] `Form/UnsupportedFeatures.xfdl`: COMPONENT FileDownload: no safe static UI mapping selected
+- [TODO] `Form/UnsupportedFeatures.xfdl`: PARTIAL COMPONENT Grid: Formats/head/body/bind and selected input types
+- [TODO] `Form/UnsupportedFeatures.xfdl` API: GLOBAL open -> $p.openPopup : argument model differs; not auto-rewritten
+- [TODO] `Form/UnsupportedFeatures.xfdl` API: GLOBAL setTimer -> TODO : timer owner/lifecycle wrapper required
+- [TODO] `TabContent/CircularTabA.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `TabContent/CircularTabA.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `TabContent/CircularTabB.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `TabContent/CircularTabB.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `TabContent/FirstTab.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `TabContent/FirstTab.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `TabContent/IdIsolationChild.xfdl` API: COMPONENT text -> getValue/setValue : label/text semantics component-specific
+- [TODO] `TabContent/NestedDynamicFirst.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `TabContent/NestedDynamicFirst.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `TabContent/ParentDepth2First.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `TabContent/ParentDepth2First.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `TabContent/ParentDepth3First.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `TabContent/ParentDepth3First.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `TabContent/ParentDepth3Second.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `TabContent/ParentDepth3Second.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `TabContent/ParentDepthFirst.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `TabContent/ParentDepthFirst.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `TabContent/ParentDepthSecond.xfdl`: PARTIAL COMPONENT Tab: inline Tabpage and static external XFDL url are converted; dynamic/mixed runtime behavior requires review
+- [TODO] `TabContent/ParentDepthSecond.xfdl`: PARTIAL COMPONENT Tabpage: inline tree preserved; external XFDL remains an independent WFrame content page
+- [TODO] `Form/TabAddPage.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.tabA source=function fnAdd(){ this.tabMain.addTabpage("tabA","A"); this.tabMain.tabA.set_url("../TabContent/Search.xfdl"); }
+- [TODO] `Form/TabAddPage.xfdl` dynamic Tab content/API: TAB STRUCTURE API addTabpage line 2
+- [TODO] `Form/TabAddPageOverloads.xfdl` dynamic Tab content/API: TAB STRUCTURE API addTabpage line 2
+- [TODO] `Form/TabAddPageWithArguments.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.argPage source=function fnAdd(){ this.tabMain.addTabpage("argPage","Args",{USER_ID:100,MODE:"EDIT"}); this.tabMain.argPage.set_url("../TabContent/RuntimeBridgeChild.xfdl"); }
+- [TODO] `Form/TabAddPageWithArguments.xfdl` dynamic Tab content/API: TAB STRUCTURE API addTabpage line 2
+- [TODO] `Form/TabAsyncAddSetUrlCallChild.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.pageA source=function fnOpen(){ this.tabMain.addTabpage("pageA","A"); this.tabMain.pageA.set_url("../TabContent/RuntimeBridgeChild.xfdl"); return this.tabMain.pageA.form.fnGetValue(); }
+- [TODO] `Form/TabAsyncAddSetUrlCallChild.xfdl` dynamic Tab content/API: TAB STRUCTURE API addTabpage line 2
+- [TODO] `Form/TabAsyncLazyCallChild.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.pageChild source=function fnLazy(){ return this.tabMain.pageChild.form.fnGetValue(); }
+- [TODO] `Form/TabAsyncLazyReadComponent.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.pageChild source=function fnRead(){ return this.tabMain.pageChild.form.edtName.value; }
+- [TODO] `Form/TabAsyncLazyReadDataset.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.pageChild source=function fnRead(){ return this.tabMain.pageChild.form.dsSearch.getRowCount(); }
+- [TODO] `Form/TabAsyncLazySyncReturn.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.child source=function fnRead(){ return this.tabMain.child.form.fnGetValue(); }
+- [TODO] `Form/TabAsyncLoadedSyncReturn.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.child source=function fnRead(){ return this.tabMain.child.form.fnGetValue(); }
+- [TODO] `Form/TabAsyncRapidSetUrl.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.pageA source=function fnRapid(){ this.tabMain.pageA.set_url("../TabContent/Detail.xfdl"); this.tabMain.pageA.set_url("../TabContent/Search.xfdl"); }
+- [TODO] `Form/TabAsyncRapidSetUrl.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.pageA source=function fnRapid(){ this.tabMain.pageA.set_url("../TabContent/Detail.xfdl"); this.tabMain.pageA.set_url("../TabContent/Search.xfdl"); }
+- [TODO] `Form/TabAsyncRemoveReAdd.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.A source=function fnCycle(){ this.tabMain.addTabpage("A","A"); this.tabMain.A.set_url("../TabContent/Search.xfdl"); this.tabMain.removeTabpage("A"); this.tabMain.addTabpage("A","A2"); this.tabMain.A.set_url("../TabContent/Detail.xfdl"); }
+- [TODO] `Form/TabAsyncRemoveReAdd.xfdl` dynamic Tab content/API: TAB STRUCTURE API addTabpage line 2
+- [TODO] `Form/TabAsyncRemoveReAdd.xfdl` dynamic Tab content/API: TAB STRUCTURE API removeTabpage line 2
+- [TODO] `Form/TabAsyncStaleLoadCallback.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.pageA source=function fnReplace(){ this.tabMain.pageA.set_url("../TabContent/Search.xfdl"); this.tabMain.pageA.set_url("../TabContent/Detail.xfdl"); this.tabMain.pageA.set_url("../TabContent/History.xfdl"); }
+- [TODO] `Form/TabAsyncStaleLoadCallback.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.pageA source=function fnReplace(){ this.tabMain.pageA.set_url("../TabContent/Search.xfdl"); this.tabMain.pageA.set_url("../TabContent/Detail.xfdl"); this.tabMain.pageA.set_url("../TabContent/History.xfdl"); }
+- [TODO] `Form/TabChildArguments.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.argPage source=function fnArgs(){ this.tabMain.addTabpage("argPage","ARG",{USER_ID:100,MODE:"EDIT"}); this.tabMain.argPage.set_url("../TabContent/RuntimeBridgeChild.xfdl"); }
+- [TODO] `Form/TabChildArguments.xfdl` dynamic Tab content/API: TAB STRUCTURE API addTabpage line 2
+- [TODO] `Form/TabDynamicContent.xfdl` dynamic Tab content/API: set_url line 2 target=tabDynamic.pageA source=function changePage(){ this.tabDynamic.pageA.set_url("../TabContent/Search.xfdl"); }
+- [TODO] `Form/TabDynamicContent.xfdl` dynamic Tab content/API: url assignment line 3 target=tabDynamic.pageA source=function changePage2(){ this.tabDynamic.pageA.url = "../TabContent/Detail.xfdl"; }
+- [TODO] `Form/TabDynamicContent.xfdl` dynamic Tab content/API: TAB STRUCTURE API addTabpage line 4
+- [TODO] `Form/TabDynamicContent.xfdl` dynamic Tab content/API: TAB STRUCTURE API removeTabpage line 4
+- [TODO] `Form/TabDynamicIdCollision.xfdl` dynamic Tab content/API: TAB STRUCTURE API addTabpage line 2
+- [TODO] `Form/TabDynamicIndexedSetUrl.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.tabpages[0] source=function fnByIndex(){ this.tabMain.tabpages[0].set_url("../TabContent/Search.xfdl"); }
+- [TODO] `Form/TabDynamicIndexedSetUrl.xfdl` dynamic Tab content/API: set_url line 3 target=tabMain.tabpages["pageDetail"] source=function fnByName(){ this.tabMain.tabpages["pageDetail"].set_url("../TabContent/Detail.xfdl"); }
+- [TODO] `Form/TabDynamicPathXjs.xfdl` dynamic Tab content/API: set_url line 3 target=tabMain.pageSearch source=function fnOpen(){ this.tabMain.pageSearch.set_url(gvRuntimePath); }
+- [TODO] `Form/TabDynamicReplaceState.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.search source=function fnReplace(){ this.tabMain.search.set_url("../TabContent/Detail.xfdl"); }
+- [TODO] `Form/TabDynamicReplaceState.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.search source=function fnReplace(){ this.tabMain.search.set_url("../TabContent/Detail.xfdl"); }
+- [TODO] `Form/TabDynamicRuntimeOnly.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.pageSearch source=function fnOpen(name){ this.tabMain.pageSearch.set_url("../TabContent/"+name+".xfdl"); }
+- [TODO] `Form/TabDynamicSameScreenMultiInstance.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.A source=function fnAdd(){ this.tabMain.addTabpage("A","A"); this.tabMain.A.set_url("../TabContent/Search.xfdl"); this.tabMain.addTabpage("B","B"); this.tabMain.B.set_url("../TabContent/Search.xfdl"); }
+- [TODO] `Form/TabDynamicSameScreenMultiInstance.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.B source=function fnAdd(){ this.tabMain.addTabpage("A","A"); this.tabMain.A.set_url("../TabContent/Search.xfdl"); this.tabMain.addTabpage("B","B"); this.tabMain.B.set_url("../TabContent/Search.xfdl"); }
+- [TODO] `Form/TabDynamicSameScreenMultiInstance.xfdl` dynamic Tab content/API: TAB STRUCTURE API addTabpage line 2
+- [TODO] `Form/TabDynamicServicePath.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.pageSearch source=function fnOpen(){ this.tabMain.pageSearch.set_url("TabForm::Detail.xfdl"); }
+- [TODO] `Form/TabDynamicSetUrlConditional.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.pageSearch source=function fnOpen(type){ if(type=="A") this.tabMain.pageSearch.set_url("../TabContent/Search.xfdl"); else this.tabMain.pageSearch.set_url("../TabContent/Detail.xfdl"); }
+- [TODO] `Form/TabDynamicSetUrlStatic.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.pageSearch source=function fnOpen(){ this.tabMain.pageSearch.set_url("../TabContent/Search.xfdl"); }
+- [TODO] `Form/TabDynamicSetUrlVariable.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.pageSearch source=function fnOpen(){ var url="../TabContent/Search.xfdl"; this.tabMain.pageSearch.set_url(url); }
+- [TODO] `Form/TabEagerLifecycle.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.pageChild source=function fnRead(){ return this.tabMain.pageChild.form.fnGetValue(); }
+- [TODO] `Form/TabInsertPage.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.tabNew source=function fnInsert(){ this.tabMain.insertTabpage("tabNew",0,"NEW"); this.tabMain.tabNew.set_url("../TabContent/Detail.xfdl"); }
+- [TODO] `Form/TabInsertPage.xfdl` dynamic Tab content/API: TAB STRUCTURE API insertTabpage line 2
+- [TODO] `Form/TabInsertPageOverloads.xfdl` dynamic Tab content/API: TAB STRUCTURE API insertTabpage line 2
+- [TODO] `Form/TabLazyLifecycle.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.pageChild source=function fnRead(){ return this.tabMain.pageChild.form.fnGetValue(); }
+- [TODO] `Form/TabLifecycleDynamicAdd.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.child source=function fnAdd(){ this.tabMain.addTabpage("child","Child"); this.tabMain.child.set_url("../TabContent/LifecycleChild.xfdl"); }
+- [TODO] `Form/TabLifecycleDynamicAdd.xfdl` dynamic Tab content/API: TAB STRUCTURE API addTabpage line 2
+- [TODO] `Form/TabLifecycleInactiveReplace.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.B source=function fnReplaceInactive(){ this.tabMain.B.set_url("../TabContent/LifecycleChild.xfdl"); }
+- [TODO] `Form/TabLifecycleInactiveReplace.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.B source=function fnReplaceInactive(){ this.tabMain.B.set_url("../TabContent/LifecycleChild.xfdl"); }
+- [TODO] `Form/TabLifecycleOnloadFailure.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.child source=function fnCall(){ return this.tabMain.child.form.fnValue(); }
+- [TODO] `Form/TabLifecycleRemoveSelected.xfdl` dynamic Tab content/API: TAB STRUCTURE API removeTabpage line 2
+- [TODO] `Form/TabLifecycleSelectedReplace.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.child source=function fnReplace(){ this.tabMain.set_tabindex(0); this.tabMain.child.set_url("../TabContent/LifecycleChild.xfdl"); }
+- [TODO] `Form/TabLifecycleSelectedReplace.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.child source=function fnReplace(){ this.tabMain.set_tabindex(0); this.tabMain.child.set_url("../TabContent/LifecycleChild.xfdl"); }
+- [TODO] `Form/TabLifecycleSetUrlReplace.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.child source=function fnReplace(){ this.tabMain.child.set_url("../TabContent/LifecycleChild.xfdl"); }
+- [TODO] `Form/TabLifecycleSetUrlReplace.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.child source=function fnReplace(){ this.tabMain.child.set_url("../TabContent/LifecycleChild.xfdl"); }
+- [WARNING] `Form/TabMissingContent.xfdl` TAB CONTENT UNRESOLVED tabMissing.pageMissing -> ../TabContent/MissingSearch.xfdl : 프로젝트 source tree에서 대상 XFDL을 찾지 못함: ../TabContent/MissingSearch.xfdl
+- [TODO] `Form/TabMixedContent.xfdl` mixed inline/external Tabpage: tabMixed.pageMixed
+- [WARNING] `Form/TabMixedContent.xfdl` Tab analysis: mixed inline/external Tabpage: tabMixed.pageMixed external=../TabContent/Search.xfdl (external content kept; inline child conversion suppressed)
+- [TODO] `Form/TabOnloadFailureHost.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.failChild source=function fnCall(){ return this.tabMain.failChild.form.fnValue(); }
+- [TODO] `Form/TabOpenerBridge.xfdl` child/parent scope review: opener line 2
+- [TODO] `Form/TabOpenerBridge.xfdl` child/parent scope review: opener line 3
+- [TODO] `Form/TabOpenerFunction.xfdl` child/parent scope review: opener line 2
+- [TODO] `Form/TabParentAccess.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabParent.pageChild source=function readChildFromParent(){ trace(this.tabParent.pageChild.edtChild.value); }
+- [TODO] `Form/TabParentAndOpener.xfdl` child/parent scope review: parent line 2
+- [TODO] `Form/TabParentAndOpener.xfdl` child/parent scope review: opener line 2
+- [TODO] `Form/TabParentCallsChild.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.pageChild source=function fnCall(){ var v=this.tabMain.pageChild.form.fnSearch("ABC"); trace(v); }
+- [TODO] `Form/TabParentCallsChildIndexed.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD_INDEXED line 2 tab=tabMain source=function fnCallIndex(){ return this.tabMain.tabpages[0].form.fnSearch("IDX"); }
+- [TODO] `Form/TabParentCallsChildIndexed.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD_INDEXED line 3 tab=tabMain source=function fnCallName(){ return this.tabMain.tabpages["pageChild"].form.fnSearch("NAME"); }
+- [TODO] `Form/TabParentReadsChildComponent.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.pageChild source=function fnRead(){ trace(this.tabMain.pageChild.form.edtName.value); this.tabMain.pageChild.form.edtName.value="PARENT"; }
+- [TODO] `Form/TabParentReadsChildDataset.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.pageChild source=function fnRead(){ trace(this.tabMain.pageChild.form.dsSearch.getRowCount()); trace(this.tabMain.pageChild.form.dsSearch.getColumn(0,"NAME")); }
+- [TODO] `Form/TabPreloadDynamicUrl.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.pageSearch source=function fnChange(){ this.tabMain.pageSearch.set_url("../TabContent/Detail.xfdl"); }
+- [TODO] `Form/TabPreloadDynamicUrl.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.pageSearch source=function fnChange(){ this.tabMain.pageSearch.set_url("../TabContent/Detail.xfdl"); }
+- [TODO] `Form/TabRemovePage.xfdl` dynamic Tab content/API: TAB STRUCTURE API removeTabpage line 2
+- [TODO] `Form/TabRemoveReAdd.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.tabA source=function fnCycle(){ this.tabMain.addTabpage("tabA","A"); this.tabMain.tabA.set_url("../TabContent/Search.xfdl"); this.tabMain.removeTabpage("tabA"); this.tabMain.addTabpage("tabA","A2"); this.tabMain.tabA.set_url("../TabContent/Detail.xfdl"); }
+- [TODO] `Form/TabRemoveReAdd.xfdl` dynamic Tab content/API: TAB STRUCTURE API addTabpage line 2
+- [TODO] `Form/TabRemoveReAdd.xfdl` dynamic Tab content/API: TAB STRUCTURE API removeTabpage line 2
+- [TODO] `Form/TabSameScreenMultiInstance.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.a source=function fnRead(){ trace(this.tabMain.a.form.edtKeyword.value); trace(this.tabMain.b.form.edtKeyword.value); }
+- [TODO] `Form/TabSameScreenMultiInstance.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.b source=function fnRead(){ trace(this.tabMain.a.form.edtKeyword.value); trace(this.tabMain.b.form.edtKeyword.value); }
+- [TODO] `Form/TabStateArgumentIsolation.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.A source=function fnArgs(){ this.tabMain.addTabpage("A","A",{MODE:"A"}); this.tabMain.A.set_url("../TabContent/RuntimeBridgeChild.xfdl"); this.tabMain.addTabpage("B","B",{MODE:"B"}); this.tabMain.B.set_url("../TabContent/RuntimeBridgeChild.xfdl"); }
+- [TODO] `Form/TabStateArgumentIsolation.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.B source=function fnArgs(){ this.tabMain.addTabpage("A","A",{MODE:"A"}); this.tabMain.A.set_url("../TabContent/RuntimeBridgeChild.xfdl"); this.tabMain.addTabpage("B","B",{MODE:"B"}); this.tabMain.B.set_url("../TabContent/RuntimeBridgeChild.xfdl"); }
+- [TODO] `Form/TabStateArgumentIsolation.xfdl` dynamic Tab content/API: TAB STRUCTURE API addTabpage line 2
+- [TODO] `Form/TabStateGenerationIsolation.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.A source=function fnGen(){ this.tabMain.A.set_url("../TabContent/Detail.xfdl"); this.tabMain.A.set_url("../TabContent/Search.xfdl"); }
+- [TODO] `Form/TabStateGenerationIsolation.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.A source=function fnGen(){ this.tabMain.A.set_url("../TabContent/Detail.xfdl"); this.tabMain.A.set_url("../TabContent/Search.xfdl"); }
+- [TODO] `Form/TabStateRemoveCleanup.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.A source=function fnCycle(){ this.tabMain.addTabpage("A","A"); this.tabMain.A.set_url("../TabContent/Search.xfdl"); this.tabMain.removeTabpage("A"); }
+- [TODO] `Form/TabStateRemoveCleanup.xfdl` dynamic Tab content/API: TAB STRUCTURE API addTabpage line 2
+- [TODO] `Form/TabStateRemoveCleanup.xfdl` dynamic Tab content/API: TAB STRUCTURE API removeTabpage line 2
+- [TODO] `Form/TabStateSameScreenMultiInstance.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.A source=function fnState(){ this.tabMain.A.form.edtName.value="AAA"; this.tabMain.B.form.edtName.value="BBB"; }
+- [TODO] `Form/TabStateSameScreenMultiInstance.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.B source=function fnState(){ this.tabMain.A.form.edtName.value="AAA"; this.tabMain.B.form.edtName.value="BBB"; }
+- [TODO] `Form/TabStateSwitchRetention.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.A source=function fnSwitch(){ this.tabMain.set_tabindex(0); this.tabMain.A.form.edtName.value="ABC"; this.tabMain.set_tabindex(1); this.tabMain.set_tabindex(0); return this.tabMain.A.form.edtName.value; }
+- [TODO] `Form/TabStateUrlReplacement.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.A source=function fnReplace(){ this.tabMain.A.form.edtName.value="ABC"; this.tabMain.A.set_url("../TabContent/Detail.xfdl"); }
+- [TODO] `Form/TabStateUrlReplacement.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.A source=function fnReplace(){ this.tabMain.A.form.edtName.value="ABC"; this.tabMain.A.set_url("../TabContent/Detail.xfdl"); }
+- [TODO] `Form/TabStateXjsGlobalIsolation.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.A source=function fnCheck(){ var a=this.tabMain.A.form.fnNext(); var b=this.tabMain.B.form.fnNext(); return a+":"+b; }
+- [TODO] `Form/TabStateXjsGlobalIsolation.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.B source=function fnCheck(){ var a=this.tabMain.A.form.fnNext(); var b=this.tabMain.B.form.fnNext(); return a+":"+b; }
+- [TODO] `Form/TabStaticDynamicMixed.xfdl` dynamic Tab content/API: set_url line 2 target=tabMain.pageSearch source=function fnChange(){ this.tabMain.pageSearch.set_url("../TabContent/Detail.xfdl"); }
+- [TODO] `Form/TabStaticDynamicMixed.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.pageSearch source=function fnChange(){ this.tabMain.pageSearch.set_url("../TabContent/Detail.xfdl"); }
+- [TODO] `Form/TabUnresolvedChildComponent.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.pageChild source=function fnBad(){ trace(this.tabMain.pageChild.form.edtUnknown.value); }
+- [TODO] `Form/TabUnresolvedChildFunction.xfdl` child/parent scope review: PARENT_TO_TAB_CHILD line 2 tabPage=tabMain.pageChild source=function fnBad(){ this.tabMain.pageChild.form.fnUnknown(); }
+- [TODO] `TabContent/ChildBridgeParent.xfdl` child/parent scope review: parent line 2
+- [TODO] `TabContent/ChildBridgeParent.xfdl` child/parent scope review: parent line 3
+- [TODO] `TabContent/NestedDynamicFirst.xfdl` dynamic Tab content/API: set_url line 2 target=tabInner.innerSeed source=function openSecond(){ this.tabInner.innerSeed.set_url("SecondTab.xfdl"); }
+- [TODO] `TabContent/OwnerBridgeChild.xfdl` child/parent scope review: getOwnerFrame line 3
+- [TODO] `TabContent/OwnerBridgeChild.xfdl` child/parent scope review: arguments line 3
+- [TODO] `TabContent/OwnerBridgeChild.xfdl` child/parent scope review: getOwnerFrame line 4
+- [TODO] `TabContent/ParentAccessChild.xfdl` child/parent scope review: getOwnerFrame line 2
+- [TODO] `TabContent/ParentDepth2Second.xfdl` child/parent scope review: parent line 1
+- [TODO] `TabContent/ParentDepth3Third.xfdl` child/parent scope review: parent line 1
+- [TODO] `TabContent/ParentDepthThird.xfdl` child/parent scope review: parent line 2
+- [TODO] `TabContent/ParentDepthThird.xfdl` child/parent scope review: parent line 3
+- [TODO] `TabContent/ParentDepthUnresolvedChild.xfdl` child/parent scope review: parent line 1
+- [TODO] `TabContent/ParentShadowChild.xfdl` child/parent scope review: parent line 2

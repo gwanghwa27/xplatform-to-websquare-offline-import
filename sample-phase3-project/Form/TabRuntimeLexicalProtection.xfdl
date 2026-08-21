@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="TabRuntimeLexicalProtection" width="500" height="260"><Layouts><Layout width="500" height="260"><Tab id="tabMain" preload="false"><Tabpages><Tabpage id="A" text="A"/></Tabpages></Tab></Layout></Layouts><Script><![CDATA[
+function fnSafe(){
+    var text = "parent.parent.fnTest(); this.tabMain.A.set_url('Fake.xfdl');";
+    // this.tabMain.A.set_url("Fake2.xfdl");
+    var re = /parent\.parent\.[A-Za-z]+\(\)|set_url\(\)|\}/;
+    trace(text + re.test("}"));
+}
+]]></Script></Form></FDL>

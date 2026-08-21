@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="SearchXjs" width="500" height="300"><Layouts><Layout width="500" height="300"><Button id="btnXjs" text="XJS" left="10" top="10" width="80" height="24" onclick="btnXjs_onclick"/></Layout></Layouts><Script><![CDATA[
+include "Script::TabCommon.xjs";
+function btnXjs_onclick(obj:Button,e:ClickEventInfo){ gfnTabSearch(); }
+]]></Script></Form></FDL>

@@ -1,0 +1,9 @@
+var gvUserId:String = "USER01";
+function gfnB()
+{
+    trace(gvUserId);
+}
+function gfnValidate()
+{
+    return gvUserId != "";
+}

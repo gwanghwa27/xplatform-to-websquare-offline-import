@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><TypeDefinition url="../default_typedef.xml"/><Form id="TabStateSwitchRetention" width="700" height="420"><Layouts><Layout width="700" height="420"><Tab id="tabMain" preload="false" left="10" top="10" width="660" height="360"><Tabpages><Tabpage id="A" text="A" url="../TabContent/RuntimeBridgeChild.xfdl"/><Tabpage id="B" text="B" url="../TabContent/Detail.xfdl"/></Tabpages></Tab></Layout></Layouts><Script><![CDATA[
+function fnSwitch(){ this.tabMain.set_tabindex(0); this.tabMain.A.form.edtName.value="ABC"; this.tabMain.set_tabindex(1); this.tabMain.set_tabindex(0); return this.tabMain.A.form.edtName.value; }
+]]></Script></Form></FDL>
