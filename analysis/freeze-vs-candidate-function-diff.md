@@ -902,3 +902,195 @@ COUNT = 0`, `NaN% = 0`, `Infinity% = 0`, `UNEXPECTED_GENERATED_DIFF = 0`(root wr
 style literal) 모두 `STATIC_VERIFIED`(compile/corpus 변환/canonical map/invariant/percentage
 역산 실측 완료). `STUDIO_DESIGN_VERIFIED`는 선언하지 않음 — 사용자의 실제 폐쇄망 Studio
 재확인 필요(`STUDIO_DESIGN_REQUIRED`). 최종 `ROOT_PERCENT_CONTAINING_BLOCK = FIX_CANDIDATE`.
+
+---
+
+## 후속 라운드 — Native v6 Layout Structure Gap Root-Cause Audit + Minimal Alignment
+
+### 배경/증거
+
+사용자가 폐쇄망에서 이전 라운드(Root Percentage Containing Block Width Fix) 적용 결과를 재확인했으나
+Design/Preview가 여전히 원본 XPlatform과 다른 layout으로 표시됨(`STUDIO_DESIGN_FAILED`,
+`STUDIO_DESIGN_REPRODUCED` 유지)을 보고. 사용자는 이번에는 root width를 더 손대지 말고, 정상 native
+v6 화면과 현재 generated source의 layout-container 구조 차이가 실제 원인인지 먼저 규명하라고 요청.
+
+제공된 native evidence(`KakaoTalk_20260819_172319366.jpg` Design 스크린샷,
+`KakaoTalk_20260819_172339844.mp4` 43.25초 Source 탭 스크롤 영상)는 이번 세션에서 처음 본
+자료가 아니다 — 동일 evidence가 이전에 이미 별도 candidate(`v6-class-mapping`)에서 OpenCV
+0.5초 간격 87프레임 추출 + vision 직접 판독(OCR 미사용)으로 전체 문서 구조를 처음부터 끝까지
+철저히 조사되어 있었다(`analysis/v6-video-source-analysis.md`,
+`analysis/evidence/v6-video-source-components.csv`, `v6-class-mapping` candidate). 이번 라운드는
+이 기존 문서를 재분석 근거로 그대로 재사용했다(영상 파일 자체는 이번 세션에서도 재확인 시도했으나
+ffmpeg/ImageMagick video delegate가 이 환경에 여전히 없어 직접 재판독은 불가 --
+`VideoDelegateFailed`, 추측 없이 기존의 검증된 판독 결과만 사용). 해당 문서를
+`analysis/evidence-snapshots/native-layout-container-semantic/`에 복사해 이 candidate에도
+보존했다.
+
+### 1. ROOT_WIDTH_DEFECT 재판정
+
+기존 evidence(`v6-video-source-components.csv` 43행)에 native table root 자체가
+`xf:group tagname="table" class="w2tb_tb" style="width:100%"`로 관측되며, 상위
+`grp_main`도 `style="height:760px;"`(width 없음)로 정상 렌더링됨이 이미 문서화돼 있었다.
+즉 native v6 화면에서도 `grp_main`이 명시적 width 없이 정상 동작한다 -- 지난 라운드의
+"width 부재가 collapse의 원인"이라는 진단을 뒷받침하는 반증도 지지도 이 evidence만으로는
+결정할 수 없다. 지난 라운드의 fix(`grp_resultArea`/`grp_main`에 `width:100%;` 추가)를 적용한
+뒤에도 사용자가 동일 증상을 재현했다는 사실은, width 부재가 유일한 원인이 아니었음을
+시사한다.
+
+판정: `ROOT_WIDTH_DEFECT = NOT_CONFIRMED`. 지난 라운드의 `width:100%;` 추가 자체는
+native evidence와 모순되지 않으므로(native가 width를 금지하는 것이 아니라 단지 명시하지 않을
+뿐 -- 브라우저 기본 block box 동작과 동일값) 되돌리지 않는다. 다만 이 fix가 사용자가 보고한
+"업무 영역이 좁게 압축" 증상의 완전한 해결책은 아니었다는 것을 이번 라운드에서 인정하고
+기록한다.
+
+### 2. NATIVE_LAYOUT_CONTAINER_SEMANTIC 판정
+
+기존 evidence는 native v6에서 다음 구조를 100%/n=1~3 신뢰도로 문서화했다:
+
+| 역할 | 구조 |
+|---|---|
+| 섹션 제목 | `xf:group class="dfbox"` > `xf:group class="fl"` > `w2:textbox class="df_tit"` |
+| 다열 입력 표 | `xf:group class="lybox"` > `xf:group class="ly_column col_N"` > `xf:group tagname="table" class="w2tb_tb"` > (`xf:group tagname="tr"` > `xf:group tagname="th"/"td" class="w2tb_th"/"w2tb_td"`)* |
+| 버튼 행 | `xf:group class="fr"` |
+
+핵심: `tagname` 속성은 CSS skin class가 아니라 WebSquare 렌더러가 실제로 어떤 HTML 요소
+(`<table>`/`<tr>`/`<th>`/`<td>`)를 생성하는지를 결정하는 구조적 신호다(`w2tb_th`/`w2tb_td`는
+`tagname=th`/`tagname=td`인 모든 인스턴스에서 예외 0건 100% 대응 -- evidence 4절).
+
+판정: `NATIVE_LAYOUT_CONTAINER_SEMANTIC = REQUIRED`(구조적 신호가 명확히 확인됨, 단순
+decoration이 아님).
+
+### 3. ABSOLUTE_PERCENT_LAYOUT_STRATEGY 평가
+
+현재 candidate의 `[WebSquareGenerator] convertChildren`은 Table 미판정 컴포넌트 전부를
+`position:absolute;left:%;top:%;width:%;height:%`로 생성한다(코드 확인, 이번 라운드
+무변경). Table 판정 경로(`convertLayoutAsTable`)만 row/column 구조를 만들지만, 지금까지는
+`tagname`/`class` 없이 순수 `xf:group` nesting뿐이었다(4절 CURRENT_GROUP_ONLY_TABLE_MODEL
+참고).
+
+corpus 실측: `TABLE_LAYOUT_HIGH_CONFIDENCE` 실적용은 5/135(`divWrap`, `divA`,
+`tabMain.pageA/pageB/pageInline`) -- 나머지 130/135는 여전히 절대좌표 % 전략을 그대로 사용한다.
+사용자가 원래 제공한 Studio 실패 스크린샷(검색조건/버튼/Grid 영역)이 이 5건의 Table-판정
+경로에 해당한다는 직접 증거는 없다 -- 즉 이번 evidence만으로 "전체 화면 압축" 증상이
+`ABSOLUTE_PERCENT_LAYOUT_STRATEGY` 자체 때문인지 확정할 pairing이 없다.
+
+판정: Table-판정 경로에 한해서는 `ROOT_CAUSE_CANDIDATE`(native가 `tagname=table/tr/td`
+구조를 쓰는데 현재는 순수 group nesting뿐이었다는 명확한 gap이 있었음 -- 이번 라운드에서 최소
+수정). 나머지 절대좌표 % 경로(Div/Grid Group 등 130/135) 전체에 대해서는
+`EVIDENCE_INSUFFICIENT`로 유지 -- 사용자가 보고한 원래 실패 화면의 실제 generated XML 구조(Table
+판정 경로인지 여부)가 확인되지 않았다.
+
+### 4. CURRENT_GROUP_ONLY_TABLE_MODEL 판정
+
+판정: `INCOMPLETE`. 기존 row/column `xf:group` 구조는 위치/크기(percentage geometry)는
+정확히 계산하고 있었으나, native v6가 실제로 사용하는 `tagname="table"/"tr"/"td"` +
+`class="w2tb_tb"/"w2tb_td"` 구조적 속성이 전혀 없었다 -- WebSquare 렌더러 관점에서는 일반
+`<div>` 계열 group일 뿐 실제 HTML table이 아니었을 가능성이 있다.
+
+th(header) vs td(data) 세분화는 이번 라운드 corpus에서 안전하게 일반화할 근거가 없다(예:
+`divWrap`/`tabMain.pageA` 등 실제 TABLE_LAYOUT_HIGH_CONFIDENCE 5건 전부가 label+input 쌍이
+아니라 단일 컴포넌트(Tab/Input/Button)를 담은 cell이다 -- "이 cell은 header"라고 판별할 source
+신호가 없다). 따라서 모든 cell을 `td`/`w2tb_td`로만 표시하고 th는 미적용으로 유지
+(`UNRESOLVED`).
+
+### 5. dfbox/fl/lybox/ly_column/fr 적용 여부
+
+미적용, `EVIDENCE_INSUFFICIENT` 유지. 이 class들은 "이 Div가 섹션 제목을 가진 wrapper"
+또는 "이 Div가 N-column 레이아웃 박스"라는 설계 의도를 나타내며, XPlatform source에는 이런
+개념(section title 여부, column 수 의도)을 신뢰성 있게 판별할 대응 속성이 없다(기존
+`v6-video-source-analysis.md` 6절 결론과 동일 -- "XPlatform source에 이런 표 헤더/셀/섹션
+wrapper 개념 자체가 없다"). 근거 없는 class를 붙이지 않는다는 원칙(`component-class-
+implementation-decision.md`)을 유지, 이번 라운드도 적용하지 않는다.
+
+### 6. Production 변경
+
+[WebSquareGenerator] convertLayoutAsTable(...) -- 기존 함수 수정(신규 함수 아님)
+
+변경 범위: `TABLE_LAYOUT_HIGH_CONFIDENCE`로 판정된 기존 row/column 생성 로직에 3곳만 추가:
+1. row/column 그룹을 감싸는 새 `xf:group`(`tagname="table" class="w2tb_tb" style="width:100%;"`)을
+   생성해 `targetParent`에 붙이고, 기존에 `targetParent`에 직접 붙던 row group들을 이 wrapper
+   자식으로 옮김.
+2. row group에 `tagname="tr"` 추가(class는 evidence대로 미부여).
+3. cell group에 `tagname="td"` + `class="w2tb_td"` 추가.
+
+percentage geometry 계산(`buildTableRowStyle`/`buildTableCellStyle`), row/cell 판정 알고리즘
+(`classifyLayoutGeometry`/`buildTableRows`), `basisWidth`/`basisHeight` 산출 로직은 전혀
+변경하지 않았다.
+
+Full Unified Diff: analysis/git-baseline-vs-candidate-production.diff
+(누적, 이번 라운드분은 파일 마지막 hunk).
+
+Caller: `convertChildren`(Layout을 만나면 `convertLayoutAsTable` 호출, 무변경).
+Callee: `layoutConverter.buildTableRowStyle`/`buildTableCellStyle`(무변경), `createUniqueTargetId`/
+`buildSourcePath`(기존 helper 재사용, 신규 helper 없음).
+
+### Generated XML BEFORE/AFTER(실제 corpus, Form/Main/TabExternalRelativePath.xml)
+
+BEFORE(corpus-output-round5):
+```
+<xf:group id="divWrap_layoutTableRow0" style="width:100%;height:89.4737%;">
+    <xf:group id="divWrap_layoutTableRow0Col0" style="width:94.8276%;height:100%;">
+        <w2:tabControl ... id="divWrap_tabNested" style="width:94.8276%;height:89.4737%;">
+```
+
+AFTER(corpus-output-round6):
+```
+<xf:group class="w2tb_tb" id="divWrap_layoutTable" style="width:100%;" tagname="table">
+    <xf:group id="divWrap_layoutTableRow0" style="width:100%;height:89.4737%;" tagname="tr">
+        <xf:group class="w2tb_td" id="divWrap_layoutTableRow0Col0" style="width:94.8276%;height:100%;" tagname="td">
+            <w2:tabControl ... id="divWrap_tabNested" style="width:94.8276%;height:89.4737%;">
+```
+
+row/cell의 percentage 값(89.4737%/94.8276%)은 BEFORE=AFTER 완전 동일 -- 구조적 속성
+(tagname/class/신규 wrapper)만 추가됐음을 실측 확인.
+
+### 영향 범위
+
+corpus 149개 화면 변환 성공 149/149, 136개 XML 중 이번 변경으로 실제 diff 발생 4개 파일
+(TabExternalRelativePath.xml, NestedContainer.xml, TabContainer.xml,
+TabInlineContent.xml -- TABLE_LAYOUT_HIGH_CONFIDENCE 5건이 이 4개 파일에 분포, 한 파일에
+Tab 페이지 2개가 각각 판정된 경우 포함). 나머지 132개 XML은 byte-identical(diff -rq 확인).
+4개 파일의 diff 내용은 전부 tagname/class/layoutTable wrapper 추가만이며, 다른 어떤
+속성/구조도 변경되지 않았음을 각 파일 line-by-line diff로 확인.
+
+### 회귀 결과
+
+| 항목 | 결과 |
+|---|---|
+| 컴파일 | 0 errors |
+| 전체 corpus 변환 | 149/149 성공 |
+| XML parse | 136/136 well-formed |
+| standalone JS | 15/15(무변경) |
+| Phase1 SHA | 2/2 PASS(무변경) |
+| SOURCE_TO_TARGET_ID_MAP_EXPECTED_ONLY | PASS(403/403 key, diff 0 -- layoutTable/tr/td wrapper는 synthetic id라 componentIdMap에 애초에 없음) |
+| invariant class/QName | btn_cm=12, wq_gvw=3 전부 무변경 |
+| grp_resultArea/grp_main width | 135/136(무변경, 이번 라운드 미접촉) |
+| 실제 diff 발생 XML | 4/136(TABLE_LAYOUT_HIGH_CONFIDENCE 5건이 속한 파일), 나머지 132개 byte-identical |
+| diff 내용 | 전부 tagname/class/layoutTable wrapper 추가만(row/cell percentage 값 불변, line-by-line 확인) |
+
+### Completion Gate
+
+DIV_NATIVE_LAYOUT_STRUCTURE -- 이번 라운드는 Div 자체(dfbox/fl/lybox/ly_column)에 적용하지
+않았으므로 NOT_APPLICABLE_THIS_ROUND(EVIDENCE_INSUFFICIENT). TABLE_NATIVE_LAYOUT_STRUCTURE =
+PASS(TABLE_LAYOUT_HIGH_CONFIDENCE 경로에 tagname=table/tr/td + class=w2tb_tb/w2tb_td 적용,
+실측 5/5). GRID_PARENT_STRUCTURE = UNCHANGED(이번 라운드 미접촉, 기존 UNRESOLVED 유지).
+PERCENT_GEOMETRY_PARENT_SEMANTIC = PASS(row/cell percentage 계산 완전 무변경). COMPONENT_
+QNAME_PRESERVED = PASS, EXISTING_CLASS_PRESERVED = PASS(btn_cm/wq_gvw 무변경).
+BODY_LIFECYCLE_ATTRIBUTES_PRESERVED = PASS(미접촉). UNEXPECTED_GENERATED_DIFF = 0(4개
+파일의 diff 전부 의도한 tagname/class/wrapper 추가로 설명됨, 그 외 132개 파일은 완전
+byte-identical).
+
+## Status
+
+[WebSquareGenerator] convertLayoutAsTable(기존 함수 수정) -- STATIC_VERIFIED(compile/corpus
+변환/canonical map/invariant 실측 완료, 4개 대상 파일 line-by-line diff 확인). STUDIO_DESIGN_
+VERIFIED는 선언하지 않음 -- 사용자의 실제 폐쇄망 Studio 확인 필요(STUDIO_DESIGN_REQUIRED).
+
+중요한 한계 고지: 이번 fix는 corpus 5/135(TABLE_LAYOUT_HIGH_CONFIDENCE 경로)에만 영향을
+준다. 사용자가 원래 보고한 "검색조건/버튼/Grid 영역이 전체적으로 좁게 압축"되는 증상이 정확히
+이 5건에 해당하는 화면에서 발생한 것인지는 이번 evidence로 확인할 수 없었다 -- 만약 실패 화면이
+Table-판정 경로를 타지 않는 화면이라면, 이번 fix는 그 화면의 시각적 증상을 바꾸지 않을 수 있다.
+ABSOLUTE_PERCENT_LAYOUT_STRATEGY가 절대좌표 % 경로 전체(130/135)에 대해서도 근본 원인인지는
+EVIDENCE_INSUFFICIENT로 남으며, 최종 DESIGN_STRUCTURE = FIX_CANDIDATE / STATIC_VERIFIED /
+STUDIO_DESIGN_REQUIRED(전체 문제의 완전한 해결이 아닌, 확인된 구조적 gap 하나에 대한 최소
+수정).

@@ -687,6 +687,21 @@ public class WebSquareGenerator {
      * 것이기 때문에, root Layout 자체를 1-column table로 감싸면 불필요한 추가 wrapper 계층이
      * 생겨 이 목표와 어긋난다. Div 내부에서 다시 Layout을 만나면(parentPath가 그 Div의
      * sourcePath로 비어있지 않음) 정상적으로 Table 판정 대상이 된다.
+     *
+     * <p>NATIVE_LAYOUT_CONTAINER_SEMANTIC fix(Root Percentage Containing Block Width Fix 후속
+     * 라운드): 실제 폐쇄망 v6 정상 화면(BCI01M0000) source 영상 직접 판독 evidence(
+     * {@code analysis/evidence-snapshots/native-layout-container-semantic/v6-video-source-analysis.md})
+     * 에서 {@code tagname="table" class="w2tb_tb"} > {@code tagname="tr"}(class 없음) >
+     * {@code tagname="td" class="w2tb_td"} 구조가 100% 대응으로 관측됐다(th/td 판정용
+     * 신뢰 가능한 source 신호는 없어 th는 적용하지 않음 -- 아래 참고). 이 tagname/class는
+     * WebSquare 렌더러가 실제 HTML {@code <table>/<tr>/<td>}로 렌더링하는 구조적 신호이며
+     * (skin 목적의 CSS class가 아님), 기존에 이미 구현되어 있던 row/column {@code xf:group}
+     * 구조(TABLE_LAYOUT_HIGH_CONFIDENCE)에 그대로 부여 가능하다 -- 아래 3곳(table wrapper 신규
+     * 생성/row/cell)에서만 속성을 추가하며, row/cell의 위치·크기 계산(percentage geometry)
+     * 로직은 전혀 건드리지 않는다. th(header) vs td(data) 구분은 이 corpus의 실제
+     * TABLE_LAYOUT_HIGH_CONFIDENCE 사례 중 label/input 쌍이 아닌 경우(예: 단일 Tab 컴포넌트를
+     * 담은 cell)가 존재해 안전하게 일반화할 수 없으므로(evidence 부족), 모든 cell을 동일하게
+     * {@code td}/{@code w2tb_td}로만 표시한다(th는 미적용, UNRESOLVED로 유지).
      */
     private void convertLayoutAsTable(
             Document out,
@@ -722,12 +737,22 @@ public class WebSquareGenerator {
         }
 
         List<List<Element>> rows = layoutConverter.buildTableRows(children);
+
+        Element tableWrapper = out.createElementNS(NS_XF, "xf:group");
+        String tableTargetId = createUniqueTargetId(buildSourcePath(parentPath, "layoutTable"));
+        tableWrapper.setAttribute("id", tableTargetId);
+        tableWrapper.setAttribute("tagname", "table");
+        tableWrapper.setAttribute("class", "w2tb_tb");
+        tableWrapper.setAttribute("style", "width:100%;");
+        targetParent.appendChild(tableWrapper);
+
         int rowIndex = 0;
         for (List<Element> row : rows) {
             Element rowGroup = out.createElementNS(NS_XF, "xf:group");
             String rowTargetId = createUniqueTargetId(
                     buildSourcePath(parentPath, "layoutTableRow" + rowIndex));
             rowGroup.setAttribute("id", rowTargetId);
+            rowGroup.setAttribute("tagname", "tr");
             String rowStyle = layoutConverter.buildTableRowStyle(row, basisHeight);
             if (rowStyle != null) {
                 rowGroup.setAttribute("style", rowStyle);
@@ -735,7 +760,7 @@ public class WebSquareGenerator {
             } else {
                 System.out.println("[UI PERCENT] UNRESOLVED(no style, row) id=" + rowTargetId);
             }
-            targetParent.appendChild(rowGroup);
+            tableWrapper.appendChild(rowGroup);
 
             int colIndex = 0;
             for (Element cell : row) {
@@ -743,6 +768,8 @@ public class WebSquareGenerator {
                 String cellTargetId = createUniqueTargetId(
                         buildSourcePath(parentPath, "layoutTableRow" + rowIndex + "Col" + colIndex));
                 cellGroup.setAttribute("id", cellTargetId);
+                cellGroup.setAttribute("tagname", "td");
+                cellGroup.setAttribute("class", "w2tb_td");
                 String cellStyle = layoutConverter.buildTableCellStyle(cell, basisWidth);
                 if (cellStyle != null) {
                     cellGroup.setAttribute("style", cellStyle);

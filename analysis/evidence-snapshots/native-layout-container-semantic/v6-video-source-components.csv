@@ -1,0 +1,54 @@
+frame_time,line_or_region,qname,id,class,style,tagname,mandatory,disabled,readonly,parent_qname,parent_class,structural_role,confidence,notes
+t=11.51,공통부 header row,xf:group,,w2tb_th,width:10%,th,,,,xf:group,w2tb_tb,TABLE_HEADER,HIGH,tagname=th wrapper around a label w2:textbox
+t=11.51,공통부 header row,w2:textbox,,req,,,,,,xf:group,w2tb_th,LABEL,HIGH,label text=전표일자; class=req on the LABEL not the input
+t=12.02,공통부 data cell,w2:inputCalendar,ica_slipDt,req,width:120px,,true,,,xf:group,w2tb_td,CALENDAR,HIGH,same field (전표일자) as above row; class=req also on the actual input widget
+t=12.02,공통부 header row,xf:group,,w2tb_th,width:12%,th,,,,xf:group,w2tb_tb,TABLE_HEADER,HIGH,
+t=12.02,공통부 data cell,xf:group,,w2tb_td,width:13%,td,,,,xf:group,w2tb_tb,TABLE_CELL,HIGH,empty cell (no visible child in frame)
+t=12.02,공통부 header row,xf:group,,w2tb_th,width:15%,th,,,,xf:group,w2tb_tb,TABLE_HEADER,HIGH,
+t=12.02,공통부 data cell,xf:group,,w2tb_td,width:15%,td,,,,xf:group,w2tb_tb,TABLE_CELL,HIGH,empty cell (no visible child in frame)
+t=12.02,공통부 header row,w2:textbox,,,,,,,,xf:group,w2tb_th,LABEL,HIGH,label=전표번호(임시); class empty, not mandatory
+t=12.02,공통부 data cell,xf:input,ibx_tmpSlipno,,,,true,false,,xf:group,w2tb_td,INPUT,HIGH,mandatory=true but class empty -- negative example vs req
+t=12.02,공통부 header row,w2:textbox,,,,,,,,xf:group,w2tb_th,LABEL,HIGH,label=연동일련번호
+t=12.02,공통부 data cell,xf:input,ibx_itlk_Srno,,,,true,false,,xf:group,w2tb_td,INPUT,HIGH,mandatory=true but class empty -- negative example vs req
+t=16.02,공통부 header row,w2:textbox,,,,,,,,xf:group,w2tb_th,LABEL,HIGH,label=전표귀속부서
+t=16.02,공통부 data cell,xf:input,ibx_slipRvrsDeptCd,,width:40px,,,,,xf:group,w2tb_td,INPUT,HIGH,adjustMaxLength=false; no mandatory attribute
+t=16.02,공통부 header row,xf:group,,w2tb_th,,th,,,,xf:group,w2tb_tb,TABLE_HEADER,HIGH,
+t=16.02,공통부 data cell,xf:select1,sbx_actTrnTycd,,,td,true,false,,xf:group,w2tb_td,SELECT,HIGH,mandatory=true, appearance=minimal, class empty -- negative example vs req
+t=16.02,공통부 header row,w2:textbox,,,,,,,,xf:group,w2tb_th,LABEL,HIGH,label=회계거래유형
+t=16.02,공통부 header row,w2:textbox,label_canTrgtSlipno,,,,,,,xf:group,w2tb_th,LABEL,HIGH,label=취소대상전표번호; class empty
+t=16.02,공통부 data cell,xf:input,ibx_canTrgtSlipno,,,,true,true,,xf:group,w2tb_td,INPUT,HIGH,mandatory=true, disabled=true, class empty -- negative example vs req
+t=16.02,공통부 data cell,xf:input,ibx_altrAmt,,,,true,,,xf:group,w2tb_td,INPUT,HIGH,initValue=0, maxByteLength=15, class empty (cut off at frame edge, confirmed no class attr present before it)
+t=21.03,공통부 data cell,xf:select1,ibx_altrAmtVrfcYn,,,td,true,false,,xf:group,w2tb_td,SELECT,HIGH,Y/N choice select; class empty despite mandatory=true
+t=21.03,공통부 header row,w2:textbox,,,,,,,,xf:group,w2tb_th,LABEL,HIGH,label=반복부개수
+t=21.03,공통부 data cell,xf:input,ibx_rpptNcnt,,,,true,false,,xf:group,w2tb_td,INPUT,HIGH,mandatory=true but class empty -- negative example vs req
+t=21.03,공통부 header row,w2:textbox,,,,,,,,xf:group,w2tb_th,LABEL,HIGH,label=취소대상전표공통부번호
+t=21.03,공통부 data cell,xf:input,ibx_canTrgtSlipJrnCoptNo,,,,true,true,,xf:group,w2tb_td,INPUT,HIGH,mandatory=true, disabled=true, class empty -- negative example vs req
+t=21.03,공통부 header row,w2:textbox,,,,,,,,xf:group,w2tb_th,LABEL,HIGH,label=계좌번호
+t=21.03,공통부 data cell,xf:input,ibx_acno,,,,true,,,xf:group,w2tb_td,INPUT,HIGH,mandatory=true but class empty -- negative example vs req
+t=21.03,공통부 header row,w2:textbox,,,,,,,,xf:group,w2tb_th,LABEL,HIGH,label=대체계좌번호
+t=26.03,공통부 header row,w2:textbox,,,,,,,,xf:group,w2tb_th,LABEL,HIGH,label=비고
+t=26.03,공통부 data cell,xf:textarea,ibx_rmrk,,height:26px,,,,,xf:group,w2tb_td,INPUT,HIGH,no class attribute, no mandatory
+t=26.03,공통부 header row,w2:textbox,,,,,,,,xf:group,w2tb_th,LABEL,HIGH,label=D원거래여부
+t=26.03,공통부 data cell,xf:select1,sbx_w0TrnYn,,width:70px,td,true,false,,xf:group,w2tb_td,SELECT,HIGH,Y/N choice; mandatory=true but class empty
+t=26.03,공통부 header row,w2:textbox,,,,,,,,xf:group,w2tb_th,LABEL,HIGH,label=거래코드
+t=26.03,공통부 data cell,xf:input,ibx_trnCd,,,,true,,,xf:group,w2tb_td,INPUT,HIGH,mandatory=true, maxByteLength=10, class empty -- negative example vs req
+t=26.03,section title,xf:group,,dfbox,,,,,,xf:group,,LAYOUT_BOX,HIGH,section title wrapper for 반복부(회계지널상세내역)
+t=26.03,section title,xf:group,,fl,width:80%,,,,,xf:group,dfbox,LAYOUT_BOX,HIGH,
+t=26.03,section title,w2:textbox,,df_tit,,,,,,xf:group,fl,LABEL,HIGH,label=반복부(회계지널상세내역)
+t=11.51,section title,xf:group,,dfbox,,,,,,xf:group,,LAYOUT_BOX,HIGH,section title wrapper for 공통부(회계지널내역)
+t=11.51,section title,xf:group,,fl,width:100%,,,,,xf:group,dfbox,LAYOUT_BOX,HIGH,
+t=11.51,section title,w2:textbox,,df_tit,,,,,,xf:group,fl,LABEL,HIGH,label=공통부(회계지널내역)
+t=11.51,layout wrapper,xf:group,,lybox,,,,,,xf:group,,LAYOUT_BOX,HIGH,wraps the 공통부 table
+t=11.51,layout wrapper,xf:group,grp_copt,ly_column col_5,width:100%,,,,,xf:group,lybox,LAYOUT_BOX,HIGH,column wrapper, contains the table
+t=11.51,layout wrapper,xf:group,,w2tb_tb,width:100%,table,,,,xf:group,ly_column col_5,GRID,HIGH,tagname=table, the semantic table root
+t=29.04,grid,w2:gridView,grid_rppt_list,wq_gvw,height:120px;width:100%,,,,,xf:group,,GRID,HIGH,dataList=data:GRID_RPPT; 1st gridView confirmed class=wq_gvw
+t=30.54,layout wrapper,xf:group,,lybox,,,,,,xf:group,,LAYOUT_BOX,HIGH,wraps the 2nd grid
+t=30.54,grid,w2:gridView,grd_list,wq_gvw,height:260px;width:100%,,,,,xf:group,lybox,GRID,HIGH,dataList=data:GRID_BCI01M0000_VIEW; 2nd gridView confirmed class=wq_gvw
+t=30.54,action button,xf:trigger,btn_add,btn_cm,,,,,,xf:group,,ACTION_BUTTON,HIGH,label=행추가
+t=30.54,action button,xf:trigger,btn_delete,btn_cm,,,,,,xf:group,,ACTION_BUTTON,HIGH,label=행삭제
+t=30.54,action button,xf:trigger,btn_excelUpload,btn_cm xls_down,,,,,,xf:group,,ACTION_BUTTON,HIGH,label=엑셀업로드; two space-separated tokens (base + modifier)
+t=30.54,action button,xf:trigger,btn_xcelDwld,btn_cm xls_down,,,,,,xf:group,,ACTION_BUTTON,HIGH,label=양식다운로드; two space-separated tokens (base + modifier)
+t=38.05,action button,xf:group,,fr,,,,,,xf:group,dfbox bot,LAYOUT_BOX,HIGH,right-aligned button row wrapper
+t=38.05,action button,xf:trigger,btn_exct,btn_cm,,,,,,xf:group,fr,ACTION_BUTTON,HIGH,label=실행
+t=38.05,action button,xf:trigger,btn_tjrnl,btn_cm req,,,,,,xf:group,fr,ACTION_BUTTON,HIGH,label=T자원분개; base token + req modifier (req NOT limited to required-field labels)
+t=38.05,hidden grid,w2:gridView,grid_exctList,wq_gvw,height:0px;width:200%,,,,,xf:group,group_hidden,GRID,HIGH,dataList=data:GRID_BCI01M0000; 3rd gridView (hidden export helper) confirmed class=wq_gvw

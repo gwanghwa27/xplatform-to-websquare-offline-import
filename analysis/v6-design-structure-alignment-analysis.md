@@ -729,3 +729,43 @@ Grid Group, Table cell) percentage 역산 전부 일치.
 REQUIRED`. 상세는 `analysis/freeze-vs-candidate-function-diff.md`의 "후속 라운드 — Root
 Percentage Containing Block Width Fix" 섹션, raw diff는
 `analysis/git-baseline-vs-candidate-production.diff` 참고.
+
+## 후속 라운드 -- Native v6 Layout Structure Gap Root-Cause Audit + Minimal Alignment
+
+이전 라운드(Root Percentage Containing Block Width Fix)를 폐쇄망에 적용했으나 사용자가 동일
+증상(Design/Preview 압축)을 재현. 기존에 별도 candidate(`v6-class-mapping`)에서 이미 수행된
+정상 native v6 화면(BCI01M0000) source 영상 판독 evidence(`v6-video-source-analysis.md`)를
+재사용해 재감사한 결과:
+
+- `ROOT_WIDTH_DEFECT = NOT_CONFIRMED` -- native evidence 자체도 `grp_main`이 width 없이
+  정상 동작함을 보여줌; 지난 라운드 fix는 무해하지만 유일한 원인은 아니었음.
+- `NATIVE_LAYOUT_CONTAINER_SEMANTIC = REQUIRED` -- `tagname="table/tr/th/td"` +
+  `class="w2tb_tb/w2tb_th/w2tb_td"`는 CSS skin이 아니라 실제 HTML 요소를 결정하는 구조적
+  신호(evidence 100% 대응).
+- `ABSOLUTE_PERCENT_LAYOUT_STRATEGY` -- Table 판정 경로(corpus 5/135)에는 `ROOT_CAUSE_
+  CANDIDATE`(native 대비 tagname/class 완전 누락); 나머지 절대좌표 % 경로(130/135)는
+  `EVIDENCE_INSUFFICIENT`(원래 실패 화면이 Table 경로인지 pairing 증거 없음).
+- `CURRENT_GROUP_ONLY_TABLE_MODEL = INCOMPLETE` -- 위치/크기는 정확하나 tagname/class가
+  전혀 없었음.
+
+수정: `[WebSquareGenerator] convertLayoutAsTable`(기존 함수)에 신규 `layoutTable` wrapper
+(`tagname="table" class="w2tb_tb"`) 추가 + row group `tagname="tr"` + cell group
+`tagname="td" class="w2tb_td"` 추가. percentage geometry 계산 로직은 완전 무변경. th(header)
+구분은 corpus 실사례(label/input 쌍이 아닌 단일 컴포넌트 cell 포함)에서 안전하게 일반화할
+근거가 없어 미적용(UNRESOLVED 유지). `dfbox`/`fl`/`lybox`/`ly_column`/`fr`도 XPlatform
+source에 대응 신호가 없어(section-title/column-intent 판별 불가) 미적용(`EVIDENCE_
+INSUFFICIENT` 유지).
+
+corpus 실측: 149/149 변환 성공, 실제 diff 4개 파일(TABLE_LAYOUT_HIGH_CONFIDENCE 5건 소속),
+나머지 132개 XML byte-identical. `SOURCE_TO_TARGET_ID_MAP_EXPECTED_ONLY`/invariant class/
+QName/Phase1 SHA 전부 무변경 재확인.
+
+**한계**: 이 fix는 corpus의 5/135(Table 판정 경로)에만 영향을 준다. 사용자가 원래 보고한
+전체 화면 압축 증상이 이 경로에 해당하는지는 확인되지 않았다 -- `ABSOLUTE_PERCENT_LAYOUT_
+STRATEGY`가 나머지 절대좌표 % 경로 전체의 근본 원인인지는 여전히 `EVIDENCE_INSUFFICIENT`다.
+
+최종 `DESIGN_STRUCTURE = FIX_CANDIDATE` / `STATIC_VERIFIED` / `STUDIO_DESIGN_REQUIRED`(구조적
+gap 하나에 대한 최소 수정, 전체 문제의 완전한 해결이라고 주장하지 않음). 상세는
+`analysis/freeze-vs-candidate-function-diff.md`의 "후속 라운드 -- Native v6 Layout Structure
+Gap Root-Cause Audit + Minimal Alignment" 섹션, raw diff는
+`analysis/git-baseline-vs-candidate-production.diff` 참고.
