@@ -1,0 +1,68 @@
+XPWS Offline Converter -- Build Provenance
+(Build Provenance / Fresh Generation Verification Quick 라운드)
+
+SOURCE_HEAD=3816a93f142d7714360a1e3d9f93874228003919
+BRANCH=candidate/v6-design-structure-alignment
+BASELINE=GIT-BASELINE-XPWS-OFFLINE-FREEZE-20260820-02
+BUILD_TIMESTAMP_UTC=2026-08-21T09:54:31Z
+WORKING_TREE_CLEAN=YES(검증 완료, git status --short 출력 없음)
+
+CLEAN_BUILD=PASS
+  - build/ 디렉터리 전체 삭제 후 재생성(rm -rf build && mkdir -p build/classes)
+  - src/main/java 전체(76개 .java 파일)를 단일 javac 호출로 컴파일, 0 errors
+  - 기존 build/classes 위 덮어쓰기 없음(사전 완전 삭제 확인)
+
+BUILD_JDK(이 검증을 수행한 개발 환경, 폐쇄망 실제 배포 JDK와 다를 수 있음):
+  java -version:  openjdk version "21.0.10" 2026-01-20 LTS
+  javac -version: javac 21.0.10
+  주의: 폐쇄망 정식 배포는 반드시 JDK 1.8.0_111로 별도 재컴파일/재검증해야 하며
+  (verify-offline.sh의 TARGET_JDK_RUNTIME_REQUIRED gate), 이 provenance 문서의
+  CLASSES_MANIFEST_SHA256은 JDK21로 컴파일한 .class 바이트 기준이므로 JDK 1.8.0_111
+  결과물의 해시와 다를 수 있다(Java 바이트코드 버전 차이). 이 문서는 "SOURCE_HEAD의
+  소스로 clean compile이 실제로 성공하고 grp_main style이 비어 있지 않다"는 사실을
+  증명하는 용도이며, 폐쇄망 JDK 1.8.0_111 산출물과의 바이트 단위 동일성 증명 용도가
+  아니다.
+
+FRESH_GENERATION=PASS
+  - clean build 직후 새 output 디렉터리로 149/149 fixture 변환 성공(fixture 재사용 없음)
+  - 149개 source(.xfdl) -> 136개 최종 XML(.xml, 외부 링크/공유 페이지 병합 포함)
+
+CLASSES_MANIFEST_SHA256 (build/classes 하위 전체 .class, 상대경로 기준, 정렬됨,
+"sha256  relative/path.class" 형식 -- 특정 PC 절대경로는 기록하지 않음):
+  전체 파일 수: 126
+  전체 manifest 파일 자체의 SHA-256(무결성 봉인용): 51208b2a7f96585a9ae2eb5a45774d29da39a066b4eff14fed3851f1a39dc37
+
+  핵심 클래스(이번 조사 대상 함수가 있는 파일) 개별 SHA-256:
+    e7896ee18eaab5302f11ce4cf201b0da0cb6c4cd008f74d6e014d0105c04d7bc  com/example/xfdltracker/converter/ComponentLayoutConverter.class
+    75c080ab5792523b54b6e1b2b63d5922dbb3bbb346123c647fff11195c9949eb  com/example/xfdltracker/converter/WebSquareGenerator.class
+    ca5a033749750b39de1bdf0735ad701232a0a075b015a575d583cbaaedb7d028  com/example/xfdltracker/converter/GridFormatConverter.class
+
+GRP_MAIN_STYLE 검증 (fresh output 136개 파일 전수):
+  GRP_MAIN_TOTAL_COUNT=136
+  GRP_MAIN_STYLE_EMPTY_COUNT=0
+  GRP_MAIN_WIDTH_100_COUNT=135
+    (나머지 1개는 runtime/xplatform-tab-empty.xml -- Production 계산 경로가 아닌
+    고정 placeholder 문자열, 과거 라운드부터 문서화된 예외. 이 파일도 style은
+    "position:relative;width:100%;height:100%;"로 비어있지 않음 -- 0/136 전부 non-empty.)
+
+대표 3건 (fresh output 실제 값):
+  Form/ControlPropertyMatrix.xml
+    grp_resultArea style="width:100.0%;height:650px;"
+    grp_main       style="width:100.0%;height:490px;"
+  Form/NestedContainer.xml
+    grp_resultArea style="width:100.0%;height:300px;"
+    grp_main       style="width:100.0%;height:170px;"
+  Form/GridAdvancedPhase3.xml
+    grp_resultArea style="width:100.0%;height:400px;"
+    grp_main       style="width:100.0%;height:270px;"
+
+폐쇄망 확인용 절차:
+  1. 위 SOURCE_HEAD(3816a93f142d7714360a1e3d9f93874228003919)를 기준으로 폐쇄망에서
+     git fetch/checkout 후 `git rev-parse HEAD`가 이 값과 일치하는지 확인.
+  2. build.sh(JDK 1.8.0_111)로 clean build.
+  3. convert-sample.sh 또는 project 변환 실행 후 실제 업무 화면 XML에서
+     id="grp_main"의 style 속성이 비어 있는지(style="") 재확인.
+  4. 비어 있지 않다면(width:100.0%;height:Npx; 형태) 폐쇄망 Studio에서 그 fresh
+     artifact로 재검증. 여전히 style=""가 나온다면 이 문서의 SOURCE_HEAD/CLASSES_
+     MANIFEST_SHA256을 함께 보고해 실제 실행 중인 class가 이 provenance와 일치하는지
+     비교 확인 요청.
