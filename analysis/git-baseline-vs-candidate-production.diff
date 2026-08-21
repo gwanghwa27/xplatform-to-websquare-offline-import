@@ -1,5 +1,5 @@
 diff --git a/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java b/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java
-index 29f635a..6982469 100644
+index 29f635a..61728f0 100644
 --- a/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java
 +++ b/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java
 @@ -5,7 +5,9 @@ import org.w3c.dom.Element;
@@ -64,7 +64,7 @@ index 29f635a..6982469 100644
  
          Geometry geometry = findFormGeometry(source);
          if (geometry != null) {
-@@ -60,33 +77,355 @@ public class ComponentLayoutConverter {
+@@ -60,33 +77,353 @@ public class ComponentLayoutConverter {
          }
  
          if (style.indexOf("width:") < 0) {
@@ -79,18 +79,16 @@ index 29f635a..6982469 100644
 +    }
 +
 +    /**
-+     * percentage geometry 값을 가장 가까운 0.5% 단위로 반올림하고, 항상 소수점 첫째 자리까지
-+     * "N.0%" 또는 "N.5%" 형태로 포맷한다(PERCENT_FORMAT_NORMALIZATION 라운드). fixture별
-+     * 예외 없이 모든 Production percentage output에 동일 규칙을 적용한다.
-+     * 예: 6.0345% -&gt; 6.0%, 12.76% -&gt; 13.0%, 98.7069% -&gt; 98.5%.
++     * percentage geometry 값을 소수점 둘째 자리에서 일반 반올림해 소수점 첫째 자리까지
++     * "N.N%" 형태로 포맷한다(XPLATFORM_VISUAL_PARITY 라운드, PERCENT_ROUNDING =
++     * ONE_DECIMAL_PLACE -- 기존 NEAREST_0.5_PERCENT 규칙 폐기). fixture별 예외 없이 모든
++     * Production percentage output에 동일 규칙을 적용한다.
++     * 예: 4.2105% -&gt; 4.2%, 6.27% -&gt; 6.3%, 98.7069% -&gt; 98.7%.
 +     */
 +    public String formatPercent(double value) {
-+        java.math.BigDecimal doubled = java.math.BigDecimal.valueOf(value)
-+                .multiply(java.math.BigDecimal.valueOf(2));
-+        java.math.BigDecimal roundedDoubled =
-+                doubled.setScale(0, java.math.RoundingMode.HALF_UP);
-+        java.math.BigDecimal rounded = roundedDoubled.divide(java.math.BigDecimal.valueOf(2));
-+        return rounded.setScale(1, java.math.RoundingMode.HALF_UP).toPlainString() + "%";
++        return java.math.BigDecimal.valueOf(value)
++                .setScale(1, java.math.RoundingMode.HALF_UP)
++                .toPlainString() + "%";
 +    }
 +
 +    /**
@@ -758,7 +756,7 @@ index 677cdd9..a0437b7 100644
          String value = trim(raw).toLowerCase();
          if (value.endsWith("px")) {
 diff --git a/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java b/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java
-index 3e52c8b..5ee3b92 100644
+index 3e52c8b..855dd28 100644
 --- a/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java
 +++ b/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java
 @@ -401,49 +401,54 @@ public class WebSquareGenerator {
@@ -964,7 +962,7 @@ index 3e52c8b..5ee3b92 100644
                  }
  
                  continue;
-@@ -573,15 +642,183 @@ public class WebSquareGenerator {
+@@ -573,15 +642,208 @@ public class WebSquareGenerator {
                                      + sourceTag + " id=" + wrapperId
                                      + " (자식 좌표 기준 수동 확인 필요)");
                  }
@@ -1031,6 +1029,10 @@ index 3e52c8b..5ee3b92 100644
 +     * TABLE_LAYOUT_HIGH_CONFIDENCE 사례 중 label/input 쌍이 아닌 경우(예: 단일 Tab 컴포넌트를
 +     * 담은 cell)가 존재해 안전하게 일반화할 수 없으므로(evidence 부족), 모든 cell을 동일하게
 +     * {@code td}/{@code w2tb_td}로만 표시한다(th는 미적용, UNRESOLVED로 유지).
++     *
++     * <p>XPLATFORM_VISUAL_PARITY 라운드: children에 container 컴포넌트(Div 등)가 하나라도
++     * 있으면 {@code TABLE_CONVERSION_SEMANTIC_MISMATCH}로 재분류해 table 변환을 하지 않는다
++     * (아래 {@link #hasContainerChild}).
 +     */
 +    private void convertLayoutAsTable(
 +            Document out,
@@ -1045,6 +1047,17 @@ index 3e52c8b..5ee3b92 100644
 +        String classification = isRootFormLayout
 +                ? "ROOT_FORM_LAYOUT_NOT_A_TABLE_TARGET"
 +                : layoutConverter.classifyLayoutGeometry(children);
++        // XPLATFORM_VISUAL_PARITY: Div/GroupBox/PopupDiv/Tab/Tabpage처럼 그 자체로 독립된
++        // 좌표계를 가진 container child는 table row/cell 구조(structural placement, position
++        // 제거)로 병합하지 않는다 -- 원래 XPlatform sibling Div의 left/top/width/height와
++        // overlap 관계를 그대로 보존하기 위해 절대좌표 pass-through로 처리한다
++        // (TABLE_CONVERSION_SEMANTIC_MISMATCH). label/input 등 leaf component만으로 구성된
++        // Layout(실제 검증된 native table 사례)은 이 override 대상이 아니다.
++        if (!isRootFormLayout
++                && "TABLE_LAYOUT_HIGH_CONFIDENCE".equals(classification)
++                && hasContainerChild(children)) {
++            classification = "TABLE_CONVERSION_SEMANTIC_MISMATCH";
++        }
 +        double[] basis = layoutConverter.resolveLayoutBasis(layout);
 +        if (basis == null) {
 +            // 이 Layout 자신에게 width/height가 없는 실제 업무 화면 대응(STUDIO_DESIGN_FAILED
@@ -1141,6 +1154,16 @@ index 3e52c8b..5ee3b92 100644
 +                        + " -> table rows=" + rows.size());
 +    }
 +
++    /** children 중 하나라도 container 컴포넌트(Div/GroupBox/PopupDiv/Tab/Tabpage 등)인지 확인. */
++    private boolean hasContainerChild(List<Element> children) {
++        for (Element child : children) {
++            if (isContainerComponent(getSourceTagName(child))) {
++                return true;
++            }
++        }
++        return false;
++    }
++
 +    private List<Element> directElementChildren(Element parent) {
 +        List<Element> result = new ArrayList<Element>();
 +        NodeList children = parent.getChildNodes();
@@ -1154,7 +1177,7 @@ index 3e52c8b..5ee3b92 100644
      }
  
      /** Phase 3: XPlatform Tab/Tabpage tree -> WebSquare tabControl tabs/content pairs. */
-@@ -592,7 +829,10 @@ public class WebSquareGenerator {
+@@ -592,7 +854,10 @@ public class WebSquareGenerator {
              String parentPath,
              XfdlAnalysisResult analysis,
              int depth,
@@ -1166,7 +1189,7 @@ index 3e52c8b..5ee3b92 100644
  
          String localId = sanitizeXml10(src.getAttribute("id"));
          if (localId.length() == 0) {
-@@ -608,11 +848,10 @@ public class WebSquareGenerator {
+@@ -608,11 +873,10 @@ public class WebSquareGenerator {
          Element tabControl = createTargetElement(out, "w2:tabControl");
          tabControl.setAttribute("id", targetId);
          targetComponentTypeMap.put(targetId, "Tab");
@@ -1180,7 +1203,7 @@ index 3e52c8b..5ee3b92 100644
          applyComponentSpecificProperties(src, tabControl, "Tab", sourcePath);
          applyBindings(src, tabControl, sourcePath, localId, targetId, "Tab");
          bindEvents(tabControl, sourcePath, localId, analysis);
-@@ -651,7 +890,10 @@ public class WebSquareGenerator {
+@@ -651,7 +915,10 @@ public class WebSquareGenerator {
              Element content = createTargetElement(out, "w2:content");
              content.setAttribute("id", contentId);
              targetComponentTypeMap.put(contentId, "Tabpage");
@@ -1192,7 +1215,7 @@ index 3e52c8b..5ee3b92 100644
              tabControl.appendChild(content);
  
              String canonicalPagePath = canonicalizePath(pagePath);
-@@ -677,14 +919,15 @@ public class WebSquareGenerator {
+@@ -677,14 +944,15 @@ public class WebSquareGenerator {
                  continue;
              }
              if (isRuntimeSetUrlTarget(localId, pageLocalId)) {
@@ -1212,7 +1235,7 @@ index 3e52c8b..5ee3b92 100644
          }
      }
  
-@@ -934,39 +1177,42 @@ public class WebSquareGenerator {
+@@ -934,39 +1202,42 @@ public class WebSquareGenerator {
          return normalized.startsWith("@") ? normalized.substring(1) : normalized;
      }
  
@@ -1276,7 +1299,7 @@ index 3e52c8b..5ee3b92 100644
                  String checkboxValue = sanitizeXml10(src.getAttribute("value"));
                  if (checkboxValue.length() == 0) checkboxValue = text;
                  String targetId = target.getAttribute("id");
-@@ -978,7 +1224,24 @@ public class WebSquareGenerator {
+@@ -978,7 +1249,24 @@ public class WebSquareGenerator {
              }
          }
  
@@ -1302,7 +1325,7 @@ index 3e52c8b..5ee3b92 100644
          if (style.length() > 0) {
              target.setAttribute("style", style);
          }
-@@ -1224,14 +1487,21 @@ public class WebSquareGenerator {
+@@ -1224,14 +1512,21 @@ public class WebSquareGenerator {
          return found;
      }
  
@@ -1327,7 +1350,7 @@ index 3e52c8b..5ee3b92 100644
          }
      }
  
-@@ -1298,12 +1568,9 @@ public class WebSquareGenerator {
+@@ -1298,12 +1593,9 @@ public class WebSquareGenerator {
              System.out.println("[BINDING 변환] " + sourcePath + " -> data:"
                      + valueBinding.getDatasetId() + "." + valueBinding.getColumnId());
  
@@ -1343,42 +1366,3 @@ index 3e52c8b..5ee3b92 100644
              String datasetId = valueBinding.getDatasetId();
              if (datasetId != null && datasetId.length() > 0 && rowPositionBootstrapped.add(datasetId)) {
                  pageLoadStatements.add(datasetId + ".setRowPosition(0);");
-diff --git a/src/main/java/com/example/xfdltracker/project/XPlatformProjectConverter.java b/src/main/java/com/example/xfdltracker/project/XPlatformProjectConverter.java
-index b35c3d0..bd275cc 100644
---- a/src/main/java/com/example/xfdltracker/project/XPlatformProjectConverter.java
-+++ b/src/main/java/com/example/xfdltracker/project/XPlatformProjectConverter.java
-@@ -247,10 +247,14 @@ public class XPlatformProjectConverter {
-             throw new IllegalStateException("Tab runtime 디렉터리를 생성할 수 없습니다: " + runtimeDir);
-         TextFileUtil.writeUtf8(new File(runtimeDir, "xplatform-tab-runtime.js"),
-                 new TabRuntimeScriptGenerator().generateStandaloneReference());
-+        // v6 Design Structure + Table + Grid Group + Percentage Geometry Alignment 라운드:
-+        // WebSquareGenerator가 실제 화면에서 더 이상 grp_content를 생성하지 않고 Form root를
-+        // grp_main으로 등록하므로(EXPECTED_SOURCE_TO_TARGET_MAP_DIFF), Tab runtime의 빈 placeholder
-+        // 페이지도 동일 id-string 규약을 따르도록 grp_content -> grp_main으로 함께 migration했다.
-         String empty = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-                 + "<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:w2=\"http://www.inswave.com/websquare\">\n"
-                 + "  <head><script type=\"text/javascript\"><![CDATA[var scwin=(typeof scwin===\"undefined\")?{}:scwin;]]></script></head>\n"
--                + "  <body><w2:group id=\"grp_content\" style=\"position:relative;width:100%;height:100%;\"/></body>\n"
-+                + "  <body><w2:group id=\"grp_main\" style=\"position:relative;width:100%;height:100%;\"/></body>\n"
-                 + "</html>\n";
-         TextFileUtil.writeUtf8(new File(runtimeDir, "xplatform-tab-empty.xml"), empty);
-     }
-diff --git a/src/main/java/com/example/xfdltracker/tab/TabRuntimeScriptGenerator.java b/src/main/java/com/example/xfdltracker/tab/TabRuntimeScriptGenerator.java
-index 3c79116..f31134b 100644
---- a/src/main/java/com/example/xfdltracker/tab/TabRuntimeScriptGenerator.java
-+++ b/src/main/java/com/example/xfdltracker/tab/TabRuntimeScriptGenerator.java
-@@ -95,8 +95,12 @@ public class TabRuntimeScriptGenerator {
-         s.append("    function childObject(tabId,page,id) { var w=requireReadyWindow(tabId,page,'child object read'),o=resolveInScope(w,id);if(!o)throw runtimeError('CHILD_COMPONENT_NOT_FOUND','child object unresolved: '+id,{tab:tabId,page:page,object:id});return o; }\n");
-         s.append("    function getChildValue(tabId,page,id) { var o=childObject(tabId,page,id);if(!o.getValue)throw runtimeError('CHILD_COMPONENT_NOT_FOUND','child value API unavailable: '+id,{tab:tabId,page:page,object:id});return o.getValue(); }\n");
-         s.append("    function setChildValue(tabId,page,id,value) { var tab=resolveTab(tabId);return enqueue(tab,page,'SET_CHILD_VALUE',function(){var ready=ensureChildReady(tab,page);function setValue(win){var o=resolveInScope(win,id);if(!o||!o.setValue)throw runtimeError('CHILD_COMPONENT_NOT_FOUND','child value setter unavailable: '+id,{tab:tabId,page:page,object:id});o.setValue(value);return value;}return isThenable(ready)?ready.then(setValue):setValue(ready);}); }\n");
--        s.append("    function currentFrame(){var root=component('grp_content');if(!root||!root.getScope)throw runtimeError('PARENT_SCOPE_NOT_FOUND','current scoped WFrame unavailable');var frame=root.getScope();if(!frame)throw runtimeError('PARENT_SCOPE_NOT_FOUND','current page is not inside scope=true WFrame');return frame;}\n");
--        s.append("    function parentWindow(depth) { var d=depth||1,frame=currentFrame(),w=null;try{w=frame.getScopeWindow?frame.getScopeWindow():null;}catch(e){throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent scope lookup failed',{depth:d,error:e});}for(var i=1;i<d;i++){if(!w||!w.grp_content||!w.grp_content.getScope)throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent depth exceeds available scoped frames',{depth:d,at:i});frame=w.grp_content.getScope();if(!frame||!frame.getScopeWindow)throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent WFrame unavailable',{depth:d,at:i});w=frame.getScopeWindow();}if(!w)throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent scope unavailable',{depth:d});return w; }\n");
-+        // v6 Design Structure + Table + Grid Group + Percentage Geometry Alignment 라운드:
-+        // WebSquareGenerator가 global grp_content wrapper를 제거하고 Form root mapping을
-+        // grp_main으로 migration함에 따라(EXPECTED_SOURCE_TO_TARGET_MAP_DIFF), 이 두 리터럴도
-+        // 동일 id-string 기반 lookup 방식은 무변경으로 grp_content -> grp_main만 함께 바꿨다.
-+        s.append("    function currentFrame(){var root=component('grp_main');if(!root||!root.getScope)throw runtimeError('PARENT_SCOPE_NOT_FOUND','current scoped WFrame unavailable');var frame=root.getScope();if(!frame)throw runtimeError('PARENT_SCOPE_NOT_FOUND','current page is not inside scope=true WFrame');return frame;}\n");
-+        s.append("    function parentWindow(depth) { var d=depth||1,frame=currentFrame(),w=null;try{w=frame.getScopeWindow?frame.getScopeWindow():null;}catch(e){throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent scope lookup failed',{depth:d,error:e});}for(var i=1;i<d;i++){if(!w||!w.grp_main||!w.grp_main.getScope)throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent depth exceeds available scoped frames',{depth:d,at:i});frame=w.grp_main.getScope();if(!frame||!frame.getScopeWindow)throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent WFrame unavailable',{depth:d,at:i});w=frame.getScopeWindow();}if(!w)throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent scope unavailable',{depth:d});return w; }\n");
-         s.append("    function callParent(depth,fn,args){var w=parentWindow(depth);if(!w.scwin||typeof w.scwin[fn]!=='function')throw runtimeError('PARENT_FUNCTION_NOT_FOUND','parent function unresolved: '+fn,{depth:depth,functionName:fn});return w.scwin[fn].apply(w.scwin,args||[]);}\n");
-         s.append("    function parentObject(depth,id){var w=parentWindow(depth),o=resolveInScope(w,id);if(!o)throw runtimeError('PARENT_COMPONENT_NOT_FOUND','parent object unresolved: '+id,{depth:depth,object:id});return o;}\n");
-         s.append("    function getParentValue(depth,id){var o=parentObject(depth,id);if(!o.getValue)throw runtimeError('PARENT_COMPONENT_NOT_FOUND','parent value API unavailable: '+id,{depth:depth,object:id});return o.getValue();}\n");

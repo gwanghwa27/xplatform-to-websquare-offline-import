@@ -1846,3 +1846,198 @@ map/invariant/percent-strip diff 0/unit test 18건 전부 확인 완료).
 최종 `PERCENT_FORMAT_NORMALIZATION = FIX_CANDIDATE` / `STATIC_VERIFIED`. 기존 실제 Studio
 실패 상태(`STUDIO_DESIGN_FAILED`/`STUDIO_DESIGN_REPRODUCED`)가 이 rounding/formatting
 변경만으로 자동 해결됐다고 선언하지 않는다 -- `STUDIO_DESIGN_REQUIRED` 유지.
+
+## 후속 라운드 -- XPlatform Visual Parity Quick Fix + Percentage Precision 통일
+
+### 배경 / 가설 검증
+
+실제 폐쇄망 재현(STUDIO_DESIGN_FAILED/STUDIO_DESIGN_REPRODUCED)의 우선 원인 후보로 A~E
+5가지를 제시받았다. Production 코드(`ComponentLayoutConverter`/`WebSquareGenerator`)를
+직접 추적한 결과:
+
+- A(잘못된 parent coordinate basis): `resolveLayoutBasis`/`resolveFormBasis`는 이미
+  `PERCENT_GEOMETRY_PARENT = IMMEDIATE_SOURCE_CONTAINER` 원칙대로 동작 중이었다(이전
+  라운드에 이미 반영, 이번 라운드 실측 trace로 재확인만 함 -- 아래 trace 참고).
+- B(서로 다른 sibling Div를 Table/Row/Cell로 잘못 재해석): **실제 원인으로 확인됨.**
+  `convertLayoutAsTable`의 `classifyLayoutGeometry`는 XPlatform `Layout`의 직계 자식을
+  "겹치지 않으면 모두 table row/cell"로 분류한다 -- 이 판정은 자식의 **소스 타입을 전혀
+  구분하지 않는다.** 그 결과 Label/Edit 같은 leaf 컴포넌트 grid뿐 아니라, 그 자체로 독립
+  좌표계를 가진 `Div`/`GroupBox`/`Tab` 같은 container child까지 table cell로 강제
+  편입되어 `includePosition=false`로 원래 left/top을 잃고 cell의 structural placement로
+  대체됐다(`NestedContainer.xfdl`의 `GroupBox grpA`, `TabExternalRelativePath.xfdl`의
+  `Tab tabNested`로 실측 재현, 아래 BEFORE/AFTER 참고).
+- C(nested component에 Form 기준 percentage 재사용): 이전 라운드(NESTED_PERCENT_DOUBLE_
+  SCALING fix)에서 이미 해결, 이번 라운드 재검증 결과 회귀 없음.
+- D(source overlap/stacking 손실): `hasOverlap`이 겹치는 경우 이미 `ABSOLUTE_LAYOUT_
+  FALLBACK`으로 절대좌표를 보존 중(회귀 없음). 이번 corpus에는 실제 겹치는 sibling 사례가
+  없어(`OVERLAPPING_SIBLING_DIV_COUNT=0`, 아래 참고) 실측 재확인은 못 했다.
+- E(container hierarchy flattening): B와 동일 root cause(위 참고).
+
+따라서 이번 라운드는 **B를 직접 수정**했고, position:absolute는 전역 유지
+(`ABSOLUTE_POSITIONING = REQUIRED_FOR_VISUAL_FIDELITY`, 관련 코드 무변경).
+
+---
+
+### 변경 1 -- `[WebSquareGenerator] convertLayoutAsTable` / 신규 `hasContainerChild`
+
+**목적**: container 컴포넌트(Div/GroupBox/PopupDiv/Tab/Tabpage)가 Layout의 직계 자식으로
+있으면 table row/cell 구조로 병합하지 않고 원래 절대좌표로 보존한다
+(`TABLE_CONVERSION_SEMANTIC_MISMATCH`). Label/Edit 등 leaf 컴포넌트만으로 구성된 실제
+검증된 native table 사례(BCI01M0000 evidence)는 이 override 대상이 아니므로 무변경.
+
+**BEFORE**:
+```java
+List<Element> children = directElementChildren(layout);
+boolean isRootFormLayout = parentPath.length() == 0;
+String classification = isRootFormLayout
+        ? "ROOT_FORM_LAYOUT_NOT_A_TABLE_TARGET"
+        : layoutConverter.classifyLayoutGeometry(children);
+double[] basis = layoutConverter.resolveLayoutBasis(layout);
+```
+
+**AFTER**:
+```java
+List<Element> children = directElementChildren(layout);
+boolean isRootFormLayout = parentPath.length() == 0;
+String classification = isRootFormLayout
+        ? "ROOT_FORM_LAYOUT_NOT_A_TABLE_TARGET"
+        : layoutConverter.classifyLayoutGeometry(children);
+// XPLATFORM_VISUAL_PARITY: Div/GroupBox/PopupDiv/Tab/Tabpage처럼 그 자체로 독립된
+// 좌표계를 가진 container child는 table row/cell 구조(structural placement, position
+// 제거)로 병합하지 않는다 -- 원래 XPlatform sibling Div의 left/top/width/height와
+// overlap 관계를 그대로 보존하기 위해 절대좌표 pass-through로 처리한다
+// (TABLE_CONVERSION_SEMANTIC_MISMATCH). label/input 등 leaf component만으로 구성된
+// Layout(실제 검증된 native table 사례)은 이 override 대상이 아니다.
+if (!isRootFormLayout
+        && "TABLE_LAYOUT_HIGH_CONFIDENCE".equals(classification)
+        && hasContainerChild(children)) {
+    classification = "TABLE_CONVERSION_SEMANTIC_MISMATCH";
+}
+double[] basis = layoutConverter.resolveLayoutBasis(layout);
+```
+
+신규 private 함수:
+```java
+/** children 중 하나라도 container 컴포넌트(Div/GroupBox/PopupDiv/Tab/Tabpage 등)인지 확인. */
+private boolean hasContainerChild(List<Element> children) {
+    for (Element child : children) {
+        if (isContainerComponent(getSourceTagName(child))) {
+            return true;
+        }
+    }
+    return false;
+}
+```
+
+`classification`이 `TABLE_LAYOUT_HIGH_CONFIDENCE`가 아니면 이미 존재하던 아래 fallback
+분기가 그대로 처리한다(무수정, 재사용):
+```java
+if (!"TABLE_LAYOUT_HIGH_CONFIDENCE".equals(classification)) {
+    convertChildren(
+            out, layout, targetParent, parentPath, analysis, depth, null,
+            basisWidth, basisHeight, true);
+    return;
+}
+```
+(`includePosition=true`로 재호출 -- 각 container child가 자신의 실제 left/top/width/
+height를 그대로 percentage로 변환, overlap 여부와 무관하게 원래 좌표 유지)
+
+**Caller**: `convertChildren`(Layout 태그를 만나면 호출) -- 무변경.
+**Callee**: `isContainerComponent`(기존), `getSourceTagName`(기존), `layoutConverter.
+classifyLayoutGeometry`(기존, ComponentLayoutConverter -- 무변경).
+
+**Generated XML BEFORE** (`NestedContainer.xml`, `Form/NestedContainer.xfdl`의 `divA` ->
+`Layout(300x150)` -> `GroupBox grpA`, source: `left=10 top=10 width=250 height=100`):
+```xml
+<w2:group id="divA" style="position:absolute;left:4.0%;top:6.5%;width:60.0%;height:50.0%;">
+    <xf:group class="w2tb_tb" id="divA_layoutTable" style="width:100.0%;" tagname="table">
+        <xf:group id="divA_layoutTableRow0" style="width:100.0%;height:66.5%;" tagname="tr">
+            <xf:group class="w2tb_td" id="divA_layoutTableRow0Col0" style="width:83.5%;height:100.0%;" tagname="td">
+                <w2:group id="divA_grpA" style="width:100.0%;height:100.0%;" value="Group">
+                    <xf:input id="divA_grpA_edt" style="position:absolute;left:2.0%;top:5.0%;width:40.0%;height:24.0%;"/>
+                </w2:group>
+            </xf:group>
+        </xf:group>
+    </xf:group>
+```
+
+**Generated XML AFTER**:
+```xml
+<w2:group id="divA" style="position:absolute;left:4.0%;top:6.7%;width:60.0%;height:50.0%;">
+    <w2:group id="divA_grpA" style="position:absolute;left:3.3%;top:6.7%;width:83.3%;height:66.7%;" value="Group">
+        <xf:input id="divA_grpA_edt" style="position:absolute;left:1.7%;top:3.3%;width:33.3%;height:16.0%;"/>
+    </w2:group>
+```
+`grpA`의 source(left=10,top=10 / basis 300x150)를 그대로 percent 환산하면
+left=10/300*100=3.33%, top=10/150*100=6.67% -- AFTER 값(3.3%/6.7%)과 일치. BEFORE는
+table cell structural placement로 이 값이 소실되고 0,0(flow) + 100%/83.5% 강제 채움으로
+대체돼 있었다.
+
+**영향 output 수**: 2개 파일(`Form/NestedContainer.xml`, `Form/Main/TabExternalRelativePath.xml`)
+-- 136개 corpus 파일 전체를 percent-stripped diff로 대조해 이 2개만 구조 변경, 나머지
+134개는 percent 텍스트만 변경(아래 변경 2 참고).
+
+**Regression**: 149/149 변환 성공, XML well-formed 136/136, id-map(source->target 전체
+라인) round11 vs round12 diff 0(신규 wrapper 제거로 synthetic id 2개가 줄었을 뿐 실제
+컴포넌트 target id는 전부 동일), classification 카운트 TABLE_LAYOUT_HIGH_CONFIDENCE=3,
+TABLE_CONVERSION_SEMANTIC_MISMATCH=2(신규), ABSOLUTE_LAYOUT_FALLBACK=0,
+ROOT_FORM_LAYOUT_NOT_A_TABLE_TARGET=121, UNRESOLVED_LAYOUT=2.
+
+**Status**: `FIX_CANDIDATE` / `STATIC_VERIFIED`.
+
+---
+
+### 변경 2 -- `[ComponentLayoutConverter] formatPercent`
+
+**목적**: `PERCENT_ROUNDING` 정책을 `NEAREST_0.5_PERCENT`에서 `ONE_DECIMAL_PLACE`로
+교체(둘째 자리 일반 반올림, 첫째 자리까지 유지). 기존 공통 formatter 하나만 교체, 신규
+함수 추가 없음. basis/parent 계산은 전혀 건드리지 않음(`PERCENT_BASIS_CHANGED_BY_
+PRECISION_UPDATE = 0`).
+
+**BEFORE**:
+```java
+public String formatPercent(double value) {
+    java.math.BigDecimal doubled = java.math.BigDecimal.valueOf(value)
+            .multiply(java.math.BigDecimal.valueOf(2));
+    java.math.BigDecimal roundedDoubled =
+            doubled.setScale(0, java.math.RoundingMode.HALF_UP);
+    java.math.BigDecimal rounded = roundedDoubled.divide(java.math.BigDecimal.valueOf(2));
+    return rounded.setScale(1, java.math.RoundingMode.HALF_UP).toPlainString() + "%";
+}
+```
+
+**AFTER**:
+```java
+public String formatPercent(double value) {
+    return java.math.BigDecimal.valueOf(value)
+            .setScale(1, java.math.RoundingMode.HALF_UP)
+            .toPlainString() + "%";
+}
+```
+
+**Caller**: 9개 계산 callsite(Div/Button/nested child/Grid Group/Table Row/Table Cell/Grid
+column) + 리터럴 100%였다가 이전 라운드에 이미 이 함수로 통합된 7개 callsite, 전부
+무수정 재사용(이번 라운드에서 formatter의 내부 구현만 교체, callsite는 하나도 건드리지
+않음). `PERCENT_FORMATTER_UNIFIED = PASS`, `PERCENT_FORMATTER_BYPASS_COUNT = 0`(9월+7곳
+전부 formatPercent 경유 -- grep으로 `%` 리터럴을 직접 만드는 다른 지점 없음을 재확인).
+
+**Generated XML BEFORE/AFTER 예시 (Button, 실제 corpus)**:
+`Form/ControlPropertyMatrix.xfdl`의 `Button btn`(source `left=120 top=10 width=100
+height=24`, basis = root Form Layout 900x650):
+- raw: left=13.3333%, top=1.5385%, width=11.1111%, height=3.6923%
+- BEFORE(0.5%): `left:13.5%;top:1.5%;width:11.0%;height:3.5%;`
+- AFTER(0.1%): `left:13.3%;top:1.5%;width:11.1%;height:3.7%;`
+- px roundtrip(basis 900x650 기준): BEFORE left=121.5px(오차 1.5px)/width=99px(오차1px)/
+  height=22.75px(오차1.25px) vs AFTER left=119.7px(오차0.3px)/width=99.9px(오차0.1px)/
+  height=24.05px(오차0.05px)
+
+**영향 output 수**: 134/136 파일(percent 텍스트만 변경, 구조 무변경 -- 나머지 2개는 변경
+1과 중복이라 이미 포함).
+
+**Regression**: `INVALID_PERCENT_PRECISION_COUNT = 2`(전부 `runtime/xplatform-tab-empty.xml`
+placeholder, 과거 모든 라운드와 동일 문서화된 예외), `NaN%=0`, `Infinity%=0`,
+`PERCENT_BASIS_CHANGED_BY_PRECISION_UPDATE = 0`(변경 1로 인한 2개 파일을 제외한 134개
+파일에서 percent 텍스트 제거 후 byte-identical 실증).
+
+**Status**: `PERCENT_ROUNDING_POLICY = ONE_DECIMAL_PLACE` / `FIX_CANDIDATE` /
+`STATIC_VERIFIED`.

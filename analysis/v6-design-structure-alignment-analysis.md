@@ -871,3 +871,52 @@ Phase1 SHA 전부 무변경 재확인.
 REQUIRED` 유지. 상세는 `analysis/freeze-vs-candidate-function-diff.md`의 "후속 라운드 --
 Percentage 0.5% 단위 일괄 정규화" 섹션, raw diff는
 `analysis/git-baseline-vs-candidate-production.diff` 참고.
+
+## 후속 라운드 -- XPlatform Visual Parity Quick Fix + Percentage Precision 통일
+
+폐쇄망 재현(STUDIO_DESIGN_FAILED/STUDIO_DESIGN_REPRODUCED)이 계속되어, 이번 라운드는
+"native 구조 확대"가 아니라 "XPlatform 원본 좌표/sibling 관계 보존"을 최우선으로 삼았다.
+
+Production 실측 trace 결과 root cause는 B(서로 다른 sibling Div를 Table/Row/Cell로 잘못
+재해석)로 확인됐다. `convertLayoutAsTable`의 table topology 판정(`classifyLayoutGeometry`)
+이 자식의 겹침 여부만 보고 소스 타입(leaf vs container)을 구분하지 않아, `Div`/`GroupBox`/
+`Tab`처럼 그 자체로 독립 좌표계를 가진 container child까지 table cell로 강제 편입되어
+원래 left/top을 잃고 있었다(`NestedContainer.xfdl`/`TabExternalRelativePath.xfdl`로 실측
+재현). `[WebSquareGenerator] convertLayoutAsTable`에 `hasContainerChild` 판정을 추가해,
+container child가 있으면 `TABLE_CONVERSION_SEMANTIC_MISMATCH`로 재분류하고 기존
+absolute-pass-through 경로(무수정)로 원래 좌표를 보존하도록 했다. Label/Edit 등 leaf
+컴포넌트로만 구성된 실제 검증된 native table(BCI01M0000 evidence)은 그대로 유지된다.
+
+position:absolute는 전역 유지(`ABSOLUTE_POSITIONING = REQUIRED_FOR_VISUAL_FIDELITY`),
+`dfbox`/`fl`/`lybox`/`ly_column` 등 신규 native class는 이번 라운드도 미적용
+(`LAYOUT_CLASS_EXPANSION = PAUSED`), Grid 내부 column width 로직은 무변경.
+
+동시에 percentage formatter(`[ComponentLayoutConverter] formatPercent`)를 기존
+`NEAREST_0.5_PERCENT`에서 `ONE_DECIMAL_PLACE`(소수점 둘째 자리 일반 반올림)로 교체했다.
+공통 formatter 하나만 교체했고 9개 계산 callsite + 이전 라운드에 이미 통합된 리터럴
+100% 7곳 모두 무수정으로 재사용(`PERCENT_FORMATTER_UNIFIED = PASS`,
+`PERCENT_FORMATTER_BYPASS_COUNT = 0`). precision 변경이 basis에 영향을 주지 않았음을
+136개 파일 중 구조가 바뀐 2개(위 container-child fix)를 제외한 134개 파일에서 percent
+텍스트를 제거한 뒤 diff해 byte-identical로 실증(`PERCENT_BASIS_CHANGED_BY_PRECISION_
+UPDATE = 0`).
+
+corpus 실측 최대 basis(900px, `ControlPropertyMatrix.xfdl` Form width) 기준
+`PERCENT_ROUNDING_MAX_PIXEL_ERROR_BEFORE`(0.5% step) = 900 x 0.25% = 2.25px,
+`PERCENT_ROUNDING_MAX_PIXEL_ERROR_AFTER`(0.1% step) = 900 x 0.05% = 0.45px. 실제
+폐쇄망 화면은 이보다 넓을 수 있어 절대 오차가 커질 수 있으나, precision 개선만으로 현재
+큰 layout failure가 모두 해결됐다고 선언하지 않는다.
+
+corpus에는 실제로 겹치는 sibling Div 사례가 없어 `OVERLAPPING_SIBLING_DIV_COUNT = 0`
+(측정값 그대로 보고, 폐쇄망 실제 화면의 overlap 여부는 이 corpus로 확인 불가).
+
+`INVALID_PERCENT_PRECISION_COUNT = 2`(전부 `runtime/xplatform-tab-empty.xml` placeholder,
+과거 라운드와 동일 문서화된 예외), `NaN%=0`, `Infinity%=0`. 149/149 변환 성공, XML
+well-formed 136/136, id-map(source->target) diff 0, `btn_cm=12`/`wq_gvw=3` invariant
+무변경, Phase1 SHA 2/2 PASS.
+
+최종 `XPLATFORM_VISUAL_PARITY = FIX_CANDIDATE`, `PERCENT_ROUNDING_POLICY = ONE_DECIMAL_
+PLACE`, `STATIC_VERIFIED`. `STUDIO_DESIGN_FAILED`/`STUDIO_DESIGN_REPRODUCED`가 이 수정만
+으로 해결됐다고 선언하지 않는다 -- `STUDIO_DESIGN_REQUIRED` 유지. 상세는
+`analysis/freeze-vs-candidate-function-diff.md`의 "후속 라운드 -- XPlatform Visual
+Parity Quick Fix + Percentage Precision 통일" 섹션, raw diff는
+`analysis/git-baseline-vs-candidate-production.diff` 참고.

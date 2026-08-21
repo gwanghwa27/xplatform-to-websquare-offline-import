@@ -86,18 +86,16 @@ public class ComponentLayoutConverter {
     }
 
     /**
-     * percentage geometry 값을 가장 가까운 0.5% 단위로 반올림하고, 항상 소수점 첫째 자리까지
-     * "N.0%" 또는 "N.5%" 형태로 포맷한다(PERCENT_FORMAT_NORMALIZATION 라운드). fixture별
-     * 예외 없이 모든 Production percentage output에 동일 규칙을 적용한다.
-     * 예: 6.0345% -&gt; 6.0%, 12.76% -&gt; 13.0%, 98.7069% -&gt; 98.5%.
+     * percentage geometry 값을 소수점 둘째 자리에서 일반 반올림해 소수점 첫째 자리까지
+     * "N.N%" 형태로 포맷한다(XPLATFORM_VISUAL_PARITY 라운드, PERCENT_ROUNDING =
+     * ONE_DECIMAL_PLACE -- 기존 NEAREST_0.5_PERCENT 규칙 폐기). fixture별 예외 없이 모든
+     * Production percentage output에 동일 규칙을 적용한다.
+     * 예: 4.2105% -&gt; 4.2%, 6.27% -&gt; 6.3%, 98.7069% -&gt; 98.7%.
      */
     public String formatPercent(double value) {
-        java.math.BigDecimal doubled = java.math.BigDecimal.valueOf(value)
-                .multiply(java.math.BigDecimal.valueOf(2));
-        java.math.BigDecimal roundedDoubled =
-                doubled.setScale(0, java.math.RoundingMode.HALF_UP);
-        java.math.BigDecimal rounded = roundedDoubled.divide(java.math.BigDecimal.valueOf(2));
-        return rounded.setScale(1, java.math.RoundingMode.HALF_UP).toPlainString() + "%";
+        return java.math.BigDecimal.valueOf(value)
+                .setScale(1, java.math.RoundingMode.HALF_UP)
+                .toPlainString() + "%";
     }
 
     /**

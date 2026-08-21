@@ -705,6 +705,10 @@ public class WebSquareGenerator {
      * TABLE_LAYOUT_HIGH_CONFIDENCE 사례 중 label/input 쌍이 아닌 경우(예: 단일 Tab 컴포넌트를
      * 담은 cell)가 존재해 안전하게 일반화할 수 없으므로(evidence 부족), 모든 cell을 동일하게
      * {@code td}/{@code w2tb_td}로만 표시한다(th는 미적용, UNRESOLVED로 유지).
+     *
+     * <p>XPLATFORM_VISUAL_PARITY 라운드: children에 container 컴포넌트(Div 등)가 하나라도
+     * 있으면 {@code TABLE_CONVERSION_SEMANTIC_MISMATCH}로 재분류해 table 변환을 하지 않는다
+     * (아래 {@link #hasContainerChild}).
      */
     private void convertLayoutAsTable(
             Document out,
@@ -719,6 +723,17 @@ public class WebSquareGenerator {
         String classification = isRootFormLayout
                 ? "ROOT_FORM_LAYOUT_NOT_A_TABLE_TARGET"
                 : layoutConverter.classifyLayoutGeometry(children);
+        // XPLATFORM_VISUAL_PARITY: Div/GroupBox/PopupDiv/Tab/Tabpage처럼 그 자체로 독립된
+        // 좌표계를 가진 container child는 table row/cell 구조(structural placement, position
+        // 제거)로 병합하지 않는다 -- 원래 XPlatform sibling Div의 left/top/width/height와
+        // overlap 관계를 그대로 보존하기 위해 절대좌표 pass-through로 처리한다
+        // (TABLE_CONVERSION_SEMANTIC_MISMATCH). label/input 등 leaf component만으로 구성된
+        // Layout(실제 검증된 native table 사례)은 이 override 대상이 아니다.
+        if (!isRootFormLayout
+                && "TABLE_LAYOUT_HIGH_CONFIDENCE".equals(classification)
+                && hasContainerChild(children)) {
+            classification = "TABLE_CONVERSION_SEMANTIC_MISMATCH";
+        }
         double[] basis = layoutConverter.resolveLayoutBasis(layout);
         if (basis == null) {
             // 이 Layout 자신에게 width/height가 없는 실제 업무 화면 대응(STUDIO_DESIGN_FAILED
@@ -807,6 +822,16 @@ public class WebSquareGenerator {
         System.out.println(
                 "[UI TABLE] Layout " + (parentPath.length() == 0 ? "(root)" : parentPath)
                         + " -> table rows=" + rows.size());
+    }
+
+    /** children 중 하나라도 container 컴포넌트(Div/GroupBox/PopupDiv/Tab/Tabpage 등)인지 확인. */
+    private boolean hasContainerChild(List<Element> children) {
+        for (Element child : children) {
+            if (isContainerComponent(getSourceTagName(child))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private List<Element> directElementChildren(Element parent) {
