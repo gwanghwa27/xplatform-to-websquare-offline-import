@@ -2275,3 +2275,156 @@ PAGE_JS 136/136 PASS, standalone JS 15/15 PASS, id-map(source->target 전체 라
 one-decimal 준수, placeholder 예외 2건 그대로).
 
 **Status**: `FIX_CANDIDATE` / `STATIC_VERIFIED`.
+
+## 후속 라운드 -- Nested Height Basis / Clipping Quick Fix
+
+### 판정
+
+`NESTED_VERTICAL_PERCENT_DOUBLE_SCALING = CONFIRMED`(코드 trace로 확정, 아래 참고).
+직전 라운드(cc200e9)에서 이미 GroupBox/PopupDiv처럼 자식을 직접 갖는 container의
+basis 오류를 고쳤지만, 이번 라운드에서 **동일 계열의 또 다른 basis 경로**를 추가로
+확인했다: `convertLayoutAsTable`이 처리하는 nested `Layout` 자신에게 width/height
+속성이 없는 경우(실제 XFDL에 드물지 않은 패턴 -- Div가 자식을 감싸는 내부 `<Layout>`에
+크기를 따로 선언하지 않는 케이스), 기존 코드는 곧바로 `resolveFormBasis`(Form 전체
+크기)로 건너뛰었다. 이는 그 Layout을 실제로 감싸고 있는 Div 자신의 크기를 건너뛰고
+root(Form) 기준 basis를 쓰는 것과 같아, Div 자신은 이미 부모 대비 올바른 비율(예:
+5.3%)로 배치돼 있는데 그 안의 자식은 Div가 아니라 Form 전체를 기준으로 다시 계산되어
+(예: 3.8%) 실제 렌더링에서 두 비율이 곱해진 것처럼 극단적으로 축소되는 매커니즘이다.
+
+### 변경 1 -- `[WebSquareGenerator] convertLayoutAsTable`(+ 호출부) -- inherited basis fallback
+
+**목적**: nested Layout 자신에게 width/height가 없을 때, Form까지 건너뛰지 않고
+호출자(`convertChildren`)가 이미 올바르게 계산해 둔 basis(그 Layout을 실제로 감싸는
+가장 가까운 container의 크기)를 먼저 물려받는다. 호출자 basis도 없는 극단적 경우(최상위
+Form Layout 자신에게도 width/height가 없는 경우)에만 기존처럼 `resolveFormBasis`로
+최종 fallback한다.
+
+**BEFORE**(호출부, `convertChildren` 내부):
+```java
+if ("Layout".equals(sourceTag)) {
+    convertLayoutAsTable(out, src, targetParent, parentPath, analysis, depth + 1);
+} else {
+```
+
+**AFTER**:
+```java
+if ("Layout".equals(sourceTag)) {
+    convertLayoutAsTable(
+            out, src, targetParent, parentPath, analysis, depth + 1,
+            basisWidth, basisHeight);
+} else {
+```
+
+**BEFORE**(함수 시그니처 + basis fallback):
+```java
+private void convertLayoutAsTable(
+        Document out,
+        Element layout,
+        Element targetParent,
+        String parentPath,
+        XfdlAnalysisResult analysis,
+        int depth) {
+    ...
+    double[] basis = layoutConverter.resolveLayoutBasis(layout);
+    if (basis == null) {
+        // 이 Layout 자신에게 width/height가 없는 실제 업무 화면 대응(STUDIO_DESIGN_FAILED
+        // root cause) -- Form 자신의 선언 geometry로 fallback(화면별 하드코딩 없음).
+        basis = layoutConverter.resolveFormBasis(layout.getOwnerDocument());
+    }
+```
+
+**AFTER**:
+```java
+private void convertLayoutAsTable(
+        Document out,
+        Element layout,
+        Element targetParent,
+        String parentPath,
+        XfdlAnalysisResult analysis,
+        int depth,
+        double inheritedBasisWidth,
+        double inheritedBasisHeight) {
+    ...
+    double[] basis = layoutConverter.resolveLayoutBasis(layout);
+    if (basis == null) {
+        // 이 Layout 자신에게 width/height가 없으면, Form까지 건너뛰지 않고 이 Layout을
+        // 실제로 감싸고 있는 가장 가까운 container의 basis(호출자가 이미 계산해 둔 값)를
+        // 먼저 물려받는다(NESTED_VERTICAL_PERCENT_DOUBLE_SCALING fix). 호출자 basis도
+        // 없으면(최상위 Form Layout 자신에게도 width/height가 없는 극단적 경우) Form
+        // 자신의 선언 geometry로 최종 fallback한다(화면별 하드코딩 없음).
+        if (inheritedBasisWidth > 0.0 && inheritedBasisHeight > 0.0) {
+            basis = new double[] {inheritedBasisWidth, inheritedBasisHeight};
+        } else {
+            basis = layoutConverter.resolveFormBasis(layout.getOwnerDocument());
+        }
+    }
+```
+
+**Caller/Callee**: caller `convertChildren`(basisWidth/basisHeight를 그대로 전달만
+함, 새 계산 없음). callee `layoutConverter.resolveLayoutBasis`/`resolveFormBasis`(둘 다
+기존 함수, 무수정).
+
+**corpus 커버리지 한계(정직 공개)**: 이 fixture corpus에는 "Div/GroupBox/PopupDiv 내부
+Layout이 width/height를 선언하지 않는" 패턴이 존재하지 않아(전수 조사 완료, 0건),
+실제 BEFORE/AFTER 값 변화로 이 fix를 직접 시연할 수 없었다. 코드 trace로 논리적
+정합성만 확인했다(`resolveLayoutBasis`/`resolveFormBasis` 기존 함수 재사용, 호출
+경로상 다른 로직 변경 없음 -- 회귀 위험 최소). 이미 width/height가 있는 모든 nested
+Layout(corpus 100%)은 이 fallback 분기 자체가 실행되지 않으므로 무영향
+(`UNEXPECTED_GENERATED_DIFF` 검증에서 이 fix로 인한 파일 변경 0건으로 확인됨 -- 아래
+변경 2와만 diff 발생).
+
+**Status**: `FIX_CANDIDATE` / `STATIC_VERIFIED`(corpus 실측 불가, 코드 trace로만 검증).
+
+---
+
+### 변경 2 -- `[WebSquareGenerator] appendBody`(`grp_resultArea` height)
+
+**목적**: `GRP_RESULT_AREA_HEIGHT_SOURCE_FORM`. percentage height 체인이 실제로
+resolve되려면 chain 최상단(`grp_resultArea`)부터 확정 height(auto 아님)가 있어야
+한다. 이전에는 `grp_resultArea`가 `width:100%;`만 갖고 height는 전혀 emit하지
+않았다(`grp_main`만 Form geometry 기반 height를 가짐). `grp_main`과 동일한
+source Form 선언 design height를 재사용(기존 `buildMainAreaStyle` 함수 재사용,
+신규 함수 없음, 화면별 px 하드코딩 아님).
+
+**BEFORE**:
+```java
+Element resultArea = out.createElementNS(NS_XF, "xf:group");
+resultArea.setAttribute("id", "grp_resultArea");
+resultArea.setAttribute("style", "width:" + layoutConverter.formatPercent(100.0) + ";");
+body.appendChild(resultArea);
+```
+
+**AFTER**:
+```java
+Element resultArea = out.createElementNS(NS_XF, "xf:group");
+resultArea.setAttribute("id", "grp_resultArea");
+resultArea.setAttribute("style", layoutConverter.buildMainAreaStyle(source));
+body.appendChild(resultArea);
+```
+
+**Caller/Callee**: caller `appendBody`(무변경). callee
+`layoutConverter.buildMainAreaStyle`(기존 함수, `grp_main`에도 이미 쓰이던 것을
+그대로 재사용 -- 중복 함수 없음).
+
+**Generated XML BEFORE/AFTER**(`Form/ControlPropertyMatrix.xfdl`, Form height=650):
+```xml
+<!-- BEFORE -->
+<xf:group id="grp_resultArea" style="width:100.0%;">
+<xf:group id="grp_main" style="width:100.0%;height:650px;">
+
+<!-- AFTER -->
+<xf:group id="grp_resultArea" style="width:100.0%;height:650px;">
+<xf:group id="grp_main" style="width:100.0%;height:650px;">
+```
+
+**영향 output 수**: 135/136 파일(Form geometry가 있는 거의 전 corpus -- 구조적 상수
+성격의 변경이라 광범위하게 적용됨, 나머지 1개는 Form geometry 자체가 없어 무변경).
+136개 파일 전체 대조 결과 이 `grp_resultArea` height 추가 외 다른 차이는 없음
+(`UNEXPECTED_GENERATED_DIFF = 0`).
+
+**Regression**: clean compile 0 errors, 149/149 변환 성공, XML well-formed 136/136,
+PAGE_JS 136/136 PASS, standalone JS 15/15 PASS, id-map(source->target 전체 라인) diff 0,
+`btn_cm=12`/`wq_gvw=3` invariant 무변경, percent format 무변경(1012/1012 XFDL-derived
+one-decimal 준수, px 값이라 percent count 자체는 영향 없음).
+
+**Status**: `FIX_CANDIDATE` / `STATIC_VERIFIED`.

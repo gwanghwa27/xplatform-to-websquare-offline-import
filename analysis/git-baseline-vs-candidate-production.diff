@@ -756,10 +756,10 @@ index 677cdd9..a0437b7 100644
          String value = trim(raw).toLowerCase();
          if (value.endsWith("px")) {
 diff --git a/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java b/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java
-index 3e52c8b..07a813d 100644
+index 3e52c8b..4f905a8 100644
 --- a/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java
 +++ b/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java
-@@ -401,49 +401,54 @@ public class WebSquareGenerator {
+@@ -401,49 +401,59 @@ public class WebSquareGenerator {
  
          bindFormLifecycle(body, source, analysis);
  
@@ -794,12 +794,17 @@ index 3e52c8b..07a813d 100644
 +        // containing block chain(body -> grp_resultArea -> grp_main -> child%) 어디에도 명시적
 +        // width가 없어, 실제 폐쇄망 Studio에서 업무 영역이 좌측 좁은 영역으로 collapse함을
 +        // 재현/확인(STUDIO_DESIGN_FAILED/STUDIO_DESIGN_REPRODUCED). grp_resultArea에도
-+        // width:100%(구조 상수, 화면별 계산값 아님)를 명시해 체인을 끊지 않는다. height/position/
-+        // overflow는 여전히 emit하지 않는다.
++        // width:100%(구조 상수, 화면별 계산값 아님)를 명시해 체인을 끊지 않는다.
++        //
++        // GRP_RESULT_AREA_HEIGHT_SOURCE_FORM fix: height도 동일한 이유로 명시가 필요하다 --
++        // percentage height 체인이 실제로 resolve되려면 chain 최상단(grp_resultArea)부터
++        // 확정 height(auto 아님)가 있어야 한다. grp_main과 동일하게 source Form의 선언
++        // design height를 그대로 재사용한다(buildMainAreaStyle 재사용, 신규 함수 없음,
++        // 화면별 px 하드코딩 아님). position/overflow는 여전히 emit하지 않는다.
          Element resultArea = out.createElementNS(NS_XF, "xf:group");
          resultArea.setAttribute("id", "grp_resultArea");
 -        resultArea.setAttribute("style", "");
-+        resultArea.setAttribute("style", "width:" + layoutConverter.formatPercent(100.0) + ";");
++        resultArea.setAttribute("style", layoutConverter.buildMainAreaStyle(source));
          body.appendChild(resultArea);
  
          Element main = out.createElementNS(NS_XF, "xf:group");
@@ -840,7 +845,7 @@ index 3e52c8b..07a813d 100644
  
          finalizePageLoadBinding(body);
          logUnmappedEventBindings(analysis);
-@@ -451,13 +456,32 @@ public class WebSquareGenerator {
+@@ -451,13 +461,32 @@ public class WebSquareGenerator {
                  "[UI 변환 완료] component count=" + componentIdMap.size());
      }
  
@@ -874,7 +879,7 @@ index 3e52c8b..07a813d 100644
  
          if (depth > 200) {
              throw new IllegalStateException(
-@@ -472,6 +496,9 @@ public class WebSquareGenerator {
+@@ -472,6 +501,9 @@ public class WebSquareGenerator {
              }
  
              Element src = (Element) node;
@@ -884,7 +889,7 @@ index 3e52c8b..07a813d 100644
              String sourceTag = getSourceTagName(src);
  
              if ("Layouts".equals(getSourceTagName(sourceParent))
-@@ -490,7 +517,9 @@ public class WebSquareGenerator {
+@@ -490,7 +522,9 @@ public class WebSquareGenerator {
              }
  
              if ("Tab".equals(sourceTag) && componentMapping != null && targetTag != null) {
@@ -895,7 +900,7 @@ index 3e52c8b..07a813d 100644
                  continue;
              }
  
-@@ -516,7 +545,7 @@ public class WebSquareGenerator {
+@@ -516,7 +550,7 @@ public class WebSquareGenerator {
                  target.setAttribute("id", targetId);
                  targetComponentTypeMap.put(targetId, sourceTag);
                  logPartialComponentMapping(componentMapping, sourcePath);
@@ -904,7 +909,7 @@ index 3e52c8b..07a813d 100644
                  applyComponentSpecificProperties(src, target, sourceTag, sourcePath);
                  applyBindings(src, target, sourcePath, localId, targetId, sourceTag);
                  bindEvents(target, sourcePath, localId, analysis);
-@@ -543,19 +572,73 @@ public class WebSquareGenerator {
+@@ -543,19 +577,73 @@ public class WebSquareGenerator {
                                      + layoutConverter.describeLayoutSource(src) + ")");
                  }
  
@@ -980,12 +985,14 @@ index 3e52c8b..07a813d 100644
                  }
  
                  continue;
-@@ -573,15 +656,217 @@ public class WebSquareGenerator {
+@@ -573,15 +661,240 @@ public class WebSquareGenerator {
                                      + sourceTag + " id=" + wrapperId
                                      + " (자식 좌표 기준 수동 확인 필요)");
                  }
 +                if ("Layout".equals(sourceTag)) {
-+                    convertLayoutAsTable(out, src, targetParent, parentPath, analysis, depth + 1);
++                    convertLayoutAsTable(
++                            out, src, targetParent, parentPath, analysis, depth + 1,
++                            basisWidth, basisHeight);
 +                } else {
 +                    convertChildren(
 +                            out,
@@ -1056,6 +1063,18 @@ index 3e52c8b..07a813d 100644
 +     * 이번 라운드는 root가 아닌 모든 Layout을 일괄적으로 table 미변환(절대좌표 pass-through)
 +     * 대상으로 둔다. table 생성 코드 자체는 삭제하지 않고 아래 {@code PAUSED} 상수로만
 +     * 우회한다(원복 시 상수만 되돌리면 됨).
++     *
++     * <p>NESTED_VERTICAL_PERCENT_DOUBLE_SCALING fix: 이 Layout 자신에게 width/height가 없으면
++     * (드물지 않은 실제 XFDL 패턴 -- Div가 자식을 감싸는 내부 Layout에 크기를 따로 선언하지
++     * 않는 경우) 예전에는 곧바로 Form 전체 크기로 fallback했다. Div 내부에 중첩된 Layout이면
++     * 이는 "root(Form) 기준" basis를 쓰는 것과 같아, 그 Div 자신은 이미 부모 대비 올바른
++     * 비율(예: 5.3%)로 배치돼 있는데 그 안의 자식은 Div가 아니라 Form 전체를 기준으로 다시
++     * 계산되어(예: 3.8%) 실제 렌더링에서 두 비율이 곱해진 것처럼 극단적으로 축소되는 현상이
++     * 재현됐다. 이제는 Form까지 건너뛰지 않고, 호출자(convertChildren)가 이미 올바르게
++     * 계산해 둔 {@code inheritedBasisWidth}/{@code inheritedBasisHeight}(이 Layout을 실제로
++     * 감싸고 있는 가장 가까운 container의 크기)를 우선 사용한다. 호출자 basis도 없는
++     * 경우(최상위 Form Layout 자신에게도 width/height가 없는 극단적 케이스)에만 Form 자신의
++     * 선언 geometry로 최종 fallback한다.
 +     */
 +    private static final boolean GENERAL_LAYOUT_TABLE_HEURISTIC_PAUSED = true;
 +
@@ -1065,7 +1084,9 @@ index 3e52c8b..07a813d 100644
 +            Element targetParent,
 +            String parentPath,
 +            XfdlAnalysisResult analysis,
-+            int depth) {
++            int depth,
++            double inheritedBasisWidth,
++            double inheritedBasisHeight) {
 +
 +        List<Element> children = directElementChildren(layout);
 +        boolean isRootFormLayout = parentPath.length() == 0;
@@ -1087,9 +1108,16 @@ index 3e52c8b..07a813d 100644
 +        }
 +        double[] basis = layoutConverter.resolveLayoutBasis(layout);
 +        if (basis == null) {
-+            // 이 Layout 자신에게 width/height가 없는 실제 업무 화면 대응(STUDIO_DESIGN_FAILED
-+            // root cause) -- Form 자신의 선언 geometry로 fallback(화면별 하드코딩 없음).
-+            basis = layoutConverter.resolveFormBasis(layout.getOwnerDocument());
++            // 이 Layout 자신에게 width/height가 없으면, Form까지 건너뛰지 않고 이 Layout을
++            // 실제로 감싸고 있는 가장 가까운 container의 basis(호출자가 이미 계산해 둔 값)를
++            // 먼저 물려받는다(NESTED_VERTICAL_PERCENT_DOUBLE_SCALING fix). 호출자 basis도
++            // 없으면(최상위 Form Layout 자신에게도 width/height가 없는 극단적 경우) Form
++            // 자신의 선언 geometry로 최종 fallback한다(화면별 하드코딩 없음).
++            if (inheritedBasisWidth > 0.0 && inheritedBasisHeight > 0.0) {
++                basis = new double[] {inheritedBasisWidth, inheritedBasisHeight};
++            } else {
++                basis = layoutConverter.resolveFormBasis(layout.getOwnerDocument());
++            }
 +        }
 +        double basisWidth = basis == null ? -1.0 : basis[0];
 +        double basisHeight = basis == null ? -1.0 : basis[1];
@@ -1204,7 +1232,7 @@ index 3e52c8b..07a813d 100644
      }
  
      /** Phase 3: XPlatform Tab/Tabpage tree -> WebSquare tabControl tabs/content pairs. */
-@@ -592,7 +877,10 @@ public class WebSquareGenerator {
+@@ -592,7 +905,10 @@ public class WebSquareGenerator {
              String parentPath,
              XfdlAnalysisResult analysis,
              int depth,
@@ -1216,7 +1244,7 @@ index 3e52c8b..07a813d 100644
  
          String localId = sanitizeXml10(src.getAttribute("id"));
          if (localId.length() == 0) {
-@@ -608,11 +896,10 @@ public class WebSquareGenerator {
+@@ -608,11 +924,10 @@ public class WebSquareGenerator {
          Element tabControl = createTargetElement(out, "w2:tabControl");
          tabControl.setAttribute("id", targetId);
          targetComponentTypeMap.put(targetId, "Tab");
@@ -1230,7 +1258,7 @@ index 3e52c8b..07a813d 100644
          applyComponentSpecificProperties(src, tabControl, "Tab", sourcePath);
          applyBindings(src, tabControl, sourcePath, localId, targetId, "Tab");
          bindEvents(tabControl, sourcePath, localId, analysis);
-@@ -651,7 +938,10 @@ public class WebSquareGenerator {
+@@ -651,7 +966,10 @@ public class WebSquareGenerator {
              Element content = createTargetElement(out, "w2:content");
              content.setAttribute("id", contentId);
              targetComponentTypeMap.put(contentId, "Tabpage");
@@ -1242,7 +1270,7 @@ index 3e52c8b..07a813d 100644
              tabControl.appendChild(content);
  
              String canonicalPagePath = canonicalizePath(pagePath);
-@@ -677,14 +967,15 @@ public class WebSquareGenerator {
+@@ -677,14 +995,15 @@ public class WebSquareGenerator {
                  continue;
              }
              if (isRuntimeSetUrlTarget(localId, pageLocalId)) {
@@ -1262,7 +1290,7 @@ index 3e52c8b..07a813d 100644
          }
      }
  
-@@ -934,39 +1225,42 @@ public class WebSquareGenerator {
+@@ -934,39 +1253,42 @@ public class WebSquareGenerator {
          return normalized.startsWith("@") ? normalized.substring(1) : normalized;
      }
  
@@ -1326,7 +1354,7 @@ index 3e52c8b..07a813d 100644
                  String checkboxValue = sanitizeXml10(src.getAttribute("value"));
                  if (checkboxValue.length() == 0) checkboxValue = text;
                  String targetId = target.getAttribute("id");
-@@ -978,7 +1272,24 @@ public class WebSquareGenerator {
+@@ -978,7 +1300,24 @@ public class WebSquareGenerator {
              }
          }
  
@@ -1352,7 +1380,7 @@ index 3e52c8b..07a813d 100644
          if (style.length() > 0) {
              target.setAttribute("style", style);
          }
-@@ -1224,14 +1535,21 @@ public class WebSquareGenerator {
+@@ -1224,14 +1563,21 @@ public class WebSquareGenerator {
          return found;
      }
  
@@ -1377,7 +1405,7 @@ index 3e52c8b..07a813d 100644
          }
      }
  
-@@ -1298,12 +1616,9 @@ public class WebSquareGenerator {
+@@ -1298,12 +1644,9 @@ public class WebSquareGenerator {
              System.out.println("[BINDING 변환] " + sourcePath + " -> data:"
                      + valueBinding.getDatasetId() + "." + valueBinding.getColumnId());
  

@@ -414,11 +414,16 @@ public class WebSquareGenerator {
         // containing block chain(body -> grp_resultArea -> grp_main -> child%) 어디에도 명시적
         // width가 없어, 실제 폐쇄망 Studio에서 업무 영역이 좌측 좁은 영역으로 collapse함을
         // 재현/확인(STUDIO_DESIGN_FAILED/STUDIO_DESIGN_REPRODUCED). grp_resultArea에도
-        // width:100%(구조 상수, 화면별 계산값 아님)를 명시해 체인을 끊지 않는다. height/position/
-        // overflow는 여전히 emit하지 않는다.
+        // width:100%(구조 상수, 화면별 계산값 아님)를 명시해 체인을 끊지 않는다.
+        //
+        // GRP_RESULT_AREA_HEIGHT_SOURCE_FORM fix: height도 동일한 이유로 명시가 필요하다 --
+        // percentage height 체인이 실제로 resolve되려면 chain 최상단(grp_resultArea)부터
+        // 확정 height(auto 아님)가 있어야 한다. grp_main과 동일하게 source Form의 선언
+        // design height를 그대로 재사용한다(buildMainAreaStyle 재사용, 신규 함수 없음,
+        // 화면별 px 하드코딩 아님). position/overflow는 여전히 emit하지 않는다.
         Element resultArea = out.createElementNS(NS_XF, "xf:group");
         resultArea.setAttribute("id", "grp_resultArea");
-        resultArea.setAttribute("style", "width:" + layoutConverter.formatPercent(100.0) + ";");
+        resultArea.setAttribute("style", layoutConverter.buildMainAreaStyle(source));
         body.appendChild(resultArea);
 
         Element main = out.createElementNS(NS_XF, "xf:group");
@@ -657,7 +662,9 @@ public class WebSquareGenerator {
                                     + " (자식 좌표 기준 수동 확인 필요)");
                 }
                 if ("Layout".equals(sourceTag)) {
-                    convertLayoutAsTable(out, src, targetParent, parentPath, analysis, depth + 1);
+                    convertLayoutAsTable(
+                            out, src, targetParent, parentPath, analysis, depth + 1,
+                            basisWidth, basisHeight);
                 } else {
                     convertChildren(
                             out,
@@ -728,6 +735,18 @@ public class WebSquareGenerator {
      * 이번 라운드는 root가 아닌 모든 Layout을 일괄적으로 table 미변환(절대좌표 pass-through)
      * 대상으로 둔다. table 생성 코드 자체는 삭제하지 않고 아래 {@code PAUSED} 상수로만
      * 우회한다(원복 시 상수만 되돌리면 됨).
+     *
+     * <p>NESTED_VERTICAL_PERCENT_DOUBLE_SCALING fix: 이 Layout 자신에게 width/height가 없으면
+     * (드물지 않은 실제 XFDL 패턴 -- Div가 자식을 감싸는 내부 Layout에 크기를 따로 선언하지
+     * 않는 경우) 예전에는 곧바로 Form 전체 크기로 fallback했다. Div 내부에 중첩된 Layout이면
+     * 이는 "root(Form) 기준" basis를 쓰는 것과 같아, 그 Div 자신은 이미 부모 대비 올바른
+     * 비율(예: 5.3%)로 배치돼 있는데 그 안의 자식은 Div가 아니라 Form 전체를 기준으로 다시
+     * 계산되어(예: 3.8%) 실제 렌더링에서 두 비율이 곱해진 것처럼 극단적으로 축소되는 현상이
+     * 재현됐다. 이제는 Form까지 건너뛰지 않고, 호출자(convertChildren)가 이미 올바르게
+     * 계산해 둔 {@code inheritedBasisWidth}/{@code inheritedBasisHeight}(이 Layout을 실제로
+     * 감싸고 있는 가장 가까운 container의 크기)를 우선 사용한다. 호출자 basis도 없는
+     * 경우(최상위 Form Layout 자신에게도 width/height가 없는 극단적 케이스)에만 Form 자신의
+     * 선언 geometry로 최종 fallback한다.
      */
     private static final boolean GENERAL_LAYOUT_TABLE_HEURISTIC_PAUSED = true;
 
@@ -737,7 +756,9 @@ public class WebSquareGenerator {
             Element targetParent,
             String parentPath,
             XfdlAnalysisResult analysis,
-            int depth) {
+            int depth,
+            double inheritedBasisWidth,
+            double inheritedBasisHeight) {
 
         List<Element> children = directElementChildren(layout);
         boolean isRootFormLayout = parentPath.length() == 0;
@@ -759,9 +780,16 @@ public class WebSquareGenerator {
         }
         double[] basis = layoutConverter.resolveLayoutBasis(layout);
         if (basis == null) {
-            // 이 Layout 자신에게 width/height가 없는 실제 업무 화면 대응(STUDIO_DESIGN_FAILED
-            // root cause) -- Form 자신의 선언 geometry로 fallback(화면별 하드코딩 없음).
-            basis = layoutConverter.resolveFormBasis(layout.getOwnerDocument());
+            // 이 Layout 자신에게 width/height가 없으면, Form까지 건너뛰지 않고 이 Layout을
+            // 실제로 감싸고 있는 가장 가까운 container의 basis(호출자가 이미 계산해 둔 값)를
+            // 먼저 물려받는다(NESTED_VERTICAL_PERCENT_DOUBLE_SCALING fix). 호출자 basis도
+            // 없으면(최상위 Form Layout 자신에게도 width/height가 없는 극단적 경우) Form
+            // 자신의 선언 geometry로 최종 fallback한다(화면별 하드코딩 없음).
+            if (inheritedBasisWidth > 0.0 && inheritedBasisHeight > 0.0) {
+                basis = new double[] {inheritedBasisWidth, inheritedBasisHeight};
+            } else {
+                basis = layoutConverter.resolveFormBasis(layout.getOwnerDocument());
+            }
         }
         double basisWidth = basis == null ? -1.0 : basis[0];
         double basisHeight = basis == null ? -1.0 : basis[1];

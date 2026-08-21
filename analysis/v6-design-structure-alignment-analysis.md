@@ -1017,3 +1017,50 @@ FAILED`/`STUDIO_DESIGN_REPRODUCED`가 이 수정만으로 해결됐다고 선언
 `STUDIO_DESIGN_REQUIRED` 유지. 상세는 `analysis/freeze-vs-candidate-function-diff.md`의
 "후속 라운드 -- Absolute Component Clipping Quick Fix" 섹션, raw diff는
 `analysis/git-baseline-vs-candidate-production.diff` 참고.
+
+## 후속 라운드 -- Nested Height Basis / Clipping Quick Fix
+
+Button/Calendar/Combo가 여전히 잘리거나 안 보이는 증상에 대해 `NESTED_VERTICAL_PERCENT_
+DOUBLE_SCALING = CONFIRMED`로 판정하고 두 개의 독립적인 basis 문제를 고쳤다.
+
+**문제 1**: `grp_resultArea`(vertical design canvas의 최상단 chain)에 height가 전혀
+emit되지 않고 있었다(`width:100%`만 존재). percentage height 체인이 실제로 resolve
+되려면 chain 최상단부터 확정 height(auto 아님)가 필요하므로, `grp_main`과 동일하게
+source Form의 선언 design height를 재사용해 `grp_resultArea`에도 height를 명시했다
+(`[WebSquareGenerator] appendBody`, 기존 `buildMainAreaStyle` 함수 재사용, 신규 함수
+없음). 135/136 파일(Form geometry가 있는 거의 전 corpus)에 이 height가 추가됐다(예:
+`ControlPropertyMatrix.xfdl`, Form height=650 -> `grp_resultArea height:650px`, `grp_main`
+과 동일).
+
+**문제 2**: `convertLayoutAsTable`이 처리하는 nested `Layout` 자신에게 width/height가
+없는 경우(Div가 자식을 감싸는 내부 Layout에 크기를 따로 선언하지 않는 실제 XFDL 패턴),
+기존 코드는 그 Layout을 감싸는 Div를 건너뛰고 곧바로 Form 전체 크기로 fallback하고
+있었다 -- Div 자신은 부모 대비 올바른 비율(예: 5.3%)로 배치돼 있는데 그 안의 자식은
+Div가 아니라 Form 전체를 기준으로 다시 계산되어(예: 3.8%) 실제 렌더링에서 두 비율이
+곱해진 것처럼 극단적으로 축소되는 매커니즘이다. `convertChildren`이 이미 올바르게
+계산해 둔 basis(그 Layout을 실제로 감싸는 가장 가까운 container의 크기)를 파라미터로
+전달받아 우선 사용하도록 고쳤다(`inheritedBasisWidth`/`inheritedBasisHeight`, 기존
+`resolveLayoutBasis`/`resolveFormBasis` 함수 재사용, 신규 함수 없음). 이 fixture
+corpus에는 해당 패턴(Div 내부 Layout이 width/height 없는 경우)이 실제로 존재하지
+않아(전수 조사 0건) 실측 BEFORE/AFTER로 시연할 수는 없었으나, 코드 trace로 논리적
+정합성을 확인했고 기존 정상 케이스(corpus 100%)에는 이 fallback 분기가 실행되지
+않아 전혀 영향이 없다.
+
+136개 corpus 파일 전체 대조 결과 이번 라운드 변경은 오직 `grp_resultArea` height
+추가로만 나타났고(135개 파일), 다른 예기치 않은 차이는 없다(`UNEXPECTED_GENERATED_
+DIFF = 0`). Button/Calendar/Combo(전부 이 corpus에서 root Layout 직계)는 이번 두
+fix의 직접 영향권 밖이라 이전 라운드와 동일한 값을 유지함을 재확인했다(회귀 없음,
+`BUTTON_GEOMETRY_ROUNDTRIP`/`CALENDAR_GEOMETRY_ROUNDTRIP`/`COMBO_GEOMETRY_ROUNDTRIP`
+= PASS).
+
+Grid(`GridFormatConverter.java`)와 percentage formatter(`ComponentLayoutConverter.java`)
+는 이번 라운드 `git diff` 0줄로 완전히 무변경 확인(`GRID_IMPLEMENTATION_CHANGE = 0`,
+`PERCENT_PRECISION_CHANGE = 0`). 149/149 변환 성공, XML well-formed 136/136, PAGE_JS
+136/136 PASS, standalone JS 15/15 PASS, id-map diff 0, `btn_cm=12`/`wq_gvw=3` invariant
+무변경.
+
+최종 `XPLATFORM_VISUAL_PARITY = FIX_CANDIDATE`, `STATIC_VERIFIED`. `STUDIO_DESIGN_
+FAILED`/`STUDIO_DESIGN_REPRODUCED`가 이 수정만으로 해결됐다고 선언하지 않는다 --
+`STUDIO_DESIGN_REQUIRED` 유지. 상세는 `analysis/freeze-vs-candidate-function-diff.md`
+의 "후속 라운드 -- Nested Height Basis / Clipping Quick Fix" 섹션, raw diff는
+`analysis/git-baseline-vs-candidate-production.diff` 참고.
