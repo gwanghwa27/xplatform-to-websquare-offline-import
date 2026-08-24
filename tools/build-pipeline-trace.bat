@@ -8,43 +8,11 @@ set "SCREEN=%~4"
 
 if "%~4"=="" goto usage
 
-echo == grp_main style trace, Stage A only ==
-echo REPO=%REPO%
-echo PROJECT=%PROJECT%
-echo OUTPUT=%OUTPUT%
-echo SCREEN=%SCREEN%
-echo.
-
 cd /d "%REPO%"
 if errorlevel 1 goto fail_cd
 
 echo GIT_REQUIRED=NO
 
-set "SOURCE_HEAD="
-set "SOURCE_HEAD_SOURCE=NOT_AVAILABLE"
-set "PROVENANCE=%REPO%\analysis\build-provenance.txt"
-set "SOURCE_HEAD_TXT=%REPO%\SOURCE_HEAD.txt"
-
-if not exist "%PROVENANCE%" goto try_source_head_file
-for /f "tokens=1,* delims==" %%A in ('findstr "^PRODUCTION_SOURCE_HEAD=" "%PROVENANCE%"') do set "SOURCE_HEAD=%%B"
-if not "%SOURCE_HEAD%"=="" set "SOURCE_HEAD_SOURCE=BUILD_PROVENANCE"
-if not "%SOURCE_HEAD%"=="" goto source_head_done
-for /f "tokens=1,* delims==" %%A in ('findstr "^SOURCE_HEAD=" "%PROVENANCE%"') do set "SOURCE_HEAD=%%B"
-if not "%SOURCE_HEAD%"=="" set "SOURCE_HEAD_SOURCE=BUILD_PROVENANCE"
-if not "%SOURCE_HEAD%"=="" goto source_head_done
-
-:try_source_head_file
-if not exist "%SOURCE_HEAD_TXT%" goto source_head_done
-set /p SOURCE_HEAD=<"%SOURCE_HEAD_TXT%"
-if not "%SOURCE_HEAD%"=="" set "SOURCE_HEAD_SOURCE=SOURCE_HEAD_FILE"
-
-:source_head_done
-if "%SOURCE_HEAD%"=="" set "SOURCE_HEAD=NOT_AVAILABLE"
-echo SOURCE_HEAD=%SOURCE_HEAD%
-echo SOURCE_HEAD_SOURCE=%SOURCE_HEAD_SOURCE%
-echo.
-
-echo -- clean build --
 if exist "build" rmdir /s /q "build"
 mkdir "build\classes"
 
@@ -53,20 +21,14 @@ dir /s /b "src\main\java\*.java" > "%SRCLIST%"
 
 javac -encoding UTF-8 -d "build\classes" @"%SRCLIST%"
 if errorlevel 1 goto fail_build
-echo build ok
-echo.
 
 set "CP=%REPO%\build\classes"
 echo JAVA_CLASSPATH=%CP%
-echo.
 
 if not exist "%OUTPUT%" mkdir "%OUTPUT%"
 
-echo -- fresh conversion --
 java -Dfile.encoding=UTF-8 -cp "%CP%" com.example.xfdltracker.project.XPlatformProjectConverter "%PROJECT%" "%OUTPUT%" UTF-8 > "%OUTPUT%\convert.log" 2>&1
 if errorlevel 1 goto fail_convert
-echo conversion ok
-echo.
 
 set "SCREEN_BS=%SCREEN:/=\%"
 set "STAGE_A_PATH=%OUTPUT%\%SCREEN_BS%.xml"
@@ -87,8 +49,6 @@ for /f "tokens=1,* delims==" %%A in ('findstr "^EMPTY=" "%STYLE_OUT%"') do set "
 echo STAGE_A_GRP_RESULT_AREA_STYLE=%RESULTAREA_STYLE%
 echo STAGE_A_GRP_MAIN_STYLE=%GRPMAIN_STYLE%
 echo GRP_MAIN_STYLE_EMPTY=%GRPMAIN_EMPTY%
-echo.
-echo == done ==
 exit /b 0
 
 :usage
