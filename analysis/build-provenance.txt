@@ -7,6 +7,12 @@ BASELINE=GIT-BASELINE-XPWS-OFFLINE-FREEZE-20260820-02
 BUILD_TIMESTAMP_UTC=2026-08-21T09:54:31Z
 WORKING_TREE_CLEAN=YES(검증 완료, git status --short 출력 없음)
 
+PRODUCTION_SOURCE_HEAD=3816a93f142d7714360a1e3d9f93874228003919
+  (Windows BAT 폐쇄망 추적 라운드에서 추가됨. `git log 3816a93..HEAD -- src/main/java`가
+  빈 결과임을 확인 -- 이후 커밋(9b7075c, 5e4aa82, bfb23ee, ed4fbba)은 전부 tools/docs
+  전용 변경이며 Production Java 소스는 이 SOURCE_HEAD 이후 변경되지 않았다. Git이 없는
+  폐쇄망에서는 이 값을 build-pipeline-trace.bat이 직접 읽어 SOURCE_HEAD로 출력한다.)
+
 CLEAN_BUILD=PASS
   - build/ 디렉터리 전체 삭제 후 재생성(rm -rf build && mkdir -p build/classes)
   - src/main/java 전체(76개 .java 파일)를 단일 javac 호출로 컴파일, 0 errors

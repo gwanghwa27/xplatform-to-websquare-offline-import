@@ -18,8 +18,30 @@ echo.
 cd /d "%REPO%"
 if errorlevel 1 goto fail_cd
 
-for /f "delims=" %%H in ('git rev-parse HEAD') do set "SOURCE_HEAD=%%H"
+echo GIT_REQUIRED=NO
+
+set "SOURCE_HEAD="
+set "SOURCE_HEAD_SOURCE=NOT_AVAILABLE"
+set "PROVENANCE=%REPO%\analysis\build-provenance.txt"
+set "SOURCE_HEAD_TXT=%REPO%\SOURCE_HEAD.txt"
+
+if not exist "%PROVENANCE%" goto try_source_head_file
+for /f "tokens=1,* delims==" %%A in ('findstr "^PRODUCTION_SOURCE_HEAD=" "%PROVENANCE%"') do set "SOURCE_HEAD=%%B"
+if not "%SOURCE_HEAD%"=="" set "SOURCE_HEAD_SOURCE=BUILD_PROVENANCE"
+if not "%SOURCE_HEAD%"=="" goto source_head_done
+for /f "tokens=1,* delims==" %%A in ('findstr "^SOURCE_HEAD=" "%PROVENANCE%"') do set "SOURCE_HEAD=%%B"
+if not "%SOURCE_HEAD%"=="" set "SOURCE_HEAD_SOURCE=BUILD_PROVENANCE"
+if not "%SOURCE_HEAD%"=="" goto source_head_done
+
+:try_source_head_file
+if not exist "%SOURCE_HEAD_TXT%" goto source_head_done
+set /p SOURCE_HEAD=<"%SOURCE_HEAD_TXT%"
+if not "%SOURCE_HEAD%"=="" set "SOURCE_HEAD_SOURCE=SOURCE_HEAD_FILE"
+
+:source_head_done
+if "%SOURCE_HEAD%"=="" set "SOURCE_HEAD=NOT_AVAILABLE"
 echo SOURCE_HEAD=%SOURCE_HEAD%
+echo SOURCE_HEAD_SOURCE=%SOURCE_HEAD_SOURCE%
 echo.
 
 echo -- clean build --
