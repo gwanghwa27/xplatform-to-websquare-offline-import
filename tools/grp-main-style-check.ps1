@@ -16,14 +16,14 @@ param(
 
 $content = Get-Content -LiteralPath $TargetPath -Raw -Encoding UTF8
 
-$resultAreaMatch = [regex]::Match($content, 'id=.grp_resultArea.[^/]*')
+$resultAreaMatch = [regex]::Match($content, 'id=.grp_resultArea.[^/\r\n]*')
 if ($resultAreaMatch.Success) {
     $resultAreaText = $resultAreaMatch.Value
 } else {
     $resultAreaText = '(not found)'
 }
 
-$mainMatch = [regex]::Match($content, 'id=.grp_main.[^/]*')
+$mainMatch = [regex]::Match($content, 'id=.grp_main.[^/\r\n]*')
 if ($mainMatch.Success) {
     $mainText = $mainMatch.Value
 } else {
@@ -39,6 +39,13 @@ if ($mainMatch.Success) {
 } else {
     $empty = 'N/A'
 }
+
+# The caller is a Windows batch file. Characters such as > < & | ^ are redirection/pipe/escape
+# operators to cmd.exe once this text is substituted into an echo/set line, and would break
+# batch parsing (observed: a trailing "> from the XML tag close was read as an output
+# redirection). Strip them here so the output is always safe to echo from a .bat unmodified.
+$resultAreaText = $resultAreaText -replace '[<>&|^]', ''
+$mainText = $mainText -replace '[<>&|^]', ''
 
 Write-Output ('RESULTAREA=' + $resultAreaText)
 Write-Output ('GRPMAIN=' + $mainText)
