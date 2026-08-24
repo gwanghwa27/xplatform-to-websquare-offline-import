@@ -2597,3 +2597,121 @@ one-decimal 준수). ancestor-chain-aware boundary audit(grp_main의 **실제 px
 `GROUP_BOTTOM_OVER_FORM_HEIGHT_COUNT = 0`, `GROUP_TOP_UNDER_0_COUNT = 0`.
 
 **Status**: `FIX_CANDIDATE` / `STATIC_VERIFIED`.
+
+---
+
+## ROUND: ACTUAL_CSS_CONTAINING_BLOCK fix (2026-08-24, commit `defe9dc`)
+
+### 배경 / 증상
+
+이전 라운드(top-level-percent-basis-audit.md)에서 top-level absolute 자식의
+percentage 계산 분모(736px)와 `grp_main`의 실제 rendered height(736px)가 코드상
+항상 일치함을 확인했으나, 그 XML parent(`grp_main`)가 실제 CSS containing block과
+같다는 가정은 별도로 검증되지 않았다. 이번 라운드는 그 가정만 검증했다.
+
+로컬 WebSquare devpack 실측(`work/websquare-devpack-copy/tomcat/webapps/ROOT/
+websquare/_websquare_/skin/stylesheet.css`)으로 확인:
+- `body{height:100%;margin:0;padding:0;font:...;position:relative}` -- 실제 HTML
+  `<body>`(WebSquareGenerator가 XHTML `body` 태그로 직접 생성)는 프레임워크 기본
+  CSS로 이미 `position:relative`.
+- `.w2group{background-color:#fff}` -- `xf:group`(grp_resultArea/grp_main 포함)의
+  런타임 클래스에는 position 규칙이 없어 기본값 `static`.
+
+`grp_resultArea`/`grp_main` 둘 다 inline style에 position을 emit하지 않으므로
+(수정 전), CSS 표준상(가장 가까운 positioned ancestor가 containing block) 실제
+containing block은 `grp_main`이 아니라 `body`였다 -- 상단 조건영역/Button 등이
+안 보이는 현상의 유력한 root cause.
+
+### 변경 -- `[ComponentLayoutConverter] buildMainContentAreaStyle`
+
+**목적**: `grp_main` 자신에게 `position:relative`를 부여해, `grp_main`이 자신의
+absolute 자식들의 실제 CSS containing block이 되도록 한다. `grp_resultArea`
+(`buildMainAreaStyle`)는 무수정 -- 전역 position 변경이 아니라 `grp_main` 하나로
+범위를 좁혔다.
+
+**BEFORE**:
+```java
+public String buildMainContentAreaStyle(Document source) {
+    double contentHeight = resolveContentExtentHeight(source);
+    if (contentHeight <= 0.0) {
+        return buildMainAreaStyle(source);
+    }
+    StringBuilder style = new StringBuilder();
+    style.append("width:").append(formatPercent(100.0)).append(";");
+    style.append("height:").append(formatNumber(contentHeight)).append("px;");
+    return style.toString();
+}
+```
+
+**AFTER**:
+```java
+public String buildMainContentAreaStyle(Document source) {
+    double contentHeight = resolveContentExtentHeight(source);
+    if (contentHeight <= 0.0) {
+        return "position:relative;" + buildMainAreaStyle(source);
+    }
+    StringBuilder style = new StringBuilder();
+    style.append("position:relative;");
+    style.append("width:").append(formatPercent(100.0)).append(";");
+    style.append("height:").append(formatNumber(contentHeight)).append("px;");
+    return style.toString();
+}
+```
+
+**Full Unified Diff** (`git diff 49cb32b..defe9dc -- src/main/java`, 코드 변경분만,
+doc comment 제외):
+```diff
+     public String buildMainContentAreaStyle(Document source) {
+         double contentHeight = resolveContentExtentHeight(source);
+         if (contentHeight <= 0.0) {
+-            return buildMainAreaStyle(source);
++            return "position:relative;" + buildMainAreaStyle(source);
+         }
+         StringBuilder style = new StringBuilder();
++        style.append("position:relative;");
+         style.append("width:").append(formatPercent(100.0)).append(";");
+         style.append("height:").append(formatNumber(contentHeight)).append("px;");
+         return style.toString();
+     }
+```
+(전체 diff, doc comment 포함: `analysis/git-baseline-vs-candidate-production.diff`
+참고.)
+
+**Caller/Callee**: caller `[WebSquareGenerator] appendBody`(grp_main style 생성,
+`main.setAttribute("style", layoutConverter.buildMainContentAreaStyle(source))`,
+무변경 -- 호출 방식 자체는 이전 라운드와 동일). callee `resolveContentExtentHeight`/
+`buildMainAreaStyle`/`formatPercent`/`formatNumber`(전부 기존 함수, 무변경, 신규
+로직 없음).
+
+**Generated XML BEFORE/AFTER** (`Form/ControlPropertyMatrix.xml` 대표 예):
+```
+BEFORE: <xf:group id="grp_main" style="width:100.0%;height:490px;">
+AFTER:  <xf:group id="grp_main" style="position:relative;width:100.0%;height:490px;">
+```
+
+**영향 output 수**: 135/136 파일(전부 `grp_main` style 한 줄에 `position:relative;`
+추가). 나머지 1개(`runtime/xplatform-tab-empty.xml`)는 `buildMainContentAreaStyle`
+경로를 타지 않는 고정 placeholder 문자열이라 애초에 무관 -- before/after byte-identical
+로 확인(이 placeholder는 별도 이전 라운드에서 이미 `position:relative`를 포함한
+고정 literal이었음, 이번 변경과 무관).
+
+**Regression**(현재 HEAD `defe9dc` 기준 실제 재실행, JDK21 개발 환경):
+- Clean compile: PASS(0 errors)
+- 149/149 fresh conversion: PASS
+- Generated XML count: 136/136
+- XML well-formedness: 136/136 PASS(Python `xml.dom.minidom`)
+- PAGE_JS(inline `<script>` block): 136/136 PASS(`node --check`)
+- Standalone JS: 15/15 PASS(`node --check`)
+- Phase1 SHA verifier: PASS(Python + Java 양쪽, Sample/CommentProtection 둘 다
+  일치)
+- before/after generated diff: 135/136 파일 각 정확히 1줄만 변경(`grp_main` style에
+  `position:relative;` 추가), 파일 목록 diff 0, non-XML diff 0
+- QName(tagname=table/tr/td) 개수: before=0, after=0(Table heuristic 계속
+  PAUSED, 무변경)
+- lifecycle(`getScope`/`WFrame` 참조) 개수: before=84, after=84(무변경)
+- `btn_cm`=12, `wq_gvw`=3, Combo `disabledClass`=4: before/after 동일(무변경)
+- `UNEXPECTED_GENERATED_DIFF = 0`
+
+**Status**: `FIX_CANDIDATE` / `STATIC_VERIFIED` / `STUDIO_DESIGN_REQUIRED`.
+실제 폐쇄망 Studio에서 상단 조건영역/Button이 실제로 보이는지 확인 전까지
+`FIXED`/`STUDIO_DESIGN_VERIFIED`/`PATCH_READY`/`FREEZE_READY`는 주장하지 않는다.

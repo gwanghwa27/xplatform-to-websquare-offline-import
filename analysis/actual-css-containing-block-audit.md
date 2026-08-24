@@ -10,6 +10,18 @@ parent(`grp_main`)와 실제 CSS containing block이 같다는 **가정**에 의
 
 ## 판정: ACTUAL_CSS_CONTAINING_BLOCK = BODY (수정 전), GRP_MAIN (수정 후)
 
+### 0) 요약 (근거 파일/selector 명시)
+
+| 엘리먼트 | position (수정 전) | position (수정 후) | 근거 |
+|---|---|---|---|
+| `body` | `relative` | `relative`(무변경) | `work/websquare-devpack-copy/tomcat/webapps/ROOT/websquare/_websquare_/skin/stylesheet.css` 1행, selector `body` -- `body{height:100%;margin:0;padding:0;font:...;position:relative}` |
+| `.w2group`(프레임워크 기본 클래스) | 미선언(`static`) | 미선언(`static`, 무변경) | 동일 파일 selector `.w2group` -- `.w2group{background-color:#fff}`(position 규칙 없음); 동일 규칙이 `work/websquare-devpack-copy/tomcat/webapps/ROOT/websquare/_websquare_/uiplugin/group/group.css`에도 존재(`.w2group{background-color:#ffffff}`) |
+| `grp_resultArea`(xf:group, `.w2group` 상속) | 미선언(`static`) | 미선언(`static`, 무변경) | inline style: `ComponentLayoutConverter.buildMainAreaStyle`(무수정, `position` 미emit) |
+| `grp_main`(xf:group, `.w2group` 상속) | 미선언(`static`) | **`relative`(inline)** | inline style: `ComponentLayoutConverter.buildMainContentAreaStyle`(이번 라운드 수정, `position:relative;`를 두 반환 경로 모두에 emit) -- commit `defe9dc` |
+
+`CSS_CONTAINING_BLOCK_EVIDENCE = STATIC_VERIFIED` (로컬 WebSquare devpack의 실제
+CSS 파일 + 코드 inline style 확인. 실제 폐쇄망 Studio 렌더링에서 재확인은 별개.)
+
 ### 1) 생성 구조
 
 `WebSquareGenerator.appendBody`(WebSquareGenerator.java:396-462):
