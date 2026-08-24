@@ -1,5 +1,5 @@
 diff --git a/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java b/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java
-index 29f635a..5dc9319 100644
+index 29f635a..5fb356b 100644
 --- a/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java
 +++ b/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java
 @@ -5,7 +5,9 @@ import org.w3c.dom.Element;
@@ -64,7 +64,7 @@ index 29f635a..5dc9319 100644
  
          Geometry geometry = findFormGeometry(source);
          if (geometry != null) {
-@@ -60,37 +77,428 @@ public class ComponentLayoutConverter {
+@@ -60,37 +77,447 @@ public class ComponentLayoutConverter {
          }
  
          if (style.indexOf("width:") < 0) {
@@ -437,13 +437,32 @@ index 29f635a..5dc9319 100644
 +     * 하위로 그대로 반복 적용하지 않는다). content extent를 계산할 수 없으면(최상위 Layout을
 +     * 못 찾거나 자식 geometry를 읽을 수 없는 경우) 기존 {@link #buildMainAreaStyle}(Form 선언
 +     * height 기반)로 fallback한다(신규 fallback 로직 없이 기존 함수 재사용).
++     *
++     * <p>ACTUAL_CSS_CONTAINING_BLOCK fix: grp_main 직계 자식(top-level absolute percentage
++     * component)의 percentage 분모는 이 함수의 {@code contentHeight}(위 문단)와 항상 일치하도록
++     * 이미 보장돼 있었지만({@code WebSquareGenerator#convertLayoutAsTable} root 분기가 동일
++     * {@code resolveContentExtentHeight}를 재사용), 그 분모가 실제 CSS containing block으로
++     * 성립하는지는 별도 문제였다. 로컬 WebSquare devpack 실측(work/websquare-devpack-copy/
++     * tomcat/webapps/ROOT/websquare/_websquare_/skin/stylesheet.css의 {@code body{...;
++     * position:relative}}, {@code uiplugin/group/group.css}/stylesheet.css의 {@code .w2group}
++     * 규칙 -- position 미선언, static)로 확인: 생성 문서의 {@code <body>}(WebSquareGenerator가
++     * XHTML {@code body} 태그로 직접 생성)는 프레임워크 기본 CSS로 이미 position:relative이고,
++     * xf:group(.w2group 클래스, grp_resultArea/grp_main 포함)은 기본 CSS에 position 규칙이
++     * 없어 static으로 렌더링된다. 즉 grp_main이 스스로 position:relative를 선언하지 않으면,
++     * body -> grp_resultArea(static) -> grp_main(static) -> child(absolute) 체인에서 실제
++     * containing block은 grp_main이 아니라 body가 되어, 위 percentage 분모(contentHeight)와
++     * 실제 렌더링 기준(body의 실제 height, 일반적으로 뷰포트/Design Canvas 전체 -- 736px과
++     * 무관)이 어긋난다. grp_main 자신에게만 position:relative를 추가해 grp_main이 자신의
++     * absolute 자식들의 containing block이 되도록 한다(grp_resultArea는 변경하지 않음 --
++     * buildMainAreaStyle 무수정, 전역 position 변경 아님).
 +     */
 +    public String buildMainContentAreaStyle(Document source) {
 +        double contentHeight = resolveContentExtentHeight(source);
 +        if (contentHeight <= 0.0) {
-+            return buildMainAreaStyle(source);
++            return "position:relative;" + buildMainAreaStyle(source);
 +        }
 +        StringBuilder style = new StringBuilder();
++        style.append("position:relative;");
 +        style.append("width:").append(formatPercent(100.0)).append(";");
 +        style.append("height:").append(formatNumber(contentHeight)).append("px;");
 +        return style.toString();
@@ -1517,3 +1536,42 @@ index 3e52c8b..785c52e 100644
              String datasetId = valueBinding.getDatasetId();
              if (datasetId != null && datasetId.length() > 0 && rowPositionBootstrapped.add(datasetId)) {
                  pageLoadStatements.add(datasetId + ".setRowPosition(0);");
+diff --git a/src/main/java/com/example/xfdltracker/project/XPlatformProjectConverter.java b/src/main/java/com/example/xfdltracker/project/XPlatformProjectConverter.java
+index b35c3d0..bd275cc 100644
+--- a/src/main/java/com/example/xfdltracker/project/XPlatformProjectConverter.java
++++ b/src/main/java/com/example/xfdltracker/project/XPlatformProjectConverter.java
+@@ -247,10 +247,14 @@ public class XPlatformProjectConverter {
+             throw new IllegalStateException("Tab runtime 디렉터리를 생성할 수 없습니다: " + runtimeDir);
+         TextFileUtil.writeUtf8(new File(runtimeDir, "xplatform-tab-runtime.js"),
+                 new TabRuntimeScriptGenerator().generateStandaloneReference());
++        // v6 Design Structure + Table + Grid Group + Percentage Geometry Alignment 라운드:
++        // WebSquareGenerator가 실제 화면에서 더 이상 grp_content를 생성하지 않고 Form root를
++        // grp_main으로 등록하므로(EXPECTED_SOURCE_TO_TARGET_MAP_DIFF), Tab runtime의 빈 placeholder
++        // 페이지도 동일 id-string 규약을 따르도록 grp_content -> grp_main으로 함께 migration했다.
+         String empty = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                 + "<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:w2=\"http://www.inswave.com/websquare\">\n"
+                 + "  <head><script type=\"text/javascript\"><![CDATA[var scwin=(typeof scwin===\"undefined\")?{}:scwin;]]></script></head>\n"
+-                + "  <body><w2:group id=\"grp_content\" style=\"position:relative;width:100%;height:100%;\"/></body>\n"
++                + "  <body><w2:group id=\"grp_main\" style=\"position:relative;width:100%;height:100%;\"/></body>\n"
+                 + "</html>\n";
+         TextFileUtil.writeUtf8(new File(runtimeDir, "xplatform-tab-empty.xml"), empty);
+     }
+diff --git a/src/main/java/com/example/xfdltracker/tab/TabRuntimeScriptGenerator.java b/src/main/java/com/example/xfdltracker/tab/TabRuntimeScriptGenerator.java
+index 3c79116..f31134b 100644
+--- a/src/main/java/com/example/xfdltracker/tab/TabRuntimeScriptGenerator.java
++++ b/src/main/java/com/example/xfdltracker/tab/TabRuntimeScriptGenerator.java
+@@ -95,8 +95,12 @@ public class TabRuntimeScriptGenerator {
+         s.append("    function childObject(tabId,page,id) { var w=requireReadyWindow(tabId,page,'child object read'),o=resolveInScope(w,id);if(!o)throw runtimeError('CHILD_COMPONENT_NOT_FOUND','child object unresolved: '+id,{tab:tabId,page:page,object:id});return o; }\n");
+         s.append("    function getChildValue(tabId,page,id) { var o=childObject(tabId,page,id);if(!o.getValue)throw runtimeError('CHILD_COMPONENT_NOT_FOUND','child value API unavailable: '+id,{tab:tabId,page:page,object:id});return o.getValue(); }\n");
+         s.append("    function setChildValue(tabId,page,id,value) { var tab=resolveTab(tabId);return enqueue(tab,page,'SET_CHILD_VALUE',function(){var ready=ensureChildReady(tab,page);function setValue(win){var o=resolveInScope(win,id);if(!o||!o.setValue)throw runtimeError('CHILD_COMPONENT_NOT_FOUND','child value setter unavailable: '+id,{tab:tabId,page:page,object:id});o.setValue(value);return value;}return isThenable(ready)?ready.then(setValue):setValue(ready);}); }\n");
+-        s.append("    function currentFrame(){var root=component('grp_content');if(!root||!root.getScope)throw runtimeError('PARENT_SCOPE_NOT_FOUND','current scoped WFrame unavailable');var frame=root.getScope();if(!frame)throw runtimeError('PARENT_SCOPE_NOT_FOUND','current page is not inside scope=true WFrame');return frame;}\n");
+-        s.append("    function parentWindow(depth) { var d=depth||1,frame=currentFrame(),w=null;try{w=frame.getScopeWindow?frame.getScopeWindow():null;}catch(e){throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent scope lookup failed',{depth:d,error:e});}for(var i=1;i<d;i++){if(!w||!w.grp_content||!w.grp_content.getScope)throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent depth exceeds available scoped frames',{depth:d,at:i});frame=w.grp_content.getScope();if(!frame||!frame.getScopeWindow)throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent WFrame unavailable',{depth:d,at:i});w=frame.getScopeWindow();}if(!w)throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent scope unavailable',{depth:d});return w; }\n");
++        // v6 Design Structure + Table + Grid Group + Percentage Geometry Alignment 라운드:
++        // WebSquareGenerator가 global grp_content wrapper를 제거하고 Form root mapping을
++        // grp_main으로 migration함에 따라(EXPECTED_SOURCE_TO_TARGET_MAP_DIFF), 이 두 리터럴도
++        // 동일 id-string 기반 lookup 방식은 무변경으로 grp_content -> grp_main만 함께 바꿨다.
++        s.append("    function currentFrame(){var root=component('grp_main');if(!root||!root.getScope)throw runtimeError('PARENT_SCOPE_NOT_FOUND','current scoped WFrame unavailable');var frame=root.getScope();if(!frame)throw runtimeError('PARENT_SCOPE_NOT_FOUND','current page is not inside scope=true WFrame');return frame;}\n");
++        s.append("    function parentWindow(depth) { var d=depth||1,frame=currentFrame(),w=null;try{w=frame.getScopeWindow?frame.getScopeWindow():null;}catch(e){throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent scope lookup failed',{depth:d,error:e});}for(var i=1;i<d;i++){if(!w||!w.grp_main||!w.grp_main.getScope)throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent depth exceeds available scoped frames',{depth:d,at:i});frame=w.grp_main.getScope();if(!frame||!frame.getScopeWindow)throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent WFrame unavailable',{depth:d,at:i});w=frame.getScopeWindow();}if(!w)throw runtimeError('PARENT_SCOPE_NOT_FOUND','parent scope unavailable',{depth:d});return w; }\n");
+         s.append("    function callParent(depth,fn,args){var w=parentWindow(depth);if(!w.scwin||typeof w.scwin[fn]!=='function')throw runtimeError('PARENT_FUNCTION_NOT_FOUND','parent function unresolved: '+fn,{depth:depth,functionName:fn});return w.scwin[fn].apply(w.scwin,args||[]);}\n");
+         s.append("    function parentObject(depth,id){var w=parentWindow(depth),o=resolveInScope(w,id);if(!o)throw runtimeError('PARENT_COMPONENT_NOT_FOUND','parent object unresolved: '+id,{depth:depth,object:id});return o;}\n");
+         s.append("    function getParentValue(depth,id){var o=parentObject(depth,id);if(!o.getValue)throw runtimeError('PARENT_COMPONENT_NOT_FOUND','parent value API unavailable: '+id,{depth:depth,object:id});return o.getValue();}\n");

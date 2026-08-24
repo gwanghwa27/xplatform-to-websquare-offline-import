@@ -437,13 +437,32 @@ public class ComponentLayoutConverter {
      * 하위로 그대로 반복 적용하지 않는다). content extent를 계산할 수 없으면(최상위 Layout을
      * 못 찾거나 자식 geometry를 읽을 수 없는 경우) 기존 {@link #buildMainAreaStyle}(Form 선언
      * height 기반)로 fallback한다(신규 fallback 로직 없이 기존 함수 재사용).
+     *
+     * <p>ACTUAL_CSS_CONTAINING_BLOCK fix: grp_main 직계 자식(top-level absolute percentage
+     * component)의 percentage 분모는 이 함수의 {@code contentHeight}(위 문단)와 항상 일치하도록
+     * 이미 보장돼 있었지만({@code WebSquareGenerator#convertLayoutAsTable} root 분기가 동일
+     * {@code resolveContentExtentHeight}를 재사용), 그 분모가 실제 CSS containing block으로
+     * 성립하는지는 별도 문제였다. 로컬 WebSquare devpack 실측(work/websquare-devpack-copy/
+     * tomcat/webapps/ROOT/websquare/_websquare_/skin/stylesheet.css의 {@code body{...;
+     * position:relative}}, {@code uiplugin/group/group.css}/stylesheet.css의 {@code .w2group}
+     * 규칙 -- position 미선언, static)로 확인: 생성 문서의 {@code <body>}(WebSquareGenerator가
+     * XHTML {@code body} 태그로 직접 생성)는 프레임워크 기본 CSS로 이미 position:relative이고,
+     * xf:group(.w2group 클래스, grp_resultArea/grp_main 포함)은 기본 CSS에 position 규칙이
+     * 없어 static으로 렌더링된다. 즉 grp_main이 스스로 position:relative를 선언하지 않으면,
+     * body -> grp_resultArea(static) -> grp_main(static) -> child(absolute) 체인에서 실제
+     * containing block은 grp_main이 아니라 body가 되어, 위 percentage 분모(contentHeight)와
+     * 실제 렌더링 기준(body의 실제 height, 일반적으로 뷰포트/Design Canvas 전체 -- 736px과
+     * 무관)이 어긋난다. grp_main 자신에게만 position:relative를 추가해 grp_main이 자신의
+     * absolute 자식들의 containing block이 되도록 한다(grp_resultArea는 변경하지 않음 --
+     * buildMainAreaStyle 무수정, 전역 position 변경 아님).
      */
     public String buildMainContentAreaStyle(Document source) {
         double contentHeight = resolveContentExtentHeight(source);
         if (contentHeight <= 0.0) {
-            return buildMainAreaStyle(source);
+            return "position:relative;" + buildMainAreaStyle(source);
         }
         StringBuilder style = new StringBuilder();
+        style.append("position:relative;");
         style.append("width:").append(formatPercent(100.0)).append(";");
         style.append("height:").append(formatNumber(contentHeight)).append("px;");
         return style.toString();

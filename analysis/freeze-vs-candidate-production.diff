@@ -1,6 +1,6 @@
 --- BASE-02/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java
 +++ CANDIDATE/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java
-@@ -5,7 +5,9 @@
+@@ -5,7 +5,9 @@ import org.w3c.dom.Element;
  import org.w3c.dom.Node;
  import org.w3c.dom.NodeList;
  
@@ -10,7 +10,7 @@
  import java.util.Map;
  import java.util.regex.Matcher;
  import java.util.regex.Pattern;
-@@ -24,15 +26,32 @@
+@@ -24,15 +26,32 @@ public class ComponentLayoutConverter {
              "([-+]?\\d+(?:\\.\\d+)?)(px|%)?",
              Pattern.CASE_INSENSITIVE);
  
@@ -47,7 +47,7 @@
              appendCssLength(style, "width", geometry.width);
              appendCssLength(style, "height", geometry.height);
          }
-@@ -47,11 +66,9 @@
+@@ -47,11 +66,9 @@ public class ComponentLayoutConverter {
       */
      public String buildRootStyle(Document source) {
          StringBuilder style = new StringBuilder();
@@ -62,22 +62,31 @@
  
          Geometry geometry = findFormGeometry(source);
          if (geometry != null) {
-@@ -69,6 +86,256 @@
-     }
+@@ -60,37 +77,447 @@ public class ComponentLayoutConverter {
+         }
  
-     /**
-+     * percentage geometry 값을 deterministic하게 포맷한다(소수점 4자리에서 반올림, trailing zero
-+     * 제거). fixture별 precision을 두지 않고 모든 Production output에 동일 규칙을 적용한다.
-+     * 예: 25.0000% -&gt; 25%, 12.5000% -&gt; 12.5%.
+         if (style.indexOf("width:") < 0) {
+-            style.append("width:100%;");
++            style.append("width:").append(formatPercent(100.0)).append(";");
+         }
+         if (style.indexOf("height:") < 0) {
+-            style.append("height:100%;");
++            style.append("height:").append(formatPercent(100.0)).append(";");
++        }
++        return style.toString();
++    }
++
++    /**
++     * percentage geometry 값을 소수점 둘째 자리에서 일반 반올림해 소수점 첫째 자리까지
++     * "N.N%" 형태로 포맷한다(XPLATFORM_VISUAL_PARITY 라운드, PERCENT_ROUNDING =
++     * ONE_DECIMAL_PLACE -- 기존 NEAREST_0.5_PERCENT 규칙 폐기). fixture별 예외 없이 모든
++     * Production percentage output에 동일 규칙을 적용한다.
++     * 예: 4.2105% -&gt; 4.2%, 6.27% -&gt; 6.3%, 98.7069% -&gt; 98.7%.
 +     */
 +    public String formatPercent(double value) {
-+        java.math.BigDecimal bd = java.math.BigDecimal.valueOf(value)
-+                .setScale(4, java.math.RoundingMode.HALF_UP)
-+                .stripTrailingZeros();
-+        if (bd.scale() < 0) {
-+            bd = bd.setScale(0);
-+        }
-+        return bd.toPlainString() + "%";
++        return java.math.BigDecimal.valueOf(value)
++                .setScale(1, java.math.RoundingMode.HALF_UP)
++                .toPlainString() + "%";
 +    }
 +
 +    /**
@@ -90,6 +99,31 @@
 +    public double[] resolveLayoutBasis(Element layout) {
 +        Geometry g = resolveGeometry(layout);
 +        if (isEmpty(g.width) || isEmpty(g.height)) {
++            return null;
++        }
++        ParsedLength w = parseLength(g.width);
++        ParsedLength h = parseLength(g.height);
++        if (w == null || h == null || w.value <= 0.0 || h.value <= 0.0) {
++            return null;
++        }
++        return new double[] {w.value, h.value};
++    }
++
++    /**
++     * STT00030 계열 실제 업무 화면 Studio 실패(STUDIO_DESIGN_FAILED) root cause fix: XPlatform
++     * source는 component가 {@code Form} 바로 아래(Layouts/Layout wrapper 없이) 있거나, 최상위
++     * {@code Layout} 자신에 width/height가 없는 경우가 실존한다 -- 이 경우 {@link
++     * #resolveLayoutBasis}가 첫 {@code Layout}을 만날 때까지(또는 영원히) basis를 못 얻어
++     * 전체 화면이 PIXEL_GEOMETRY_FALLBACK으로 떨어지며, 그 px 좌표가 grp_content(이번 라운드
++     * 이전까지 존재하던, 폭 자체를 px로 고정해주던 wrapper) 없이 렌더링돼 Design/Preview에서
++     * 좌측 상단 좁은 영역으로 collapse한다({@code SOURCE_PIXEL_GEOMETRY_REMAINS_IN_GENERATED_
++     * STRUCTURE}). {@code findFormGeometry}(기존, {@link #buildMainAreaStyle}이 재사용 중인
++     * Form-우선/Layout-차선 fallback)를 재사용해 Form 전체를 초기/최후 basis로 제공한다 --
++     * 특정 화면의 width/height를 하드코딩하지 않고, Form 자신의 실제 선언값만 사용한다.
++     */
++    public double[] resolveFormBasis(Document source) {
++        Geometry g = findFormGeometry(source);
++        if (g == null || isEmpty(g.width) || isEmpty(g.height)) {
 +            return null;
 +        }
 +        ParsedLength w = parseLength(g.width);
@@ -116,7 +150,7 @@
 +            StringBuilder style = new StringBuilder();
 +            appendVisualStyle(source, style);
 +            return style.toString();
-+        }
+         }
 +        if (basisWidth <= 0.0 || basisHeight <= 0.0) {
 +            return null;
 +        }
@@ -141,9 +175,9 @@
 +        style.append("width:").append(formatPercent(width.value / basisWidth * 100.0)).append(";");
 +        style.append("height:").append(formatPercent(height.value / basisHeight * 100.0)).append(";");
 +        appendVisualStyle(source, style);
-+        return style.toString();
-+    }
-+
+         return style.toString();
+     }
+ 
 +    /**
 +     * Table row wrapper(xf:group)의 style. row 안 셀들의 실제 top/height 분포(min top ~ max
 +     * bottom)로 row 자체의 세로 footprint를 구해 basisHeight 대비 비율로 변환한다(19번 규칙 --
@@ -151,8 +185,66 @@
 +     * stacking)로 대체하므로 emit하지 않는다(20번 규칙). 계산 불가면 null.
 +     */
 +    public String buildTableRowStyle(List<Element> row, double basisHeight) {
-+        if (basisHeight <= 0.0 || row == null || row.isEmpty()) {
++        if (basisHeight <= 0.0) {
 +            return null;
++        }
++        double rowHeight = resolveRowBasisHeight(row);
++        if (rowHeight <= 0.0) {
++            return null;
++        }
++        return "width:" + formatPercent(100.0) + ";height:"
++                + formatPercent(rowHeight / basisHeight * 100.0) + ";";
++    }
++
++    /**
++     * Table cell wrapper(xf:group)의 style. 셀 자신의 width를 basisWidth 대비 비율로 변환한다(19번
++     * 규칙). height는 row를 100% 채운다(structural placement). 계산 불가면 null.
++     */
++    public String buildTableCellStyle(Element cell, double basisWidth) {
++        if (basisWidth <= 0.0) {
++            return null;
++        }
++        double cellWidth = resolveCellBasisWidth(cell);
++        if (cellWidth <= 0.0) {
++            return null;
++        }
++        return "width:" + formatPercent(cellWidth / basisWidth * 100.0) + ";height:"
++                + formatPercent(100.0) + ";";
++    }
++
++    /**
++     * NESTED_PERCENT_DOUBLE_SCALING fix: table cell 내부의 실제 XPlatform 컴포넌트는
++     * cell/row 자신을 채우는 것이지, 원래 Div/Layout 전체 basis를 다시 기준으로 삼지 않는다
++     * (PERCENT_GEOMETRY_PARENT = IMMEDIATE_GENERATED_CONTAINER -- 4번 규칙). {@link
++     * #buildTableCellStyle}이 cell의 width를 "cell 자신의 source width / Layout basisWidth"로
++     * 계산하는 것과 동일한 px 값을 여기서 반환해, 그 cell에 들어가는 컴포넌트의 percent 계산
++     * 기준(basis)으로 재사용할 수 있게 한다. 현재 구조상 한 cell에는 정확히 1개의 XPlatform
++     * component만 들어가며 cell의 width는 그 컴포넌트 자신의 width와 같으므로, 이 값을 basis로
++     * 쓰면 컴포넌트의 width%는 자동으로 100%가 된다(하드코딩이 아니라 "컴포넌트 자신의 px 값 /
++     * 컴포넌트 자신의 px 값"이라는 항등 계산의 결과 -- 여러 컴포넌트를 담는 cell로 확장되어도
++     * 동일한 나눗셈 공식이 그대로 유효하다). 계산 불가면 -1.
++     */
++    public double resolveCellBasisWidth(Element cell) {
++        if (cell == null) {
++            return -1.0;
++        }
++        Geometry g = resolveGeometry(cell);
++        ParsedLength width = isEmpty(g.width) ? null : parseLength(g.width);
++        if (width == null || width.value <= 0.0) {
++            return -1.0;
++        }
++        return width.value;
++    }
++
++    /**
++     * NESTED_PERCENT_DOUBLE_SCALING fix: {@link #resolveCellBasisWidth}와 동일한 목적으로, row
++     * 안 셀들의 실제 top/height 분포(min top ~ max bottom)로 row 자신의 세로 footprint(px)를
++     * 구한다. {@link #buildTableRowStyle}의 rowHeight 계산과 동일 로직을 공유한다(중복 계산
++     * 방지). 계산 불가면 -1.
++     */
++    public double resolveRowBasisHeight(List<Element> row) {
++        if (row == null || row.isEmpty()) {
++            return -1.0;
 +        }
 +        double minTop = Double.MAX_VALUE;
 +        double maxBottom = -Double.MAX_VALUE;
@@ -161,32 +253,13 @@
 +            ParsedLength top = isEmpty(g.top) ? null : parseLength(g.top);
 +            ParsedLength height = isEmpty(g.height) ? null : parseLength(g.height);
 +            if (top == null || height == null) {
-+                return null;
++                return -1.0;
 +            }
 +            minTop = Math.min(minTop, top.value);
 +            maxBottom = Math.max(maxBottom, top.value + height.value);
 +        }
 +        double rowHeight = maxBottom - minTop;
-+        if (rowHeight <= 0.0) {
-+            return null;
-+        }
-+        return "width:100%;height:" + formatPercent(rowHeight / basisHeight * 100.0) + ";";
-+    }
-+
-+    /**
-+     * Table cell wrapper(xf:group)의 style. 셀 자신의 width를 basisWidth 대비 비율로 변환한다(19번
-+     * 규칙). height는 row를 100% 채운다(structural placement). 계산 불가면 null.
-+     */
-+    public String buildTableCellStyle(Element cell, double basisWidth) {
-+        if (basisWidth <= 0.0 || cell == null) {
-+            return null;
-+        }
-+        Geometry g = resolveGeometry(cell);
-+        ParsedLength width = isEmpty(g.width) ? null : parseLength(g.width);
-+        if (width == null) {
-+            return null;
-+        }
-+        return "width:" + formatPercent(width.value / basisWidth * 100.0) + ";height:100%;";
++        return rowHeight > 0.0 ? rowHeight : -1.0;
 +    }
 +
 +    /**
@@ -315,13 +388,466 @@
 +        }
 +    }
 +
-+    /**
+     /**
       * WebSquare AI v6 grp_main wrapper(V6_STRUCTURE_PARTIAL_ALIGNMENT)의 style을 생성한다.
       * buildRootStyle과 동일한 geometry resolution(findFormGeometry)을 재사용하며, 유효한 양수
-      * height를 얻은 경우에만 height만 반환한다(width/position/overflow는 절대 emit하지 않음).
+-     * height를 얻은 경우에만 height만 반환한다(width/position/overflow는 절대 emit하지 않음).
+-     * 유효한 height를 얻지 못하면 height:0px; 같은 placeholder 없이 빈 문자열을 반환한다.
+-     * height-only/no-width convention은 단일 real v6 화면 관찰(video evidence) 기반이며 아직
+-     * universal rule로 검증된 것은 아니다.
++     * height를 얻은 경우에만 height를 추가로 반환한다(position/overflow는 절대 emit하지 않음).
++     *
++     * <p>ROOT_PERCENT_CONTAINING_BLOCK_DEFECT fix: 이전까지는 height-only(width 미emit)였다
++     * (단일 real v6 화면 관찰 기반, universal rule로 검증된 적 없다고 자체 명시돼 있었음). 그
++     * 관찰은 global {@code grp_content}(px width/height를 가진 compatibility wrapper)가 아직
++     * 존재하던 시점의 것이다 -- {@code grp_content} 제거 이후에는 {@code grp_main} 직계 자식들이
++     * 전부 percentage width로 바뀌었고, 실제 폐쇄망 Studio 재현(STUDIO_DESIGN_FAILED,
++     * STUDIO_DESIGN_REPRODUCED -- 업무 영역이 좌측 좁은 영역에 collapse)으로 percentage 자식이
++     * 참조할 containing block에 명시적 width가 반드시 필요함이 확인됐다. {@code width:100%;}는
++     * source geometry에서 계산한 값이 아니라 구조적 상수이므로 특정 화면 px 하드코딩이 아니다.
+      */
+     public String buildMainAreaStyle(Document source) {
++        StringBuilder style = new StringBuilder();
++        style.append("width:").append(formatPercent(100.0)).append(";");
++
+         Geometry geometry = findFormGeometry(source);
+         if (geometry == null || isEmpty(geometry.height)) {
+-            return "";
++            return style.toString();
+         }
+         ParsedLength parsed = parseLength(geometry.height);
+         if (parsed == null || parsed.value <= 0.0) {
+-            return "";
++            return style.toString();
+         }
+ 
+-        StringBuilder style = new StringBuilder();
+         appendCssLength(style, "height", geometry.height);
+         return style.toString();
+     }
+ 
++    /**
++     * grp_main의 style을 생성한다. NESTED_PERCENT_HEIGHT_REINTERPRETATION 라운드: grp_main은
++     * grp_resultArea(Form 선언 height 그대로, {@link #buildMainAreaStyle})와 달리 Form 선언
++     * height를 그대로 물려받지 않고, 실제 authored content extent({@link
++     * #resolveContentExtentHeight(Document)} -- 최상위 Layout 직계 자식들의 max(top+height))를
++     * 우선 사용한다(VERTICAL_CONTAINER_PERCENT_NESTING = DISALLOWED 원칙 -- root 기준 고정값을
++     * 하위로 그대로 반복 적용하지 않는다). content extent를 계산할 수 없으면(최상위 Layout을
++     * 못 찾거나 자식 geometry를 읽을 수 없는 경우) 기존 {@link #buildMainAreaStyle}(Form 선언
++     * height 기반)로 fallback한다(신규 fallback 로직 없이 기존 함수 재사용).
++     *
++     * <p>ACTUAL_CSS_CONTAINING_BLOCK fix: grp_main 직계 자식(top-level absolute percentage
++     * component)의 percentage 분모는 이 함수의 {@code contentHeight}(위 문단)와 항상 일치하도록
++     * 이미 보장돼 있었지만({@code WebSquareGenerator#convertLayoutAsTable} root 분기가 동일
++     * {@code resolveContentExtentHeight}를 재사용), 그 분모가 실제 CSS containing block으로
++     * 성립하는지는 별도 문제였다. 로컬 WebSquare devpack 실측(work/websquare-devpack-copy/
++     * tomcat/webapps/ROOT/websquare/_websquare_/skin/stylesheet.css의 {@code body{...;
++     * position:relative}}, {@code uiplugin/group/group.css}/stylesheet.css의 {@code .w2group}
++     * 규칙 -- position 미선언, static)로 확인: 생성 문서의 {@code <body>}(WebSquareGenerator가
++     * XHTML {@code body} 태그로 직접 생성)는 프레임워크 기본 CSS로 이미 position:relative이고,
++     * xf:group(.w2group 클래스, grp_resultArea/grp_main 포함)은 기본 CSS에 position 규칙이
++     * 없어 static으로 렌더링된다. 즉 grp_main이 스스로 position:relative를 선언하지 않으면,
++     * body -> grp_resultArea(static) -> grp_main(static) -> child(absolute) 체인에서 실제
++     * containing block은 grp_main이 아니라 body가 되어, 위 percentage 분모(contentHeight)와
++     * 실제 렌더링 기준(body의 실제 height, 일반적으로 뷰포트/Design Canvas 전체 -- 736px과
++     * 무관)이 어긋난다. grp_main 자신에게만 position:relative를 추가해 grp_main이 자신의
++     * absolute 자식들의 containing block이 되도록 한다(grp_resultArea는 변경하지 않음 --
++     * buildMainAreaStyle 무수정, 전역 position 변경 아님).
++     */
++    public String buildMainContentAreaStyle(Document source) {
++        double contentHeight = resolveContentExtentHeight(source);
++        if (contentHeight <= 0.0) {
++            return "position:relative;" + buildMainAreaStyle(source);
++        }
++        StringBuilder style = new StringBuilder();
++        style.append("position:relative;");
++        style.append("width:").append(formatPercent(100.0)).append(";");
++        style.append("height:").append(formatNumber(contentHeight)).append("px;");
++        return style.toString();
++    }
++
++    /**
++     * source Form의 최상위 Layout 직계 자식들의 실제 content extent(px)를 계산한다: source 좌표
++     * 원점(0) 기준 max(child.top + child.height). 최상위 Layout을 찾을 수 없으면 -1({@link
++     * #findFirstElement} 재사용, {@link #findFormGeometry}와 동일한 "첫 Layout" 판정 방식).
++     */
++    public double resolveContentExtentHeight(Document source) {
++        if (source == null) {
++            return -1.0;
++        }
++        Element layout = findFirstElement(source, "Layout");
++        if (layout == null) {
++            return -1.0;
++        }
++        List<Element> children = new ArrayList<Element>();
++        NodeList nodeList = layout.getChildNodes();
++        for (int i = 0; i < nodeList.getLength(); i++) {
++            Node node = nodeList.item(i);
++            if (node instanceof Element) {
++                children.add((Element) node);
++            }
++        }
++        return resolveContentExtentHeight(children);
++    }
++
++    /**
++     * {@link #resolveContentExtentHeight(Document)}와 동일 계산을 이미 확보한 children
++     * 목록으로 바로 수행한다(호출부가 {@code directElementChildren}으로 이미 자식 목록을 가진
++     * 경우 중복 탐색 방지 -- {@link WebSquareGenerator#convertLayoutAsTable}에서 재사용).
++     * top/height를 읽을 수 없는 자식은 집계에서 제외한다. 집계 대상이 없으면 -1.
++     */
++    public double resolveContentExtentHeight(List<Element> children) {
++        if (children == null || children.isEmpty()) {
++            return -1.0;
++        }
++        double maxBottom = -1.0;
++        for (Element child : children) {
++            Geometry g = resolveGeometry(child);
++            ParsedLength top = isEmpty(g.top) ? null : parseLength(g.top);
++            ParsedLength height = isEmpty(g.height) ? null : parseLength(g.height);
++            if (top == null || height == null) {
++                continue;
++            }
++            double bottom = top.value + height.value;
++            if (bottom > maxBottom) {
++                maxBottom = bottom;
++            }
++        }
++        return maxBottom;
++    }
++
+     /** 어떤 XPlatform 위치 속성을 사용했는지 진단용 문자열로 반환한다. */
+     public String describeLayoutSource(Element source) {
+         if (source == null) {
+--- BASE-02/src/main/java/com/example/xfdltracker/converter/GridFormatConverter.java
++++ CANDIDATE/src/main/java/com/example/xfdltracker/converter/GridFormatConverter.java
+@@ -20,8 +20,15 @@ public class GridFormatConverter {
+ 
+     private static final String NS_W2 = "http://www.inswave.com/websquare";
+     private static final int MAX_SAFE_AXIS_COUNT = 10000;
++    /** column width 합계가 source Grid width를 이 값(px) 이상 초과하면 horizontal-scroll
++     * semantic 가능성으로 보고 percentage 변환을 하지 않는다(rounding tolerance, magic 보정
++     * 상수 아님 -- 정수 px 입력 간 부동소수 오차만 흡수). */
++    private static final double GRID_COLUMN_SUM_TOLERANCE_PX = 0.5;
+ 
+     private final GridFormatParser parser = new GridFormatParser();
++    /** GRID_COLUMN_WIDTH candidate: 기존 percentage formatter(formatPercent) 재사용 목적으로만
++     * 사용한다(중복 formatter 생성 금지, 12번 규칙). */
++    private final ComponentLayoutConverter percentFormatter = new ComponentLayoutConverter();
+ 
+     /**
+      * @return Format을 찾아 상세 변환했으면 true, 없으면 false.
+@@ -54,9 +61,11 @@ public class GridFormatConverter {
+                             + gridId + " -> " + dataListId);
+         }
+ 
+-        appendHeader(out, targetGridView, gridId, format);
+-        appendBody(out, targetGridView, gridId, format, datasetColumns);
+-        appendFooter(out, targetGridView, gridId, format);
++        double[] columnPercents = resolveColumnPercents(sourceGrid, format.getColumnWidths(), gridId);
++
++        appendHeader(out, targetGridView, gridId, format, columnPercents);
++        appendBody(out, targetGridView, gridId, format, datasetColumns, columnPercents);
++        appendFooter(out, targetGridView, gridId, format, columnPercents);
+         applyDefaultCellHeight(targetGridView, format);
+ 
+         System.out.println(
+@@ -72,7 +81,8 @@ public class GridFormatConverter {
+             Document out,
+             Element gridView,
+             String gridId,
+-            GridFormat format) {
++            GridFormat format,
++            double[] columnPercents) {
+ 
+         if (format.getHeadCells().isEmpty()) {
+             return;
+@@ -111,7 +121,7 @@ public class GridFormatConverter {
+                             column.setAttribute("value", cell.getText());
+                         }
+                     }
+-                    applyCellGeometry(column, cell, format.getColumnWidths(), gridId, "head");
++                    applyCellGeometry(column, cell, format.getColumnWidths(), gridId, "head", columnPercents);
+                     applyCellPresentation(column, cell, gridId, "head");
+                     row.appendChild(column);
+                     colIndex += Math.max(cell.getColSpan(), 1);
+@@ -125,7 +135,7 @@ public class GridFormatConverter {
+ 
+                 appendPlaceholderColumn(
+                         out, row, gridId, "head", rowIndex, colIndex,
+-                        format.getColumnWidths(), false);
++                        format.getColumnWidths(), false, columnPercents);
+                 colIndex++;
+             }
+             header.appendChild(row);
+@@ -139,7 +149,8 @@ public class GridFormatConverter {
+             Element gridView,
+             String gridId,
+             GridFormat format,
+-            Set<String> datasetColumns) {
++            Set<String> datasetColumns,
++            double[] columnPercents) {
+ 
+         List<CellDef> bodyCells = format.getBodyCells();
+         if (bodyCells.isEmpty() && datasetColumns.isEmpty()) {
+@@ -154,7 +165,8 @@ public class GridFormatConverter {
+ 
+         if (bodyCells.isEmpty()) {
+             appendSynthesizedDatasetBody(
+-                    out, gBody, gridId, format.getColumnWidths(), rowHeights, datasetColumns);
++                    out, gBody, gridId, format.getColumnWidths(), rowHeights, datasetColumns,
++                    columnPercents);
+             gridView.appendChild(gBody);
+             System.out.println(
+                     "[GRID TODO] body Band가 없어 Dataset 컬럼으로 body를 보완 생성: " + gridId);
+@@ -200,7 +212,7 @@ public class GridFormatConverter {
+                         column.setAttribute("readOnly", "true");
+                     }
+ 
+-                    applyCellGeometry(column, cell, format.getColumnWidths(), gridId, "body");
++                    applyCellGeometry(column, cell, format.getColumnWidths(), gridId, "body", columnPercents);
+                     applyCellPresentation(column, cell, gridId, "body");
+                     row.appendChild(column);
+                     colIndex += Math.max(cell.getColSpan(), 1);
+@@ -214,7 +226,7 @@ public class GridFormatConverter {
+ 
+                 appendPlaceholderColumn(
+                         out, row, gridId, "body", rowIndex, colIndex,
+-                        format.getColumnWidths(), true);
++                        format.getColumnWidths(), true, columnPercents);
+                 colIndex++;
+             }
+             gBody.appendChild(row);
+@@ -234,7 +246,8 @@ public class GridFormatConverter {
+             Document out,
+             Element gridView,
+             String gridId,
+-            GridFormat format) {
++            GridFormat format,
++            double[] columnPercents) {
+ 
+         if (format.getSummCells().isEmpty()) {
+             return;
+@@ -271,7 +284,7 @@ public class GridFormatConverter {
+                             column.setAttribute("value", cell.getText());
+                         }
+                     }
+-                    applyCellGeometry(column, cell, format.getColumnWidths(), gridId, "summ");
++                    applyCellGeometry(column, cell, format.getColumnWidths(), gridId, "summ", columnPercents);
+                     row.appendChild(column);
+                     colIndex += Math.max(cell.getColSpan(), 1);
+                     continue;
+@@ -290,7 +303,8 @@ public class GridFormatConverter {
+             String gridId,
+             List<String> columnWidths,
+             List<String> rowHeights,
+-            Set<String> datasetColumns) {
++            Set<String> datasetColumns,
++            double[] columnPercents) {
+ 
+         Element row = createW2(out, "w2:row");
+         row.setAttribute("id", safeIdentifier(gridId + "_bodyRow_0"));
+@@ -301,7 +315,7 @@ public class GridFormatConverter {
+             Element column = createW2(out, "w2:column");
+             column.setAttribute("id", datasetColumn);
+             column.setAttribute("inputType", "text");
+-            String width = getSingleColumnWidth(columnWidths, index, gridId);
++            String width = getSingleColumnWidth(columnWidths, index, gridId, columnPercents);
+             if (width.length() > 0) {
+                 column.setAttribute("width", width);
+             }
+@@ -316,7 +330,8 @@ public class GridFormatConverter {
+             CellDef cell,
+             List<String> columnWidths,
+             String gridId,
+-            String band) {
++            String band,
++            double[] columnPercents) {
+ 
+         if (cell.getColSpan() > 1) {
+             target.setAttribute("colSpan", String.valueOf(cell.getColSpan()));
+@@ -326,7 +341,7 @@ public class GridFormatConverter {
+         }
+ 
+         String width = calculateCellWidth(
+-                columnWidths, cell.getCol(), cell.getColSpan(), gridId, band);
++                columnWidths, cell.getCol(), cell.getColSpan(), gridId, band, columnPercents);
+         if (width.length() > 0) {
+             target.setAttribute("width", width);
+         }
+@@ -641,7 +656,8 @@ public class GridFormatConverter {
+             int rowIndex,
+             int colIndex,
+             List<String> columnWidths,
+-            boolean readOnly) {
++            boolean readOnly,
++            double[] columnPercents) {
+ 
+         Element placeholder = createW2(out, "w2:column");
+         placeholder.setAttribute(
+@@ -652,24 +668,42 @@ public class GridFormatConverter {
+         if (readOnly) {
+             placeholder.setAttribute("readOnly", "true");
+         }
+-        String width = getSingleColumnWidth(columnWidths, colIndex, gridId);
++        String width = getSingleColumnWidth(columnWidths, colIndex, gridId, columnPercents);
+         if (width.length() > 0) {
+             placeholder.setAttribute("width", width);
+         }
+         row.appendChild(placeholder);
+     }
+ 
++    /**
++     * GRID_COLUMN_WIDTH candidate(실험적, native evidence 없음 -- 폐쇄망 실검증 목적):
++     * {@code columnPercents}가 있으면(NORMALIZED_TO_CONTAINER) 그 span의 percent 합을
++     * 반환하고, 없으면(PIXEL_FALLBACK/UNRESOLVED) 기존 px 합산 로직을 그대로 사용한다 --
++     * columnPercents가 null인 Grid는 이 함수의 동작이 기존과 완전히 동일하다(무변경 보장).
++     */
+     private String calculateCellWidth(
+             List<String> widths,
+             int startCol,
+             int colSpan,
+             String gridId,
+-            String band) {
++            String band,
++            double[] columnPercents) {
+ 
+         if (startCol < 0 || startCol >= widths.size()) {
+             return "";
+         }
+ 
++        if (columnPercents != null) {
++            double sum = 0.0;
++            for (int i = startCol; i < startCol + colSpan; i++) {
++                if (i >= columnPercents.length) {
++                    return "";
++                }
++                sum += columnPercents[i];
++            }
++            return percentFormatter.formatPercent(sum);
++        }
++
+         double sum = 0.0;
+         for (int i = startCol; i < startCol + colSpan; i++) {
+             if (i >= widths.size()) {
+@@ -697,10 +731,20 @@ public class GridFormatConverter {
+         return formatNumber(sum);
+     }
+ 
+-    private String getSingleColumnWidth(List<String> widths, int index, String gridId) {
++    /**
++     * GRID_COLUMN_WIDTH candidate: {@link #calculateCellWidth}와 동일 원칙 --
++     * {@code columnPercents}가 있으면 percent, 없으면 기존 px 로직 그대로.
++     */
++    private String getSingleColumnWidth(
++            List<String> widths, int index, String gridId, double[] columnPercents) {
+         if (index < 0 || index >= widths.size()) {
+             return "";
+         }
++        if (columnPercents != null) {
++            return index < columnPercents.length
++                    ? percentFormatter.formatPercent(columnPercents[index])
++                    : "";
++        }
+         String normalized = normalizeSize(widths.get(index));
+         if (normalized.length() == 0 && trim(widths.get(index)).length() > 0) {
+             System.out.println(
+@@ -710,6 +754,92 @@ public class GridFormatConverter {
+         return normalized;
+     }
+ 
++    /**
++     * GRID_COLUMN_WIDTH candidate(신규 함수, 실험적 -- native v6 evidence 없음,
++     * `GRID_COLUMN_NATIVE_EVIDENCE = EVIDENCE_INSUFFICIENT`, `GRID_COLUMN_WIDTH_SEMANTIC =
++     * EXPERIMENTAL`). column width의 px 합계가 source Grid 자신의 declared width를 넘지 않는
++     * 경우에만(즉 column sum &lt;= Grid width, horizontal-scroll 의도가 없다고 판단할 수 있는
++     * 경우) 각 column을 그 Grid width 기준 percentage로 정규화한다
++     * (`NORMALIZED_TO_CONTAINER`). 다음 경우 전부 null(기존 px 경로 완전 무변경,
++     * `GRID_COLUMN_PIXEL_FALLBACK`/`GRID_COLUMN_UNRESOLVED` 판정용 별도 로그로 구분):
++     * column 정의가 없거나(UNRESOLVED), 하나라도 숫자로 읽을 수 없거나(UNRESOLVED), source
++     * Grid 자신의 width 속성이 없거나 유효하지 않거나(UNRESOLVED -- column 합계 자체를 자기
++     * 기준으로 삼지 않는다, 6번 규칙), column 합계가 Grid width를 초과하면(PIXEL_FALLBACK --
++     * horizontal-scroll semantic 가능성, 8번 규칙). border/scrollbar 등 임의 보정 상수는
++     * 사용하지 않는다(6번 규칙) -- {@link #GRID_COLUMN_SUM_TOLERANCE_PX}는 정수 px 입력 간
++     * 부동소수 오차만 흡수하는 rounding tolerance다.
++     */
++    private double[] resolveColumnPercents(Element sourceGrid, List<String> widths, String gridId) {
++        if (widths == null || widths.isEmpty()) {
++            System.out.println(
++                    "[GRID COLUMN] UNRESOLVED(컬럼 정의 없음) id=" + gridId);
++            return null;
++        }
++
++        double[] raw = new double[widths.size()];
++        double columnSum = 0.0;
++        for (int i = 0; i < widths.size(); i++) {
++            String normalized = normalizeSize(widths.get(i));
++            if (normalized.length() == 0) {
++                System.out.println(
++                        "[GRID COLUMN] UNRESOLVED(col size 읽기 불가) id=" + gridId
++                                + " col=" + i + " size=" + widths.get(i));
++                return null;
++            }
++            try {
++                raw[i] = Double.parseDouble(normalized);
++            } catch (NumberFormatException ex) {
++                System.out.println(
++                        "[GRID COLUMN] UNRESOLVED(col size 파싱 실패) id=" + gridId
++                                + " col=" + i + " size=" + widths.get(i));
++                return null;
++            }
++            columnSum += raw[i];
++        }
++
++        String gridWidthRaw = normalizeSize(sourceGrid.getAttribute("width"));
++        if (gridWidthRaw.length() == 0) {
++            System.out.println(
++                    "[GRID COLUMN] UNRESOLVED(source Grid width 없음, column 합계를 자기 기준으로 "
++                            + "쓰지 않음) id=" + gridId + " columnSum=" + formatNumber(columnSum));
++            return null;
++        }
++        double gridWidth;
++        try {
++            gridWidth = Double.parseDouble(gridWidthRaw);
++        } catch (NumberFormatException ex) {
++            System.out.println(
++                    "[GRID COLUMN] UNRESOLVED(source Grid width 파싱 실패) id=" + gridId
++                            + " width=" + sourceGrid.getAttribute("width"));
++            return null;
++        }
++        if (gridWidth <= 0.0) {
++            System.out.println(
++                    "[GRID COLUMN] UNRESOLVED(source Grid width<=0) id=" + gridId
++                            + " width=" + gridWidthRaw);
++            return null;
++        }
++
++        if (columnSum > gridWidth + GRID_COLUMN_SUM_TOLERANCE_PX) {
++            System.out.println(
++                    "[GRID COLUMN] PIXEL_FALLBACK(columnSum>gridWidth, horizontal-scroll 가능성) "
++                            + "id=" + gridId + " gridWidth=" + formatNumber(gridWidth)
++                            + " columnSum=" + formatNumber(columnSum));
++            return null;
++        }
++
++        double[] percents = new double[raw.length];
++        for (int i = 0; i < raw.length; i++) {
++            percents[i] = raw[i] / gridWidth * 100.0;
++        }
++        System.out.println(
++                "[GRID COLUMN] NORMALIZED_TO_CONTAINER id=" + gridId
++                        + " gridWidth=" + formatNumber(gridWidth)
++                        + " columnSum=" + formatNumber(columnSum)
++                        + " ratio=" + percentFormatter.formatPercent(columnSum / gridWidth * 100.0));
++        return percents;
++    }
++
+     private String normalizeSize(String raw) {
+         String value = trim(raw).toLowerCase();
+         if (value.endsWith("px")) {
 --- BASE-02/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java
 +++ CANDIDATE/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java
-@@ -401,25 +401,14 @@
+@@ -401,49 +401,65 @@ public class WebSquareGenerator {
  
          bindFormLifecycle(body, source, analysis);
  
@@ -334,7 +860,15 @@
 -        // Tab-runtime-scope subset) is unverified in a real v5 engine. Full chronology/evidence:
 -        // work/closed-network-support/issues/ISSUE-20260818-001-studio-design-blank/analysis/root-container-fix-chronology.md
 -        // and ISSUE.md.
--        //
++        // Root container(grp_resultArea/grp_main): STUDIO_DESIGN_VERIFIED, 폐쇄망 실측 완료.
++        // 잔여 gap: V5_RUNTIME_REGRESSION_REQUIRED(xf:group의 getScope() 실제 v5 엔진 지원 여부
++        // 미검증) -- 상세: analysis/root-container-fix-chronology.md, ISSUE.md.
++        // grp_content wrapper는 이번 라운드에 제거(GLOBAL_GRP_CONTENT_XFDL_COUNT=0), 변환된
++        // Div/Layout/Grid 구조가 grp_main 바로 아래 위치. id 예약은 충돌 방지용으로 유지하되
++        // TabRuntimeScriptGenerator/XPlatformProjectConverter/registerFormRootMapping의 관련
++        // literal은 전부 grp_content -> grp_main으로 함께 이동(EXPECTED_SOURCE_TO_TARGET_MAP_DIFF).
++        // 상세: analysis/v6-design-structure-alignment-analysis.md.
+         //
 -        // V6_STRUCTURE_PARTIAL_ALIGNMENT (this round): real closed-network v6 evidence shows
 -        // body > grp_resultArea > grp_main > (content directly) -- one id level shallower than
 -        // this converter's output. grp_content is kept as-is (id/namespace/style/semantics
@@ -344,20 +878,33 @@
 -        // .getScope()/w.grp_content, whose real-engine behavior stays V5_RUNTIME_REGRESSION_REQUIRED
 -        // and must not be additionally risked this round. Two new outer wrappers are added instead
 -        // of renaming/removing grp_content. See analysis/v6-root-body-structure-analysis.md.
-+        // Root container(grp_resultArea/grp_main): STUDIO_DESIGN_VERIFIED, 폐쇄망 실측 완료.
-+        // 잔여 gap: V5_RUNTIME_REGRESSION_REQUIRED(xf:group의 getScope() 실제 v5 엔진 지원 여부
-+        // 미검증) -- 상세: analysis/root-container-fix-chronology.md, ISSUE.md.
-+        // grp_content wrapper는 이번 라운드에 제거(GLOBAL_GRP_CONTENT_XFDL_COUNT=0), 변환된
-+        // Div/Layout/Grid 구조가 grp_main 바로 아래 위치. id 예약은 충돌 방지용으로 유지하되
-+        // TabRuntimeScriptGenerator/XPlatformProjectConverter/registerFormRootMapping의 관련
-+        // literal은 전부 grp_content -> grp_main으로 함께 이동(EXPECTED_SOURCE_TO_TARGET_MAP_DIFF).
-+        // 상세: analysis/v6-design-structure-alignment-analysis.md.
++        // ROOT_PERCENT_CONTAINING_BLOCK_DEFECT fix: grp_content 제거 이후 percentage 자식들의
++        // containing block chain(body -> grp_resultArea -> grp_main -> child%) 어디에도 명시적
++        // width가 없어, 실제 폐쇄망 Studio에서 업무 영역이 좌측 좁은 영역으로 collapse함을
++        // 재현/확인(STUDIO_DESIGN_FAILED/STUDIO_DESIGN_REPRODUCED). grp_resultArea에도
++        // width:100%(구조 상수, 화면별 계산값 아님)를 명시해 체인을 끊지 않는다.
++        //
++        // GRP_RESULT_AREA_HEIGHT_SOURCE_FORM fix: height도 동일한 이유로 명시가 필요하다 --
++        // percentage height 체인이 실제로 resolve되려면 chain 최상단(grp_resultArea)부터
++        // 확정 height(auto 아님)가 있어야 한다. grp_main과 동일하게 source Form의 선언
++        // design height를 그대로 재사용한다(buildMainAreaStyle 재사용, 신규 함수 없음,
++        // 화면별 px 하드코딩 아님). position/overflow는 여전히 emit하지 않는다.
          Element resultArea = out.createElementNS(NS_XF, "xf:group");
          resultArea.setAttribute("id", "grp_resultArea");
-         resultArea.setAttribute("style", "");
-@@ -429,21 +418,20 @@
+-        resultArea.setAttribute("style", "");
++        resultArea.setAttribute("style", layoutConverter.buildMainAreaStyle(source));
+         body.appendChild(resultArea);
+ 
++        // NESTED_PERCENT_HEIGHT_REINTERPRETATION fix: grp_main은 grp_resultArea(Form 선언
++        // height 고정)와 달리 실제 authored content extent를 height로 사용한다(아래
++        // buildMainContentAreaStyle -- VERTICAL_CONTAINER_PERCENT_NESTING = DISALLOWED 원칙).
++        // convertLayoutAsTable의 root Layout basisHeight 산정도 동일 값을 공유하므로(같은
++        // resolveContentExtentHeight 재사용), 여기서 emit하는 height와 그 아래 percentage
++        // 자식들의 분모가 항상 일치한다.
+         Element main = out.createElementNS(NS_XF, "xf:group");
          main.setAttribute("id", "grp_main");
-         main.setAttribute("style", layoutConverter.buildMainAreaStyle(source));
+-        main.setAttribute("style", layoutConverter.buildMainAreaStyle(source));
++        main.setAttribute("style", layoutConverter.buildMainContentAreaStyle(source));
          resultArea.appendChild(main);
 -
 -        Element root = out.createElementNS(NS_XF, "xf:group");
@@ -366,6 +913,16 @@
 -        main.appendChild(root);
          registerFormRootMapping(source);
  
++        // STUDIO_DESIGN_FAILED root cause: source content가 Form 바로 아래(Layouts/Layout
++        // wrapper 없이) 있거나 최상위 Layout에 width/height가 없는 실제 업무 화면이 있다 --
++        // 초기 basis를 -1(unresolved)로 고정하면 그런 화면은 첫 Layout을 만나기 전까지(또는
++        // 영원히) 전부 PIXEL_GEOMETRY_FALLBACK으로 떨어진다. Form 자신의 선언 geometry를
++        // 초기 basis로 사용해(findFormGeometry 재사용, 화면별 하드코딩 없음), 첫 Layout을 만나면
++        // 그 Layout의 basis로 다시 갱신된다(기존 동작 그대로).
++        double[] formBasis = layoutConverter.resolveFormBasis(source);
++        double initialBasisWidth = formBasis == null ? -1.0 : formBasis[0];
++        double initialBasisHeight = formBasis == null ? -1.0 : formBasis[1];
++
          Element sourceRoot = source.getDocumentElement();
          convertChildren(
                  out,
@@ -377,13 +934,13 @@
 -                0);
 +                0,
 +                null,
-+                -1.0,
-+                -1.0,
++                initialBasisWidth,
++                initialBasisHeight,
 +                true);
  
          finalizePageLoadBinding(body);
          logUnmappedEventBindings(analysis);
-@@ -451,13 +439,32 @@
+@@ -451,13 +467,32 @@ public class WebSquareGenerator {
                  "[UI 변환 완료] component count=" + componentIdMap.size());
      }
  
@@ -417,7 +974,7 @@
  
          if (depth > 200) {
              throw new IllegalStateException(
-@@ -472,6 +479,9 @@
+@@ -472,6 +507,9 @@ public class WebSquareGenerator {
              }
  
              Element src = (Element) node;
@@ -427,7 +984,7 @@
              String sourceTag = getSourceTagName(src);
  
              if ("Layouts".equals(getSourceTagName(sourceParent))
-@@ -490,7 +500,9 @@
+@@ -490,7 +528,9 @@ public class WebSquareGenerator {
              }
  
              if ("Tab".equals(sourceTag) && componentMapping != null && targetTag != null) {
@@ -438,7 +995,7 @@
                  continue;
              }
  
-@@ -516,7 +528,7 @@
+@@ -516,7 +556,7 @@ public class WebSquareGenerator {
                  target.setAttribute("id", targetId);
                  targetComponentTypeMap.put(targetId, sourceTag);
                  logPartialComponentMapping(componentMapping, sourcePath);
@@ -447,7 +1004,7 @@
                  applyComponentSpecificProperties(src, target, sourceTag, sourcePath);
                  applyBindings(src, target, sourcePath, localId, targetId, sourceTag);
                  bindEvents(target, sourcePath, localId, analysis);
-@@ -543,7 +555,40 @@
+@@ -543,19 +583,73 @@ public class WebSquareGenerator {
                                      + layoutConverter.describeLayoutSource(src) + ")");
                  }
  
@@ -477,7 +1034,10 @@
 +                                "[UI PERCENT] 적용 id=" + wrapperId + " style=" + wrapperStyle);
 +                    }
 +                    gridWrapper.setAttribute("style", sanitizeXml10(wrapperStyle));
-+                    target.setAttribute("style", "width:100%;height:100%;");
++                    target.setAttribute(
++                            "style",
++                            "width:" + layoutConverter.formatPercent(100.0)
++                                    + ";height:" + layoutConverter.formatPercent(100.0) + ";");
 +                    gridWrapper.appendChild(target);
 +                    targetParent.appendChild(gridWrapper);
 +                    System.out.println(
@@ -489,25 +1049,45 @@
                  System.out.println(
                          "[UI 변환] " + sourceTag + " " + sourcePath
                                  + " -> " + targetTag + " id=" + targetId);
-@@ -555,7 +600,11 @@
+ 
+                 if (isContainerComponent(sourceTag)) {
++                    // COMPONENT_CLIPPING fix: Div/GroupBox/PopupDiv/Tab/Tabpage 같은 container의
++                    // 직계 자식이 자기 내부 Layouts/Layout으로 다시 감싸여 있지 않은 경우(예:
++                    // GroupBox가 Edit을 직접 자식으로 가짐), 그 자식들은 이 container 자신의
++                    // width/height를 기준(PERCENT_GEOMETRY_PARENT = SOURCE_IMMEDIATE_CONTAINER)
++                    // 으로 삼아야 한다 -- 이전에는 container를 감싸던 바깥 Layout의 basis를 그대로
++                    // 물려받아, container 자신보다 basis가 커서 자식이 실제보다 작게 계산되고
++                    // (Calendar/Combo 등 native 위젯의 최소 렌더링 크기보다 작아져) clipping으로
++                    // 보이는 문제가 있었다. container에 자기 width/height가 없으면(예: 위치만
++                    // 있고 크기가 없는 특수 케이스) 기존처럼 물려받은 basis를 그대로 쓴다. 자식이
++                    // 실제로 내부 Layout을 갖는 경우(Div의 일반적 구조)는 convertLayoutAsTable이
++                    // 그 Layout 자신의 geometry로 다시 basis를 갱신하므로 이 값과 무관하게 정확하다.
++                    double[] ownBasis = layoutConverter.resolveLayoutBasis(src);
++                    double childBasisWidth = ownBasis != null ? ownBasis[0] : basisWidth;
++                    double childBasisHeight = ownBasis != null ? ownBasis[1] : basisHeight;
+                     convertChildren(
+                             out,
+                             src,
                              target,
                              sourcePath,
                              analysis,
 -                            depth + 1);
 +                            depth + 1,
 +                            null,
-+                            basisWidth,
-+                            basisHeight,
++                            childBasisWidth,
++                            childBasisHeight,
 +                            true);
                  }
  
                  continue;
-@@ -573,15 +622,137 @@
+@@ -573,15 +667,254 @@ public class WebSquareGenerator {
                                      + sourceTag + " id=" + wrapperId
                                      + " (자식 좌표 기준 수동 확인 필요)");
                  }
 +                if ("Layout".equals(sourceTag)) {
-+                    convertLayoutAsTable(out, src, targetParent, parentPath, analysis, depth + 1);
++                    convertLayoutAsTable(
++                            out, src, targetParent, parentPath, analysis, depth + 1,
++                            basisWidth, basisHeight);
 +                } else {
 +                    convertChildren(
 +                            out,
@@ -554,23 +1134,102 @@
 +     * 것이기 때문에, root Layout 자체를 1-column table로 감싸면 불필요한 추가 wrapper 계층이
 +     * 생겨 이 목표와 어긋난다. Div 내부에서 다시 Layout을 만나면(parentPath가 그 Div의
 +     * sourcePath로 비어있지 않음) 정상적으로 Table 판정 대상이 된다.
++     *
++     * <p>NATIVE_LAYOUT_CONTAINER_SEMANTIC fix(Root Percentage Containing Block Width Fix 후속
++     * 라운드): 실제 폐쇄망 v6 정상 화면(BCI01M0000) source 영상 직접 판독 evidence(
++     * {@code analysis/evidence-snapshots/native-layout-container-semantic/v6-video-source-analysis.md})
++     * 에서 {@code tagname="table" class="w2tb_tb"} > {@code tagname="tr"}(class 없음) >
++     * {@code tagname="td" class="w2tb_td"} 구조가 100% 대응으로 관측됐다(th/td 판정용
++     * 신뢰 가능한 source 신호는 없어 th는 적용하지 않음 -- 아래 참고). 이 tagname/class는
++     * WebSquare 렌더러가 실제 HTML {@code <table>/<tr>/<td>}로 렌더링하는 구조적 신호이며
++     * (skin 목적의 CSS class가 아님), 기존에 이미 구현되어 있던 row/column {@code xf:group}
++     * 구조(TABLE_LAYOUT_HIGH_CONFIDENCE)에 그대로 부여 가능하다 -- 아래 3곳(table wrapper 신규
++     * 생성/row/cell)에서만 속성을 추가하며, row/cell의 위치·크기 계산(percentage geometry)
++     * 로직은 전혀 건드리지 않는다. th(header) vs td(data) 구분은 이 corpus의 실제
++     * TABLE_LAYOUT_HIGH_CONFIDENCE 사례 중 label/input 쌍이 아닌 경우(예: 단일 Tab 컴포넌트를
++     * 담은 cell)가 존재해 안전하게 일반화할 수 없으므로(evidence 부족), 모든 cell을 동일하게
++     * {@code td}/{@code w2tb_td}로만 표시한다(th는 미적용, UNRESOLVED로 유지).
++     *
++     * <p>XPLATFORM_VISUAL_PARITY(Quick Fix) 라운드: 실제 폐쇄망 Studio 재현에서 Table 변환이
++     * container child뿐 아니라 leaf-only Layout(Button 2개가 나란한 검색조건 바 등)에도
++     * 적용되면서 균등폭 강제 분할/Calendar·Combo 비노출 등 광범위한 렌더링 실패가 재현됐다
++     * ({@code GENERAL_LAYOUT_TABLE_HEURISTIC = PAUSED_FOR_VISUAL_PARITY}). 이전 라운드의
++     * container-only 예외({@link #hasContainerChild})로는 leaf-only 케이스를 못 막으므로,
++     * 이번 라운드는 root가 아닌 모든 Layout을 일괄적으로 table 미변환(절대좌표 pass-through)
++     * 대상으로 둔다. table 생성 코드 자체는 삭제하지 않고 아래 {@code PAUSED} 상수로만
++     * 우회한다(원복 시 상수만 되돌리면 됨).
++     *
++     * <p>NESTED_VERTICAL_PERCENT_DOUBLE_SCALING fix: 이 Layout 자신에게 width/height가 없으면
++     * (드물지 않은 실제 XFDL 패턴 -- Div가 자식을 감싸는 내부 Layout에 크기를 따로 선언하지
++     * 않는 경우) 예전에는 곧바로 Form 전체 크기로 fallback했다. Div 내부에 중첩된 Layout이면
++     * 이는 "root(Form) 기준" basis를 쓰는 것과 같아, 그 Div 자신은 이미 부모 대비 올바른
++     * 비율(예: 5.3%)로 배치돼 있는데 그 안의 자식은 Div가 아니라 Form 전체를 기준으로 다시
++     * 계산되어(예: 3.8%) 실제 렌더링에서 두 비율이 곱해진 것처럼 극단적으로 축소되는 현상이
++     * 재현됐다. 이제는 Form까지 건너뛰지 않고, 호출자(convertChildren)가 이미 올바르게
++     * 계산해 둔 {@code inheritedBasisWidth}/{@code inheritedBasisHeight}(이 Layout을 실제로
++     * 감싸고 있는 가장 가까운 container의 크기)를 우선 사용한다. 호출자 basis도 없는
++     * 경우(최상위 Form Layout 자신에게도 width/height가 없는 극단적 케이스)에만 Form 자신의
++     * 선언 geometry로 최종 fallback한다.
 +     */
++    private static final boolean GENERAL_LAYOUT_TABLE_HEURISTIC_PAUSED = true;
++
 +    private void convertLayoutAsTable(
 +            Document out,
 +            Element layout,
 +            Element targetParent,
 +            String parentPath,
 +            XfdlAnalysisResult analysis,
-+            int depth) {
++            int depth,
++            double inheritedBasisWidth,
++            double inheritedBasisHeight) {
 +
 +        List<Element> children = directElementChildren(layout);
 +        boolean isRootFormLayout = parentPath.length() == 0;
-+        String classification = isRootFormLayout
-+                ? "ROOT_FORM_LAYOUT_NOT_A_TABLE_TARGET"
-+                : layoutConverter.classifyLayoutGeometry(children);
++        String classification;
++        if (isRootFormLayout) {
++            classification = "ROOT_FORM_LAYOUT_NOT_A_TABLE_TARGET";
++        } else if (GENERAL_LAYOUT_TABLE_HEURISTIC_PAUSED) {
++            classification = "GENERAL_LAYOUT_TABLE_HEURISTIC_PAUSED_FOR_VISUAL_PARITY";
++        } else {
++            classification = layoutConverter.classifyLayoutGeometry(children);
++            // XPLATFORM_VISUAL_PARITY 라운드: Div/GroupBox/PopupDiv/Tab/Tabpage처럼 그 자체로
++            // 독립된 좌표계를 가진 container child는 table row/cell 구조(structural placement,
++            // position 제거)로 병합하지 않는다(TABLE_CONVERSION_SEMANTIC_MISMATCH). 현재는
++            // 위 PAUSED 분기가 우선하므로 이 판정은 실행되지 않지만, heuristic을 다시 켜는
++            // 경우를 위해 로직은 보존한다.
++            if ("TABLE_LAYOUT_HIGH_CONFIDENCE".equals(classification) && hasContainerChild(children)) {
++                classification = "TABLE_CONVERSION_SEMANTIC_MISMATCH";
++            }
++        }
 +        double[] basis = layoutConverter.resolveLayoutBasis(layout);
++        if (basis == null) {
++            // 이 Layout 자신에게 width/height가 없으면, Form까지 건너뛰지 않고 이 Layout을
++            // 실제로 감싸고 있는 가장 가까운 container의 basis(호출자가 이미 계산해 둔 값)를
++            // 먼저 물려받는다(NESTED_VERTICAL_PERCENT_DOUBLE_SCALING fix). 호출자 basis도
++            // 없으면(최상위 Form Layout 자신에게도 width/height가 없는 극단적 경우) Form
++            // 자신의 선언 geometry로 최종 fallback한다(화면별 하드코딩 없음).
++            if (inheritedBasisWidth > 0.0 && inheritedBasisHeight > 0.0) {
++                basis = new double[] {inheritedBasisWidth, inheritedBasisHeight};
++            } else {
++                basis = layoutConverter.resolveFormBasis(layout.getOwnerDocument());
++            }
++        }
 +        double basisWidth = basis == null ? -1.0 : basis[0];
 +        double basisHeight = basis == null ? -1.0 : basis[1];
++        // NESTED_PERCENT_HEIGHT_REINTERPRETATION fix: 최상위 Form Layout은 grp_main의 height를
++        // 더 이상 Form 선언 height 그대로 쓰지 않고 실제 authored content extent(children의
++        // max(top+height))로 산정한다(appendBody의 grp_main style도 동일 값을 사용 --
++        // resolveContentExtentHeight 하나만 공유). children의 percentage basis도 반드시 이
++        // 값과 일치해야 grp_main의 실제 렌더링 height와 percentage 분모가 어긋나지 않는다
++        // (width는 이번 라운드 범위 밖이라 basisWidth는 무변경). content extent가 기존
++        // basisHeight보다 작을 때만 축소 적용한다(더 크게 만들지 않음 -- SOURCE_INTENTIONAL_
++        // OVERFLOW 케이스를 억지로 줄이지 않기 위함).
++        if (isRootFormLayout) {
++            double contentExtentHeight = layoutConverter.resolveContentExtentHeight(children);
++            if (contentExtentHeight > 0.0 && (basisHeight <= 0.0 || contentExtentHeight < basisHeight)) {
++                basisHeight = contentExtentHeight;
++            }
++        }
 +        System.out.println(
 +                "[UI TABLE] Layout " + (parentPath.length() == 0 ? "(root)" : parentPath)
 +                        + " children=" + children.size() + " classification=" + classification
@@ -584,12 +1243,22 @@
 +        }
 +
 +        List<List<Element>> rows = layoutConverter.buildTableRows(children);
++
++        Element tableWrapper = out.createElementNS(NS_XF, "xf:group");
++        String tableTargetId = createUniqueTargetId(buildSourcePath(parentPath, "layoutTable"));
++        tableWrapper.setAttribute("id", tableTargetId);
++        tableWrapper.setAttribute("tagname", "table");
++        tableWrapper.setAttribute("class", "w2tb_tb");
++        tableWrapper.setAttribute("style", "width:" + layoutConverter.formatPercent(100.0) + ";");
++        targetParent.appendChild(tableWrapper);
++
 +        int rowIndex = 0;
 +        for (List<Element> row : rows) {
 +            Element rowGroup = out.createElementNS(NS_XF, "xf:group");
 +            String rowTargetId = createUniqueTargetId(
 +                    buildSourcePath(parentPath, "layoutTableRow" + rowIndex));
 +            rowGroup.setAttribute("id", rowTargetId);
++            rowGroup.setAttribute("tagname", "tr");
 +            String rowStyle = layoutConverter.buildTableRowStyle(row, basisHeight);
 +            if (rowStyle != null) {
 +                rowGroup.setAttribute("style", rowStyle);
@@ -597,7 +1266,18 @@
 +            } else {
 +                System.out.println("[UI PERCENT] UNRESOLVED(no style, row) id=" + rowTargetId);
 +            }
-+            targetParent.appendChild(rowGroup);
++            tableWrapper.appendChild(rowGroup);
++
++            // NESTED_PERCENT_DOUBLE_SCALING fix: cell 내부 컴포넌트의 percentage는 원래
++            // Div/Layout basis(basisWidth/basisHeight)가 아니라, 그 컴포넌트를 담기 위해 이미
++            // 그 컴포넌트 자신의 geometry로 계산된 cell/row 자신의 크기(px)를 기준으로 다시
++            // 계산해야 한다 -- 그렇지 않으면 "cell width% (basis 기준) x child width% (같은
++            // basis 기준)"이 이중으로 곱해져 실제 렌더링 폭/높이가 제곱으로 축소된다(실제 폐쇄망
++            // Studio 재현: cell width:6.0345%, child width:6.0345% -> 렌더링 실효 폭 약 0.36%).
++            // resolveRowBasisHeight/resolveCellBasisWidth는 buildTableRowStyle/
++            // buildTableCellStyle과 완전히 동일한 px 계산을 재사용하므로, 계산 불가 시 null을
++            // 반환한 케이스와도 항상 일관된다.
++            double rowBasisHeightPx = layoutConverter.resolveRowBasisHeight(row);
 +
 +            int colIndex = 0;
 +            for (Element cell : row) {
@@ -605,6 +1285,8 @@
 +                String cellTargetId = createUniqueTargetId(
 +                        buildSourcePath(parentPath, "layoutTableRow" + rowIndex + "Col" + colIndex));
 +                cellGroup.setAttribute("id", cellTargetId);
++                cellGroup.setAttribute("tagname", "td");
++                cellGroup.setAttribute("class", "w2tb_td");
 +                String cellStyle = layoutConverter.buildTableCellStyle(cell, basisWidth);
 +                if (cellStyle != null) {
 +                    cellGroup.setAttribute("style", cellStyle);
@@ -614,6 +1296,9 @@
 +                }
 +                rowGroup.appendChild(cellGroup);
 +
++                double cellBasisWidthPx = layoutConverter.resolveCellBasisWidth(cell);
++                double childBasisWidth = cellBasisWidthPx > 0.0 ? cellBasisWidthPx : basisWidth;
++                double childBasisHeight = rowBasisHeightPx > 0.0 ? rowBasisHeightPx : basisHeight;
                  convertChildren(
 -                        out,
 -                        src,
@@ -622,7 +1307,7 @@
 -                        analysis,
 -                        depth + 1);
 +                        out, layout, cellGroup, parentPath, analysis, depth, cell,
-+                        basisWidth, basisHeight, false);
++                        childBasisWidth, childBasisHeight, false);
 +                colIndex++;
              }
 +            rowIndex++;
@@ -631,6 +1316,16 @@
 +        System.out.println(
 +                "[UI TABLE] Layout " + (parentPath.length() == 0 ? "(root)" : parentPath)
 +                        + " -> table rows=" + rows.size());
++    }
++
++    /** children 중 하나라도 container 컴포넌트(Div/GroupBox/PopupDiv/Tab/Tabpage 등)인지 확인. */
++    private boolean hasContainerChild(List<Element> children) {
++        for (Element child : children) {
++            if (isContainerComponent(getSourceTagName(child))) {
++                return true;
++            }
++        }
++        return false;
 +    }
 +
 +    private List<Element> directElementChildren(Element parent) {
@@ -646,7 +1341,7 @@
      }
  
      /** Phase 3: XPlatform Tab/Tabpage tree -> WebSquare tabControl tabs/content pairs. */
-@@ -592,7 +763,10 @@
+@@ -592,7 +925,10 @@ public class WebSquareGenerator {
              String parentPath,
              XfdlAnalysisResult analysis,
              int depth,
@@ -658,7 +1353,7 @@
  
          String localId = sanitizeXml10(src.getAttribute("id"));
          if (localId.length() == 0) {
-@@ -608,11 +782,10 @@
+@@ -608,11 +944,10 @@ public class WebSquareGenerator {
          Element tabControl = createTargetElement(out, "w2:tabControl");
          tabControl.setAttribute("id", targetId);
          targetComponentTypeMap.put(targetId, "Tab");
@@ -672,7 +1367,19 @@
          applyComponentSpecificProperties(src, tabControl, "Tab", sourcePath);
          applyBindings(src, tabControl, sourcePath, localId, targetId, "Tab");
          bindEvents(tabControl, sourcePath, localId, analysis);
-@@ -677,14 +850,15 @@
+@@ -651,7 +986,10 @@ public class WebSquareGenerator {
+             Element content = createTargetElement(out, "w2:content");
+             content.setAttribute("id", contentId);
+             targetComponentTypeMap.put(contentId, "Tabpage");
+-            content.setAttribute("style", "position:relative;width:100%;height:100%;");
++            content.setAttribute(
++                    "style",
++                    "position:relative;width:" + layoutConverter.formatPercent(100.0)
++                            + ";height:" + layoutConverter.formatPercent(100.0) + ";");
+             tabControl.appendChild(content);
+ 
+             String canonicalPagePath = canonicalizePath(pagePath);
+@@ -677,14 +1015,15 @@ public class WebSquareGenerator {
                  continue;
              }
              if (isRuntimeSetUrlTarget(localId, pageLocalId)) {
@@ -692,7 +1399,7 @@
          }
      }
  
-@@ -934,39 +1108,42 @@
+@@ -934,39 +1273,42 @@ public class WebSquareGenerator {
          return normalized.startsWith("@") ? normalized.substring(1) : normalized;
      }
  
@@ -756,7 +1463,7 @@
                  String checkboxValue = sanitizeXml10(src.getAttribute("value"));
                  if (checkboxValue.length() == 0) checkboxValue = text;
                  String targetId = target.getAttribute("id");
-@@ -978,7 +1155,24 @@
+@@ -978,7 +1320,24 @@ public class WebSquareGenerator {
              }
          }
  
@@ -782,7 +1489,7 @@
          if (style.length() > 0) {
              target.setAttribute("style", style);
          }
-@@ -1224,14 +1418,21 @@
+@@ -1224,14 +1583,21 @@ public class WebSquareGenerator {
          return found;
      }
  
@@ -807,7 +1514,7 @@
          }
      }
  
-@@ -1298,12 +1499,9 @@
+@@ -1298,12 +1664,9 @@ public class WebSquareGenerator {
              System.out.println("[BINDING 변환] " + sourcePath + " -> data:"
                      + valueBinding.getDatasetId() + "." + valueBinding.getColumnId());
  
@@ -825,7 +1532,7 @@
                  pageLoadStatements.add(datasetId + ".setRowPosition(0);");
 --- BASE-02/src/main/java/com/example/xfdltracker/project/XPlatformProjectConverter.java
 +++ CANDIDATE/src/main/java/com/example/xfdltracker/project/XPlatformProjectConverter.java
-@@ -247,10 +247,14 @@
+@@ -247,10 +247,14 @@ public class XPlatformProjectConverter {
              throw new IllegalStateException("Tab runtime 디렉터리를 생성할 수 없습니다: " + runtimeDir);
          TextFileUtil.writeUtf8(new File(runtimeDir, "xplatform-tab-runtime.js"),
                  new TabRuntimeScriptGenerator().generateStandaloneReference());
@@ -843,7 +1550,7 @@
      }
 --- BASE-02/src/main/java/com/example/xfdltracker/tab/TabRuntimeScriptGenerator.java
 +++ CANDIDATE/src/main/java/com/example/xfdltracker/tab/TabRuntimeScriptGenerator.java
-@@ -95,8 +95,12 @@
+@@ -95,8 +95,12 @@ public class TabRuntimeScriptGenerator {
          s.append("    function childObject(tabId,page,id) { var w=requireReadyWindow(tabId,page,'child object read'),o=resolveInScope(w,id);if(!o)throw runtimeError('CHILD_COMPONENT_NOT_FOUND','child object unresolved: '+id,{tab:tabId,page:page,object:id});return o; }\n");
          s.append("    function getChildValue(tabId,page,id) { var o=childObject(tabId,page,id);if(!o.getValue)throw runtimeError('CHILD_COMPONENT_NOT_FOUND','child value API unavailable: '+id,{tab:tabId,page:page,object:id});return o.getValue(); }\n");
          s.append("    function setChildValue(tabId,page,id,value) { var tab=resolveTab(tabId);return enqueue(tab,page,'SET_CHILD_VALUE',function(){var ready=ensureChildReady(tab,page);function setValue(win){var o=resolveInScope(win,id);if(!o||!o.setValue)throw runtimeError('CHILD_COMPONENT_NOT_FOUND','child value setter unavailable: '+id,{tab:tabId,page:page,object:id});o.setValue(value);return value;}return isThenable(ready)?ready.then(setValue):setValue(ready);}); }\n");
