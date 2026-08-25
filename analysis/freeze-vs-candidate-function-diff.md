@@ -3038,3 +3038,78 @@ btn_cm=12/wq_gvw=3(무변경, 손대지 않음). `UNEXPECTED_GENERATED_DIFF = 0`
 
 **Status**: `TARGET_STATE_MAPPING = FIX_CANDIDATE` / `STATIC_VERIFIED` /
 `CLOSED_NETWORK_REVERIFY_READY = YES`.
+
+---
+
+## [WebSquareGenerator] resolveTargetRenderType — 신규 함수 + Radio 분기 수정
+
+- CHANGE_TYPE: `NEW_FUNCTION` + `applyComponentSpecificProperties`의
+  `"Radio".equals(sourceTag)` 분기 수정
+- 배경: 사용자가 실제 Studio에서 관측한 Radio(`xf:select1
+  appearance="full"`) 표현 이상 문제 조사(`analysis/component-class-
+  radio-tab-policy-audit.md`, `analysis/radio-rendertype-evidence.md`).
+  로컬 devpack에 실제 배포된 v6 native 업무 화면(`ui/BM,HM,SP/*.xml`,
+  XPlatform 변환물 아님) 26개 파일 전수 스캔 결과 `appearance="full"`
+  select1은 7/7(100%) 전부 `renderType="radiogroup"`을 가짐 -- 우리
+  converter는 이 attribute를 전혀 emit하지 않고 있었다.
+
+**BEFORE**:
+```java
+if ("Radio".equals(sourceTag)) {
+    // xf:select1 appearance=full renders the radio-style selection family.
+    target.setAttribute("appearance", "full");
+} else if ("Combo".equals(sourceTag)) {
+```
+
+**AFTER**:
+```java
+if ("Radio".equals(sourceTag)) {
+    // xf:select1 appearance=full renders the radio-style selection family.
+    String appearance = "full";
+    target.setAttribute("appearance", appearance);
+    String renderType = resolveTargetRenderType(target.getTagName(), appearance);
+    if (renderType != null) {
+        target.setAttribute("renderType", renderType);
+    }
+} else if ("Combo".equals(sourceTag)) {
+```
+
+**신규 함수**(`resolveVideoEvidenceDisabledClass` 바로 위):
+```java
+private String resolveTargetRenderType(String targetTag, String appearance) {
+    if ("xf:select1".equals(targetTag) && "full".equals(appearance)) {
+        return "radiogroup";
+    }
+    return null;
+}
+```
+
+**Full Unified Diff**: `analysis/git-baseline-vs-candidate-production.diff`
+참고.
+
+**Caller/Callee**: caller `applyComponentSpecificProperties`(Radio 분기
+안에서 appearance 결정 직후 호출, 다른 분기 무변경). callee 없음(신규
+함수는 문자열 비교만 수행) -- `resolveVideoEvidenceBaseClass`/
+`resolveVideoEvidenceDisabledClass`와 동일한 QName(+appearance) 기반
+lookup 패턴.
+
+**Generated XML BEFORE/AFTER**:
+```
+BEFORE: <xf:select1 appearance="full" id="rdo" style="..."/>
+AFTER:  <xf:select1 appearance="full" id="rdo" renderType="radiogroup" style="..."/>
+```
+
+**영향 output 수**: 149-fixture corpus 중 Radio 사용 fixture 2개
+(`Form/ControlPropertyMatrix.xml`, `Form/DatasetBinding.xml`)만
+`renderType="radiogroup"` 속성 1개씩 추가, 나머지 134개 파일은
+byte-identical(diff 0). STT00030(corpus 밖, 실제 evidence)은 Radio
+컴포넌트가 없어 영향 없음(byte-identical 확인).
+
+**Regression**(현재 HEAD 기준 실제 재실행): clean compile PASS, 149/149
+conversion PASS, XML well-formed 136/136, Phase1 SHA PASS,
+btn_cm=12/wq_gvw=3/w2selectbox_disabled=4(전부 무변경), HOLD structural
+class 유출 0건(무변경). `UNEXPECTED_GENERATED_DIFF = 0`(Radio 2건 제외
+전부 동일, Radio 2건은 의도된 변경).
+
+**Status**: `RADIO_RENDERING = FIX_CANDIDATE` / `STATIC_VERIFIED` /
+`CLOSED_NETWORK_REVERIFY_READY = YES` (Studio 육안 재확인은 사용자 몫).

@@ -1,3 +1,5 @@
+diff --git BASE-02/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java CANDIDATE/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java
+index 29f635a..707752e 100644
 --- BASE-02/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java
 +++ CANDIDATE/src/main/java/com/example/xfdltracker/converter/ComponentLayoutConverter.java
 @@ -5,8 +5,12 @@ import org.w3c.dom.Element;
@@ -594,6 +596,8 @@
      }
  
      private boolean isSafeCursor(String value) {
+diff --git BASE-02/src/main/java/com/example/xfdltracker/converter/GridFormatConverter.java CANDIDATE/src/main/java/com/example/xfdltracker/converter/GridFormatConverter.java
+index 677cdd9..a0437b7 100644
 --- BASE-02/src/main/java/com/example/xfdltracker/converter/GridFormatConverter.java
 +++ CANDIDATE/src/main/java/com/example/xfdltracker/converter/GridFormatConverter.java
 @@ -20,8 +20,15 @@ public class GridFormatConverter {
@@ -920,6 +924,8 @@
      private String normalizeSize(String raw) {
          String value = trim(raw).toLowerCase();
          if (value.endsWith("px")) {
+diff --git BASE-02/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java CANDIDATE/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java
+index 3e52c8b..f70085d 100644
 --- BASE-02/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java
 +++ CANDIDATE/src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java
 @@ -401,49 +401,65 @@ public class WebSquareGenerator {
@@ -1384,9 +1390,9 @@
 +                        out, layout, cellGroup, parentPath, analysis, depth, cell,
 +                        childBasisWidth, childBasisHeight, false);
 +                colIndex++;
-             }
++            }
 +            rowIndex++;
-         }
++        }
 +
 +        System.out.println(
 +                "[UI TABLE] Layout " + (parentPath.length() == 0 ? "(root)" : parentPath)
@@ -1410,8 +1416,8 @@
 +            Node node = children.item(i);
 +            if (node.getNodeType() == Node.ELEMENT_NODE) {
 +                result.add((Element) node);
-+            }
-+        }
+             }
+         }
 +        return result;
      }
  
@@ -1589,9 +1595,39 @@
      /** class 속성에 token을 공백으로 추가한다. 이미 존재하면(중복 방지) 아무것도 하지 않는다. */
      private void appendClassTokenIfAbsent(Element target, String token) {
          String existing = target.getAttribute("class");
-@@ -1042,12 +1419,17 @@ public class WebSquareGenerator {
+@@ -1037,17 +1414,46 @@ public class WebSquareGenerator {
+         target.setAttribute("class", existing + " " + token);
+     }
+ 
++    /**
++     * TARGET_RENDER_TYPE_POLICY: 실제 폐쇄망 devpack에 배포된 업무 화면(websquare-devpack-copy/
++     * tomcat/webapps/ROOT/ui/BM,HM,SP/*.xml, XPlatform 변환물이 아닌 순수 v6 native 화면) 전수
++     * 조사 결과, xf:select1 appearance="full"(Radio 계열)은 7/7(100%) 전부 renderType=
++     * "radiogroup"을 가짐(예외 0건) -- 상세: analysis/radio-rendertype-evidence.md. 이
++     * attribute가 없으면 실제 WebSquare 엔진이 select1을 item 단위 radio-button-group으로
++     * 렌더링하지 않는다(Combo의 dropdown shell과 달리 radio는 각 item이 렌더링 단위라, item이
++     * 없거나 renderType이 없으면 위젯 자체가 그려지지 않는 것으로 추정 -- 실제 Studio
++     * design-time 재현은 폐쇄망에서 사용자가 최종 확인). appearance="minimal"(Combo)은 같은
++     * corpus에서 renderType이 47건 중 3건(6%)만 명시적이고 나머지는 생략돼도 실사용에
++     * 문제없어 보이므로 매핑하지 않는다(evidence 부족, HOLD).
++     */
++    private String resolveTargetRenderType(String targetTag, String appearance) {
++        if ("xf:select1".equals(targetTag) && "full".equals(appearance)) {
++            return "radiogroup";
++        }
++        return null;
++    }
++
+     private void applyComponentSpecificProperties(Element src, Element target, String sourceTag, String sourcePath) {
+         if ("Radio".equals(sourceTag)) {
              // xf:select1 appearance=full renders the radio-style selection family.
-             target.setAttribute("appearance", "full");
+-            target.setAttribute("appearance", "full");
++            String appearance = "full";
++            target.setAttribute("appearance", appearance);
++            String renderType = resolveTargetRenderType(target.getTagName(), appearance);
++            if (renderType != null) {
++                target.setAttribute("renderType", renderType);
++            }
          } else if ("Combo".equals(sourceTag)) {
 -            target.setAttribute("appearance", "minimal");
 -            // WebSquare AI v6 실제 폐쇄망 정상 화면(BCI01M0000) XML source 영상 직접 판독 evidence:
@@ -1613,7 +1649,7 @@
          } else if ("Calendar".equals(sourceTag)) {
              String dateFormat = sanitizeXml10(src.getAttribute("dateformat"));
              if (dateFormat.length() > 0) target.setAttribute("displayFormat", dateFormat);
-@@ -1224,14 +1606,21 @@ public class WebSquareGenerator {
+@@ -1224,14 +1630,21 @@ public class WebSquareGenerator {
          return found;
      }
  
@@ -1638,7 +1674,7 @@
          }
      }
  
-@@ -1298,12 +1687,9 @@ public class WebSquareGenerator {
+@@ -1298,12 +1711,9 @@ public class WebSquareGenerator {
              System.out.println("[BINDING 변환] " + sourcePath + " -> data:"
                      + valueBinding.getDatasetId() + "." + valueBinding.getColumnId());
  
@@ -1654,6 +1690,8 @@
              String datasetId = valueBinding.getDatasetId();
              if (datasetId != null && datasetId.length() > 0 && rowPositionBootstrapped.add(datasetId)) {
                  pageLoadStatements.add(datasetId + ".setRowPosition(0);");
+diff --git BASE-02/src/main/java/com/example/xfdltracker/mapping/ComponentMappingRegistry.java CANDIDATE/src/main/java/com/example/xfdltracker/mapping/ComponentMappingRegistry.java
+index 0b4acb2..f0a01d0 100644
 --- BASE-02/src/main/java/com/example/xfdltracker/mapping/ComponentMappingRegistry.java
 +++ CANDIDATE/src/main/java/com/example/xfdltracker/mapping/ComponentMappingRegistry.java
 @@ -23,7 +23,11 @@ public class ComponentMappingRegistry {
@@ -1669,6 +1707,8 @@
          add("GroupBox", "w2:group", SupportLevel.PARTIAL, true, "group semantics/title require review");
          add("PopupDiv", "w2:group", SupportLevel.PARTIAL, true, "popup runtime behavior requires manual migration");
          add("ImageViewer", "w2:image", SupportLevel.PARTIAL, false, "basic image source/property mapping only");
+diff --git BASE-02/src/main/java/com/example/xfdltracker/project/XPlatformProjectConverter.java CANDIDATE/src/main/java/com/example/xfdltracker/project/XPlatformProjectConverter.java
+index b35c3d0..bd275cc 100644
 --- BASE-02/src/main/java/com/example/xfdltracker/project/XPlatformProjectConverter.java
 +++ CANDIDATE/src/main/java/com/example/xfdltracker/project/XPlatformProjectConverter.java
 @@ -247,10 +247,14 @@ public class XPlatformProjectConverter {
@@ -1687,6 +1727,8 @@
                  + "</html>\n";
          TextFileUtil.writeUtf8(new File(runtimeDir, "xplatform-tab-empty.xml"), empty);
      }
+diff --git BASE-02/src/main/java/com/example/xfdltracker/tab/TabRuntimeScriptGenerator.java CANDIDATE/src/main/java/com/example/xfdltracker/tab/TabRuntimeScriptGenerator.java
+index 3c79116..f31134b 100644
 --- BASE-02/src/main/java/com/example/xfdltracker/tab/TabRuntimeScriptGenerator.java
 +++ CANDIDATE/src/main/java/com/example/xfdltracker/tab/TabRuntimeScriptGenerator.java
 @@ -95,8 +95,12 @@ public class TabRuntimeScriptGenerator {

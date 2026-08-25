@@ -1414,10 +1414,34 @@ public class WebSquareGenerator {
         target.setAttribute("class", existing + " " + token);
     }
 
+    /**
+     * TARGET_RENDER_TYPE_POLICY: 실제 폐쇄망 devpack에 배포된 업무 화면(websquare-devpack-copy/
+     * tomcat/webapps/ROOT/ui/BM,HM,SP/*.xml, XPlatform 변환물이 아닌 순수 v6 native 화면) 전수
+     * 조사 결과, xf:select1 appearance="full"(Radio 계열)은 7/7(100%) 전부 renderType=
+     * "radiogroup"을 가짐(예외 0건) -- 상세: analysis/radio-rendertype-evidence.md. 이
+     * attribute가 없으면 실제 WebSquare 엔진이 select1을 item 단위 radio-button-group으로
+     * 렌더링하지 않는다(Combo의 dropdown shell과 달리 radio는 각 item이 렌더링 단위라, item이
+     * 없거나 renderType이 없으면 위젯 자체가 그려지지 않는 것으로 추정 -- 실제 Studio
+     * design-time 재현은 폐쇄망에서 사용자가 최종 확인). appearance="minimal"(Combo)은 같은
+     * corpus에서 renderType이 47건 중 3건(6%)만 명시적이고 나머지는 생략돼도 실사용에
+     * 문제없어 보이므로 매핑하지 않는다(evidence 부족, HOLD).
+     */
+    private String resolveTargetRenderType(String targetTag, String appearance) {
+        if ("xf:select1".equals(targetTag) && "full".equals(appearance)) {
+            return "radiogroup";
+        }
+        return null;
+    }
+
     private void applyComponentSpecificProperties(Element src, Element target, String sourceTag, String sourcePath) {
         if ("Radio".equals(sourceTag)) {
             // xf:select1 appearance=full renders the radio-style selection family.
-            target.setAttribute("appearance", "full");
+            String appearance = "full";
+            target.setAttribute("appearance", appearance);
+            String renderType = resolveTargetRenderType(target.getTagName(), appearance);
+            if (renderType != null) {
+                target.setAttribute("renderType", renderType);
+            }
         } else if ("Combo".equals(sourceTag)) {
             String appearance = "minimal";
             target.setAttribute("appearance", appearance);
