@@ -2715,3 +2715,111 @@ AFTER:  <xf:group id="grp_main" style="position:relative;width:100.0%;height:490
 **Status**: `FIX_CANDIDATE` / `STATIC_VERIFIED` / `STUDIO_DESIGN_REQUIRED`.
 실제 폐쇄망 Studio에서 상단 조건영역/Button이 실제로 보이는지 확인 전까지
 `FIXED`/`STUDIO_DESIGN_VERIFIED`/`PATCH_READY`/`FREEZE_READY`는 주장하지 않는다.
+
+---
+
+## ROUND: DIV_TARGET_QNAME_MISMATCH fix (2026-08-24, commit 예정)
+
+### 배경 / 증상
+
+이전 라운드([div-qname-ab-diagnostic.md](div-qname-ab-diagnostic.md))에서 실제
+폐쇄망 STT00030.xml을 기반으로 `Div01`/`Div00`/`Div02`/`Div03`의 target QName만
+`w2:group` -> `xf:group`으로 바꾼 diagnostic A/B XML 2개를 만들어 사용자에게
+전달했다. 사용자가 실제 폐쇄망 WebSquare Studio에서 A/B를 열어 비교한 결과:
+
+- Div01 Calendar/Combo, Div00 조회/엑셀: A/B 렌더링 모양 자체는 변화가 있었으나
+  visibility 여부는 A/B 동일(둘 다 여전히 문제).
+- **Div02/Div03 우측 Button: B(xf:group)에서 A(w2:group) 대비 개선 확인.**
+
+이 실측을 근거로 `DIV_TARGET_QNAME_MISMATCH = CONTRIBUTING_FACTOR`로 판정하고,
+XPlatform `<Div>`의 target QName을 generic하게 수정한다(특정 화면 hardcoding
+없음).
+
+### 변경 -- `[ComponentMappingRegistry] static 초기화 블록`(`Div` 매핑 1줄)
+
+**목적**: XPlatform `<Div>`의 변환 대상을 `w2:group`에서 `xf:group`으로
+바꾼다. `GroupBox`/`PopupDiv`/`Tabpage`(모두 여전히 `w2:group`)와 Grid
+wrapper(`xf:group`, 무변경)는 이번 라운드의 실측 대상이 아니었으므로 함께
+바꾸지 않는다.
+
+**BEFORE**:
+```java
+add("Div", "w2:group", SupportLevel.SUPPORTED, true, "child coordinate system preserved");
+```
+
+**AFTER**:
+```java
+// DIV_TARGET_QNAME_MISMATCH fix: 실제 폐쇄망 Studio A/B 실측(analysis/
+// div-qname-ab-diagnostic.md)에서 XPlatform Div의 target을 xf:group으로 바꾼 쪽이
+// Design 렌더링을 개선함을 확인(CONTRIBUTING_FACTOR). GroupBox/PopupDiv/Tabpage는 이
+// 실측 대상이 아니었으므로 함께 바꾸지 않고 기존 w2:group을 유지한다.
+add("Div", "xf:group", SupportLevel.SUPPORTED, true, "child coordinate system preserved");
+```
+
+**Full Unified Diff**:
+```diff
+-        add("Div", "w2:group", SupportLevel.SUPPORTED, true, "child coordinate system preserved");
++        // DIV_TARGET_QNAME_MISMATCH fix: 실제 폐쇄망 Studio A/B 실측(analysis/
++        // div-qname-ab-diagnostic.md)에서 XPlatform Div의 target을 xf:group으로 바꾼 쪽이
++        // Design 렌더링을 개선함을 확인(CONTRIBUTING_FACTOR). GroupBox/PopupDiv/Tabpage는 이
++        // 실측 대상이 아니었으므로 함께 바꾸지 않고 기존 w2:group을 유지한다.
++        add("Div", "xf:group", SupportLevel.SUPPORTED, true, "child coordinate system preserved");
+```
+
+**Caller/Callee**: caller `[WebSquareGenerator] convertChildren`
+(`componentMappings.get(sourceTag)` -> `targetTag`, 기존 로직 무변경, target이
+`"xf:"`로 시작하면 `createTargetElement`가 `NS_XF` 네임스페이스로 생성 -- 이미
+Grid wrapper/grp_main 등에서 사용 중인 기존 분기, 신규 로직 없음). callee 없음
+(정적 데이터 테이블 항목 1개 변경).
+
+참고: `WebSquareGenerator.java`의 `COMPONENT_MAP.put("Div", "w2:group")`
+(58-75행 근처)는 별도의, 쓰기만 되고 어디서도 읽히지 않는 dead code(`.get`/
+`.containsKey` 호출이 코드베이스 어디에도 없음, `componentMappings`
+필드만 실제 변환에 쓰임)라서 함께 수정하지 않았다 -- 생성 결과에 영향 없음을
+확인.
+
+**Generated XML BEFORE/AFTER** (`Form/NestedContainer.xml` 대표 예):
+```
+BEFORE: <w2:group id="divA" style="position:absolute;left:4.0%;top:11.8%;width:60.0%;height:88.2%;">
+AFTER:  <xf:group id="divA" style="position:absolute;left:4.0%;top:11.8%;width:60.0%;height:88.2%;">
+```
+(`Form/Main/TabExternalRelativePath.xml`의 `divWrap`도 동일 패턴.)
+
+**영향 output 수**: 149-fixture corpus(`sample-phase3-project`) 전수 재변환
+기준 2/136 파일(`Form/NestedContainer.xml`의 `divA`, `Form/Main/
+TabExternalRelativePath.xml`의 `divWrap`) -- 이 corpus에는 XPlatform `<Div>`가
+이 2건만 존재. 실제 폐쇄망 STT00030(6개 Div: Div01/Div00/Div02/Div03 등)은
+corpus 밖의 사용자 제공 실제 화면이라 이 카운트에는 포함되지 않는다(별도
+diagnostic으로 이미 검증됨).
+
+```
+XPLATFORM_DIV_AFFECTED_COUNT = 2   (corpus 기준, sample-phase3-project)
+GROUPBOX_QNAME_CHANGED_COUNT = 0
+POPUPDIV_QNAME_CHANGED_COUNT = 0
+TABPAGE_QNAME_CHANGED_COUNT = 0
+GRID_WRAPPER_QNAME_CHANGED_COUNT = 0
+UNEXPECTED_QNAME_CHANGE_COUNT = 0
+DIV_GEOMETRY_CHANGED_COUNT = 0
+```
+
+**Regression**(현재 HEAD 기준 실제 재실행, JDK21 개발 환경):
+- Clean compile: PASS(0 errors)
+- 149/149 fresh conversion: PASS
+- Generated XML count: 136/136
+- XML well-formedness: 136/136 PASS
+- PAGE_JS(inline `<script>`): 136/136 PASS(`node --check`)
+- Standalone JS: 15/15 PASS
+- Phase1 SHA verifier: PASS(Python + Java)
+- before/after generated diff: 정확히 2개 파일, 각 2줄(여는/닫는 태그)만 변경,
+  style/속성/자식 전부 byte-identical. 파일 목록 diff 0, non-XML diff 0
+- `w2:group` 전체 카운트: 5 -> 3(-2), `xf:group` 전체 카운트: 273 -> 275(+2) --
+  정확히 상쇄, 다른 컴포넌트 QName 무변화 재확인
+- `btn_cm`=12, `wq_gvw`=3, Combo `disabledClass`=4, lifecycle(`getScope`/
+  `WFrame`)=84: before/after 전부 동일
+- `UNEXPECTED_GENERATED_DIFF = 0`
+
+**Status**: `DIV_TARGET_QNAME_MISMATCH = CONTRIBUTING_FACTOR` /
+`XPLATFORM_VISUAL_PARITY = FIX_CANDIDATE` / `STATIC_VERIFIED` /
+`STUDIO_DESIGN_FAILED` / `STUDIO_DESIGN_REPRODUCED` / `STUDIO_DESIGN_REQUIRED`.
+Studio에서 B가 개선을 보였다는 사용자 실측은 이미 확보됐으나, 이 Production
+candidate 자체(전체 corpus 기준)의 재검증 전까지 `FIXED`는 주장하지 않는다.
