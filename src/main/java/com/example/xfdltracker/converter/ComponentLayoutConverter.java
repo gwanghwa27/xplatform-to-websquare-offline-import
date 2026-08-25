@@ -7,8 +7,10 @@ import org.w3c.dom.NodeList;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -25,6 +27,32 @@ public class ComponentLayoutConverter {
     private static final Pattern NUMBER_WITH_UNIT = Pattern.compile(
             "([-+]?\\d+(?:\\.\\d+)?)(px|%)?",
             Pattern.CASE_INSENSITIVE);
+
+    /**
+     * XPLATFORM_SOURCE_VISUAL_STYLE_PRESERVATION fix: XPlatform source의 {@code style} 속성
+     * (raw CSS 선언 목록 문자열, 예: {@code style="background:#ffEEEfff;"})에서 병합을
+     * 허용하는 순수 visual property 화이트리스트. geometry/구조 property(position/left/top/
+     * right/bottom/width/height/display/z-index 등)는 절대 포함하지 않는다 -- 기존 geometry
+     * converter가 항상 authority이며, 화이트리스트 자체가 geometry property를 배제하므로
+     * 런타임 충돌 해소 로직 없이도 덮어쓸 수 없다. {@link #appendVisualStyle}에서만 사용.
+     */
+    private static final Set<String> SAFE_SOURCE_STYLE_PROPERTIES = buildSafeSourceStyleProperties();
+
+    private static Set<String> buildSafeSourceStyleProperties() {
+        Set<String> props = new LinkedHashSet<String>();
+        props.add("background");
+        props.add("background-color");
+        props.add("border");
+        props.add("color");
+        props.add("font");
+        props.add("font-size");
+        props.add("font-weight");
+        props.add("text-align");
+        props.add("padding");
+        props.add("visibility");
+        props.add("opacity");
+        return java.util.Collections.unmodifiableSet(props);
+    }
 
     /** source가 left/top/width/height 등 위치/크기 속성을 하나라도 가지는지 여부. */
     public boolean hasGeometry(Element source) {
@@ -798,6 +826,45 @@ public class ComponentLayoutConverter {
 
         appendAlignment(source.getAttribute("align"), style);
         appendPadding(source.getAttribute("padding"), style);
+        appendSourceInlineVisualStyle(source, style);
+    }
+
+    /**
+     * XPLATFORM_SOURCE_VISUAL_STYLE_PRESERVATION fix: 위 개별 XPlatform 속성(color/
+     * background/opacity 등)과 별개로, XPlatform source가 자체 {@code style} 속성에 raw CSS
+     * 선언 목록을 직접 담는 경우가 실존한다(실제 STT00030 evidence: {@code Div02 style=
+     * "background:#ffEEEfff;"}, {@code Div03 style="background: #ffffffff;"}). 지금까지 이
+     * 속성 자체를 어디서도 읽지 않아 이런 visual 정의가 변환 과정에서 통째로 소실됐다.
+     * {@link #SAFE_SOURCE_STYLE_PROPERTIES} 화이트리스트에 있는 순수 visual property만
+     * 병합하고, 그 외(특히 geometry/구조 property)는 무시한다 -- 화이트리스트가 position/
+     * left/top/right/bottom/width/height/display/z-index를 배제하므로 기존 geometry
+     * converter의 결과를 절대 덮어쓸 수 없다(19번 규칙과 동일 원칙). 이미 이 함수 앞부분에서
+     * emit된 개별 속성(color/background/opacity 등)과 property가 겹치면 CSS는 같은 style
+     * 문자열 안에서 나중 선언이 우선하므로, source style이 XPlatform 개별 속성보다 더
+     * 구체적인 최신 지정으로 자연스럽게 우선한다.
+     */
+    private void appendSourceInlineVisualStyle(Element source, StringBuilder style) {
+        String raw = trim(source.getAttribute("style"));
+        if (raw.length() == 0) {
+            return;
+        }
+        String[] declarations = raw.split(";");
+        for (int i = 0; i < declarations.length; i++) {
+            String decl = declarations[i].trim();
+            if (decl.length() == 0) {
+                continue;
+            }
+            int colon = decl.indexOf(':');
+            if (colon <= 0 || colon >= decl.length() - 1) {
+                continue;
+            }
+            String property = decl.substring(0, colon).trim().toLowerCase();
+            String value = decl.substring(colon + 1).trim();
+            if (value.length() == 0 || !SAFE_SOURCE_STYLE_PROPERTIES.contains(property)) {
+                continue;
+            }
+            style.append(property).append(':').append(value).append(';');
+        }
     }
 
     private boolean isSafeCursor(String value) {

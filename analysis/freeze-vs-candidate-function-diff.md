@@ -2823,3 +2823,134 @@ DIV_GEOMETRY_CHANGED_COUNT = 0
 `STUDIO_DESIGN_FAILED` / `STUDIO_DESIGN_REPRODUCED` / `STUDIO_DESIGN_REQUIRED`.
 Studio에서 B가 개선을 보였다는 사용자 실측은 이미 확보됐으나, 이 Production
 candidate 자체(전체 corpus 기준)의 재검증 전까지 `FIXED`는 주장하지 않는다.
+
+---
+
+## ROUND: contents.css 전역 적용 + Generic Visual Semantic Integration (2026-08-25, commit 예정)
+
+### 배경
+
+사용자가 실제 폐쇄망 WebSquare 업무 프로젝트의 canonical `contents.css`(1602줄,
+`\WebContent\assets\css\contents.css` 복원본)를 첨부했다. 목표는 STT00030
+하나가 아니라 전체 corpus/converter가 생성하는 모든 화면에서 이 CSS가
+generic하게 적용 가능한 상태를 만드는 것. 상세 조사/판정은
+[analysis/contents-css-integration-audit.md](contents-css-integration-audit.md)
+참고.
+
+핵심 결론(요약): (1) contents.css 로딩은 WebSquare `config.xml`의
+`<stylesheet earlyImportList="...">` GLOBAL_FRAMEWORK mechanism이라 생성
+XML마다 `<link>`를 추가할 필요가 없다(코드 변경 없음). (2) Div/Static/
+Combo/Calendar/Button/Grid 전부 runtime이 이미 base widget class를 자동
+emit하고 contents.css에 그 class들의 실제 rule이 존재해, 명시적 class
+추가도 불필요(코드 변경 없음). (3) 유일하게 실제로 발견된 gap은 XPlatform
+source의 `style="..."` 속성(raw CSS 선언 문자열, 예:
+`Div02 style="background:#ffEEEfff;"`) 자체를 코드 어디에서도 읽지 않아
+inline visual style이 통째로 소실되던 것 -- 이것만 수정했다.
+
+### 변경 -- `[ComponentLayoutConverter] appendVisualStyle` + 신규
+`appendSourceInlineVisualStyle`
+
+**목적**: XPlatform source의 `style` 속성에서 WebSquare/CSS 호환 순수 visual
+property만 화이트리스트로 병합한다. geometry property는 화이트리스트에서
+원천 배제해 기존 geometry converter를 절대 덮어쓸 수 없게 한다.
+
+**신규 static 필드**(class 상단):
+```java
+private static final Set<String> SAFE_SOURCE_STYLE_PROPERTIES = buildSafeSourceStyleProperties();
+
+private static Set<String> buildSafeSourceStyleProperties() {
+    Set<String> props = new LinkedHashSet<String>();
+    props.add("background");
+    props.add("background-color");
+    props.add("border");
+    props.add("color");
+    props.add("font");
+    props.add("font-size");
+    props.add("font-weight");
+    props.add("text-align");
+    props.add("padding");
+    props.add("visibility");
+    props.add("opacity");
+    return java.util.Collections.unmodifiableSet(props);
+}
+```
+
+**BEFORE**(`appendVisualStyle` 마지막 부분):
+```java
+appendAlignment(source.getAttribute("align"), style);
+appendPadding(source.getAttribute("padding"), style);
+}
+```
+
+**AFTER**:
+```java
+appendAlignment(source.getAttribute("align"), style);
+appendPadding(source.getAttribute("padding"), style);
+appendSourceInlineVisualStyle(source, style);
+}
+
+private void appendSourceInlineVisualStyle(Element source, StringBuilder style) {
+    String raw = trim(source.getAttribute("style"));
+    if (raw.length() == 0) {
+        return;
+    }
+    String[] declarations = raw.split(";");
+    for (int i = 0; i < declarations.length; i++) {
+        String decl = declarations[i].trim();
+        if (decl.length() == 0) {
+            continue;
+        }
+        int colon = decl.indexOf(':');
+        if (colon <= 0 || colon >= decl.length() - 1) {
+            continue;
+        }
+        String property = decl.substring(0, colon).trim().toLowerCase();
+        String value = decl.substring(colon + 1).trim();
+        if (value.length() == 0 || !SAFE_SOURCE_STYLE_PROPERTIES.contains(property)) {
+            continue;
+        }
+        style.append(property).append(':').append(value).append(';');
+    }
+}
+```
+
+**Caller/Callee**: caller `appendVisualStyle`(마지막에 1줄 추가) --
+`appendVisualStyle` 자신은 `buildComponentStyle`/`buildPercentComponentStyle`
+양쪽에서 이미 호출되므로 px/percentage geometry 경로 둘 다 generic하게
+적용된다(호출부 자체는 무변경). callee: `trim`(기존), `SAFE_SOURCE_STYLE_
+PROPERTIES`(신규 static, 위 정의).
+
+**Generated XML BEFORE/AFTER**(STT00030, 실제 폐쇄망 evidence):
+```
+BEFORE: <w2:group id="Div02" style="position:absolute;left:71.3%;top:0.3%;width:26.6%;height:3.8%;" tabIndex="4" value="Div02">
+AFTER:  <w2:group id="Div02" style="position:absolute;left:71.3%;top:0.3%;width:26.6%;height:3.8%;background:#ffEEEfff;" tabIndex="4" value="Div02">
+```
+(Div03도 동일 패턴, `background: #ffffffff;` 원문 공백까지 그대로 보존.)
+
+**영향 output 수**: 149-fixture corpus 기준 0/136(이 corpus에는 `style=`을
+쓰는 fixture가 없음 -- 이번 변경은 corpus에 대해 완전히 no-op, 회귀 위험
+없음). 실제 STT00030(corpus 밖, 사용자 제공 실제 화면)에서는 2건(Div02,
+Div03) 재현 확인.
+
+**Regression**(현재 HEAD 기준 실제 재실행, JDK21 개발 환경):
+- Clean compile: PASS(0 errors)
+- 149/149 fresh conversion: PASS
+- Generated XML count: 136/136, 전부 well-formed(+ STT00030.xml 별도 확인)
+- PAGE_JS 136/136 PASS, standalone JS 15/15 PASS
+- Phase1 SHA verifier: PASS(Python + Java)
+- before/after generated diff: 파일 목록 diff 0, non-XML diff 0, **XML diff
+  0개 파일**(corpus에 영향 없음, no-op 확인)
+- `btn_cm`=12, `wq_gvw`=3, Combo `disabledClass`=4, lifecycle=84, QName
+  (tagname=)=0: 전부 무변경
+- `UNEXPECTED_GENERATED_DIFF = 0`
+
+이번 라운드에서 class/QName/CSS-loading 관련 Production 코드 변경은 없다
+(섹션 1~4 조사 결과 코드 변경이 불필요하다는 결론 자체가 성과 -- 근거는
+`analysis/contents-css-integration-audit.md`).
+
+**Status**: `CONTENTS_CSS_INTEGRATION = FIX_CANDIDATE` /
+`XPLATFORM_VISUAL_PARITY = FIX_CANDIDATE` / `STATIC_VERIFIED` /
+`STUDIO_DESIGN_FAILED` / `STUDIO_DESIGN_REPRODUCED` /
+`STUDIO_DESIGN_REQUIRED` / `CLOSED_NETWORK_CONTENTS_CSS_REVERIFY_READY = YES`.
+사용자 폐쇄망 Studio 확인 전까지 `FIXED`/`STUDIO_DESIGN_VERIFIED`/
+`FREEZE_READY`는 주장하지 않는다.
