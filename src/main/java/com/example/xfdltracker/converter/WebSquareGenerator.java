@@ -1380,6 +1380,24 @@ public class WebSquareGenerator {
         return null;
     }
 
+    /**
+     * TARGET_STATE_CLASS_POLICY: v6 실제 폐쇄망 화면 영상 판독으로 확인된, target QName(+구분이
+     * 필요한 경우 appearance 같은 보조 attribute)만으로 결정되는 고정 disabledClass 값
+     * (component-intrinsic 값 -- 개별 인스턴스의 실제 disabled/enable state와 무관하게 항상
+     * 선언됨, {@link #resolveVideoEvidenceBaseClass}와 같은 evidence 출처 및 원칙을 공유하는
+     * 자매 policy 함수). 관측된 xf:select1(appearance=minimal) 3/3 전부 disabledClass=
+     * "w2selectbox_disabled"를 가짐 -- 상세: analysis/v6-video-source-analysis.md. Radio
+     * (appearance=full)는 이번 evidence에 없어 매핑하지 않는다(HOLD_INSUFFICIENT_EVIDENCE, null
+     * 반환). 다른 target QName/appearance 조합도 evidence가 없으면 null(호출부가 attribute를
+     * emit하지 않음).
+     */
+    private String resolveVideoEvidenceDisabledClass(String targetTag, String appearance) {
+        if ("xf:select1".equals(targetTag) && "minimal".equals(appearance)) {
+            return "w2selectbox_disabled";
+        }
+        return null;
+    }
+
     /** class 속성에 token을 공백으로 추가한다. 이미 존재하면(중복 방지) 아무것도 하지 않는다. */
     private void appendClassTokenIfAbsent(Element target, String token) {
         String existing = target.getAttribute("class");
@@ -1401,12 +1419,17 @@ public class WebSquareGenerator {
             // xf:select1 appearance=full renders the radio-style selection family.
             target.setAttribute("appearance", "full");
         } else if ("Combo".equals(sourceTag)) {
-            target.setAttribute("appearance", "minimal");
-            // WebSquare AI v6 실제 폐쇄망 정상 화면(BCI01M0000) XML source 영상 직접 판독 evidence:
-            // 관측된 xf:select1(appearance=minimal) 3/3 전부 disabledClass="w2selectbox_disabled"를
-            // 가짐(component-intrinsic 고정값, source 조건 없음) -- 상세: analysis/v6-video-source-analysis.md.
-            // Radio(appearance=full)는 이번 evidence에 없어 별도 취급하지 않는다.
-            target.setAttribute("disabledClass", "w2selectbox_disabled");
+            String appearance = "minimal";
+            target.setAttribute("appearance", appearance);
+            // TARGET_STATE_CLASS_POLICY: sourceTag("Combo") 자체에 문자열을 하드코딩하지 않고,
+            // 방금 결정한 target QName+appearance를 resolveVideoEvidenceDisabledClass(evidence
+            // 기반 policy 함수, resolveVideoEvidenceBaseClass의 자매 함수)에 넘겨 결정한다 --
+            // 같은 QName+appearance 조합이면 어떤 source component/화면에서 오든 항상 같은
+            // 결과가 나오는 generic 정책이다.
+            String disabledClass = resolveVideoEvidenceDisabledClass(target.getTagName(), appearance);
+            if (disabledClass != null) {
+                target.setAttribute("disabledClass", disabledClass);
+            }
         } else if ("Calendar".equals(sourceTag)) {
             String dateFormat = sanitizeXml10(src.getAttribute("dateformat"));
             if (dateFormat.length() > 0) target.setAttribute("displayFormat", dateFormat);

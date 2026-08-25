@@ -2954,3 +2954,87 @@ Div03) 재현 확인.
 `STUDIO_DESIGN_REQUIRED` / `CLOSED_NETWORK_CONTENTS_CSS_REVERIFY_READY = YES`.
 사용자 폐쇄망 Studio 확인 전까지 `FIXED`/`STUDIO_DESIGN_VERIFIED`/
 `FREEZE_READY`는 주장하지 않는다.
+
+---
+
+## ROUND: TARGET_STATE_CLASS_POLICY 리팩터링 (2026-08-25, commit 예정)
+
+### 배경
+
+`analysis/target-class-state-policy-audit.md` 참고. Production 전체
+class-관련 hardcoding을 inventory한 결과, `btn_cm`/`wq_gvw`는 이미
+`resolveVideoEvidenceBaseClass(String targetTag)`라는 단일 QName 기반
+policy 함수로 구현돼 있어(이전 라운드 설계) 이번 라운드에서 재작업이
+불필요했다. 유일하게 실제 리팩터링이 필요했던 것은 `w2selectbox_disabled`
+-- `applyComponentSpecificProperties`의 `"Combo".equals(sourceTag)` 분기
+안에 리터럴이 직접 박혀 있었다(`if combo then "w2selectbox_disabled"`
+단일 branch 패턴).
+
+### 변경 -- `[WebSquareGenerator] applyComponentSpecificProperties`(Combo 분기)
++ 신규 `resolveVideoEvidenceDisabledClass`
+
+**목적**: `w2selectbox_disabled` 리터럴을 sourceTag 조건부 분기에서
+분리해, `resolveVideoEvidenceBaseClass`의 자매 함수로 QName+appearance
+기반 policy로 옮긴다. 출력 결과는 완전히 동일하게 유지한다.
+
+**BEFORE**:
+```java
+} else if ("Combo".equals(sourceTag)) {
+    target.setAttribute("appearance", "minimal");
+    // WebSquare AI v6 실제 폐쇄망 정상 화면(BCI01M0000) XML source 영상 직접 판독 evidence:
+    // 관측된 xf:select1(appearance=minimal) 3/3 전부 disabledClass="w2selectbox_disabled"를
+    // 가짐(component-intrinsic 고정값, source 조건 없음) -- 상세: analysis/v6-video-source-analysis.md.
+    // Radio(appearance=full)는 이번 evidence에 없어 별도 취급하지 않는다.
+    target.setAttribute("disabledClass", "w2selectbox_disabled");
+```
+
+**AFTER**:
+```java
+} else if ("Combo".equals(sourceTag)) {
+    String appearance = "minimal";
+    target.setAttribute("appearance", appearance);
+    // TARGET_STATE_CLASS_POLICY: sourceTag("Combo") 자체에 문자열을 하드코딩하지 않고,
+    // 방금 결정한 target QName+appearance를 resolveVideoEvidenceDisabledClass(evidence
+    // 기반 policy 함수, resolveVideoEvidenceBaseClass의 자매 함수)에 넘겨 결정한다 --
+    // 같은 QName+appearance 조합이면 어떤 source component/화면에서 오든 항상 같은
+    // 결과가 나오는 generic 정책이다.
+    String disabledClass = resolveVideoEvidenceDisabledClass(target.getTagName(), appearance);
+    if (disabledClass != null) {
+        target.setAttribute("disabledClass", disabledClass);
+    }
+```
+
+**신규 함수**(`resolveVideoEvidenceBaseClass` 바로 아래):
+```java
+private String resolveVideoEvidenceDisabledClass(String targetTag, String appearance) {
+    if ("xf:select1".equals(targetTag) && "minimal".equals(appearance)) {
+        return "w2selectbox_disabled";
+    }
+    return null;
+}
+```
+
+**Full Unified Diff**: `analysis/git-baseline-vs-candidate-production.diff`
+참고.
+
+**Caller/Callee**: caller `applyComponentSpecificProperties`(Combo 분기
+안에서 appearance 결정 직후 호출, 다른 분기 무변경). callee 없음(신규
+함수는 문자열 비교만 수행).
+
+**Generated XML BEFORE/AFTER**: 동일(리팩터링, 출력 무변화) --
+```
+<xf:select1 appearance="minimal" disabledClass="w2selectbox_disabled" id="Div01_MNG_BOCD" .../>
+```
+(STT00030 실제 재변환, before/after `diff` byte-identical 확인.)
+
+**영향 output 수**: 149-fixture corpus 전체 diff 0건(100% 동일, 순수
+리팩터링). STT00030(corpus 밖, 실제 evidence)도 0건.
+
+**Regression**(현재 HEAD 기준 실제 재실행): clean compile PASS, 149/149
+conversion PASS, XML well-formed 136/136(+STT00030), PAGE_JS 136/136 PASS,
+standalone JS 15/15 PASS, Phase1 SHA PASS(Python+Java), before/after
+generated diff 0건(파일 목록/non-XML/XML 전부), disabledClass=4(무변경),
+btn_cm=12/wq_gvw=3(무변경, 손대지 않음). `UNEXPECTED_GENERATED_DIFF = 0`.
+
+**Status**: `TARGET_STATE_MAPPING = FIX_CANDIDATE` / `STATIC_VERIFIED` /
+`CLOSED_NETWORK_REVERIFY_READY = YES`.
