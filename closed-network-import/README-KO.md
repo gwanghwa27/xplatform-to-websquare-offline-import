@@ -1,5 +1,15 @@
 # 폐쇄망 1회 반입 가이드 (One-shot Closed Network Import)
 
+> **폐쇄망 반입 대상은 물리적으로 1개 파일이다**: 이 저장소 루트를 통째로
+> 압축한 `closed-network-candidate-<commit>.zip`(예:
+> `closed-network-candidate-8443582.zip`, 동봉된 `.zip.sha256`으로 무결성
+> 확인) **하나만** 반입한다. **`closed-network-import/` 폴더만 따로
+> 복사하지 말 것** -- 이 폴더는 소스를 담고 있지 않다(검증 kit일 뿐이며,
+> `src/main/java` 등 실제 소스는 저장소 루트의 다른 디렉터리에 있다). ZIP을
+> 풀면 최상위에 `v6-design-structure-alignment-<commit>/` 디렉터리 하나가
+> 나오고, 그 안에 `BUILD-CANDIDATE-INFO.txt`(어느 commit인지 식별)와 전체
+> editable source가 함께 들어있다.
+
 이 문서는 `candidate/v6-design-structure-alignment` 브랜치를 폐쇄망에
 **한 번만** 반입해서 build → conversion → regression → class-policy 검증까지
 마치고, 이후 폐쇄망 WebSquare Studio에서 최종 확인할 수 있도록 안내한다.
