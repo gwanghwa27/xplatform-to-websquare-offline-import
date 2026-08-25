@@ -1,5 +1,15 @@
 # Explicit/State Class Policy 재확인 + Radio Fix + Tab Runtime Script 조사
 
+> **후속 정정(2026-08-25)**: 이 문서의 Radio 관련 결론(`renderType=
+> "radiogroup"` 추가만으로 충분하다는 판단)은 실제 폐쇄망 Studio
+> 재검증에서 `STUDIO_FAILED`(NO_VISIBLE_EFFECT)로 기각됐다. 실제
+> root cause(정적 `<xf:choices>` item 구조 부재)와 후속 fix는
+> `analysis/radio-rendering-root-cause.md`를 참고할 것 -- 이 문서의
+> Radio 부분(1-2, 2, 3, 4, 5절의 RADIO_RENDERING 관련 서술)은
+> 최신 상태가 아니다. Class/state policy(1-1절)와 Tab runtime script
+> (1-4절) 조사 결과는 여전히 유효하다(이번 후속 라운드에서 변경하지
+> 않음).
+
 ## 0. 전제 (무변경 확인)
 
 ```

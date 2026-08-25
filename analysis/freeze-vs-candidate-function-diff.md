@@ -3113,3 +3113,106 @@ class 유출 0건(무변경). `UNEXPECTED_GENERATED_DIFF = 0`(Radio 2건 제외
 
 **Status**: `RADIO_RENDERING = FIX_CANDIDATE` / `STATIC_VERIFIED` /
 `CLOSED_NETWORK_REVERIFY_READY = YES` (Studio 육안 재확인은 사용자 몫).
+
+---
+
+## [WebSquareGenerator] appendStaticChoicesIfLiteralDataset — 신규 함수 (Radio root-cause fix)
+
+- CHANGE_TYPE: `NEW_FUNCTION` + `applyBindings` 시그니처 변경(`Document
+  out` 파라미터 추가, 호출부 2곳 기계적 갱신) + `NEW_HELPER`
+  (`findDatasetById`)
+- 배경: 직전 라운드의 `renderType="radiogroup"` fix(커밋 `a5403fa`)를
+  사용자가 실제 폐쇄망 Studio에서 재검증한 결과 `STUDIO_FAILED`
+  (NO_VISIBLE_EFFECT)였다. 재조사(`analysis/radio-rendering-root-
+  cause.md`) 결과, native working Radio 7/7 전부가 renderType뿐 아니라
+  **정적 `<xf:choices><xf:item>` 구조**도 공통으로 갖고 있었음을
+  확인 -- 이 부분을 이전 조사에서 놓쳤었다. 우리 converter는 item
+  목록을 런타임 JS `setNodeSet()` 호출로만 표현하고 정적 XML을 전혀
+  emit하지 않아 Studio Design-time에서 item이 0개로 보였다.
+
+**BEFORE**:
+```java
+private void applyBindings(
+        Element src, Element target, String sourcePath, String localId,
+        String targetId, String sourceTag) {
+    ...
+    if (itemset.getCodeColumn().length() > 0 && itemset.getDataColumn().length() > 0) {
+        pageLoadStatements.add(targetId + ".setNodeSet(\"data:" + ... + "\");");
+        System.out.println("[ITEMSET 변환] " + ...);
+    }
+```
+
+**AFTER**:
+```java
+private void applyBindings(
+        Document out, Element src, Element target, String sourcePath,
+        String localId, String targetId, String sourceTag) {
+    ...
+    if (itemset.getCodeColumn().length() > 0 && itemset.getDataColumn().length() > 0) {
+        pageLoadStatements.add(targetId + ".setNodeSet(\"data:" + ... + "\");");
+        System.out.println("[ITEMSET 변환] " + ...);
+        if ("Radio".equals(sourceTag)) {
+            appendStaticChoicesIfLiteralDataset(out, target, itemset, sourcePath);
+        }
+    }
+```
+
+**신규 함수**(요지, 전체는 소스 참고):
+```java
+private void appendStaticChoicesIfLiteralDataset(
+        Document out, Element target, ItemsetBinding itemset, String sourcePath) {
+    Element dataset = findDatasetById(itemset.getDatasetId());
+    if (dataset == null) return;
+    Element rows = findDirectChild(dataset, "Rows");
+    if (rows == null) return;
+    List<Element> sourceRows = directChildren(rows, "Row");
+    if (sourceRows.isEmpty()) return;
+    // sourceRows를 읽어 <xf:choices><xf:item><xf:label/><xf:value/></xf:item>...
+    // 를 codeColumn/dataColumn 매칭으로 구성해 target에 appendChild
+}
+```
+
+**Full Unified Diff**: `analysis/git-baseline-vs-candidate-production.diff`
+참고.
+
+**Caller/Callee**: caller `applyBindings`(Radio 분기, itemset 처리
+블록 안 -- 기존 `setNodeSet()` push 직후). callee `findDatasetById`
+(신규), `findDirectChild`/`directChildren`/`appendCDataSafe`(기존 헬퍼
+재사용, 새로 만들지 않음).
+
+**Generated XML BEFORE/AFTER** (`Form/DatasetBinding.xml`의 `rdoCode`,
+source dataset `dsCode`가 리터럴 row 1개(`CD=1,NM=One`) 보유):
+```
+BEFORE: <xf:select1 appearance="full" id="rdoCode" renderType="radiogroup"
+    style="position:absolute;left:1.4%;top:55.6%;width:42.9%;height:44.4%;"/>
+AFTER:  <xf:select1 appearance="full" id="rdoCode" renderType="radiogroup"
+    style="position:absolute;left:1.4%;top:55.6%;width:42.9%;height:44.4%;">
+    <xf:choices>
+        <xf:item>
+            <xf:label><![CDATA[One]]></xf:label>
+            <xf:value><![CDATA[1]]></xf:value>
+        </xf:item>
+    </xf:choices>
+</xf:select1>
+```
+기존 런타임 `setNodeSet()` 호출은 유지(제거하지 않음) -- devpack 실측
+`l.prototype.setNodeSet`이 `unbindItemset()` 후 `setItemset()`을
+호출하는 unbind-then-rebind 구조라 정적 choices와 병행해도 안전한
+것으로 판단(analysis/radio-rendering-root-cause.md 7절).
+
+**영향 output 수**: 149-fixture corpus 중 source Dataset이 리터럴
+Rows를 가진 Radio itemset 1건(`Form/DatasetBinding.xml`)만
+`<xf:choices>` 추가, 나머지 135개 파일(직전 라운드의 renderType 반영
+상태 포함)은 byte-identical. `Form/ControlPropertyMatrix.xml`의 `rdo`
+(source에 innerdataset 자체가 없음)는 영향 없음(itemset != null 체크
+자체를 통과하지 못해 신규 코드 경로에 진입하지 않음 -- 존재하지 않는
+데이터를 만들어내지 않았다는 증거).
+
+**Regression**(현재 HEAD 기준 실제 재실행): clean compile PASS, 149/149
+conversion PASS, XML well-formed 136/136, Phase1 SHA PASS,
+btn_cm=12/wq_gvw=3/w2selectbox_disabled=4(전부 무변경), HOLD structural
+class 유출 0건(무변경). `NON_RADIO_UNEXPECTED_DIFF_COUNT = 0`.
+
+**Status**: `RADIO_ROOT_CAUSE = IDENTIFIED` / `RADIO_RENDERING =
+FIX_CANDIDATE` / `RADIO_REVERIFY_READY = YES` / `STUDIO_DESIGN_VERIFIED
+= NO`(폐쇄망 Studio 재확인 대기).

@@ -103,6 +103,9 @@ public class WebSquareGenerator {
     private String formOnloadFunction = "";
     private TabContentPlan tabContentPlan;
     private TabRuntimePlan tabRuntimePlan;
+    /** RADIO_STATIC_CHOICES_POLICY: itemset의 source Dataset이 리터럴 Rows를 갖는지 조회하기
+     * 위한 원본 XFDL 참조(read-only 조회 전용, generate() 호출마다 갱신). */
+    private Document sourceDocument;
 
     public void generate(
             File xfdlFile,
@@ -163,6 +166,7 @@ public class WebSquareGenerator {
 
         XfdlReader reader = new XfdlReader();
         Document source = reader.read(xfdlFile);
+        this.sourceDocument = source;
         bindingModel = new BindingAnalyzer().analyze(source);
         for (String warning : bindingModel.getWarnings()) System.out.println("[BINDING TODO] " + warning);
         String xfdlScript = reader.extractScript(source);
@@ -558,7 +562,7 @@ public class WebSquareGenerator {
                 logPartialComponentMapping(componentMapping, sourcePath);
                 copyBasicProperties(src, target, basisWidth, basisHeight, includePosition);
                 applyComponentSpecificProperties(src, target, sourceTag, sourcePath);
-                applyBindings(src, target, sourcePath, localId, targetId, sourceTag);
+                applyBindings(out, src, target, sourcePath, localId, targetId, sourceTag);
                 bindEvents(target, sourcePath, localId, analysis);
 
                 if ("w2:gridView".equals(targetTag)) {
@@ -949,7 +953,7 @@ public class WebSquareGenerator {
         logPartialComponentMapping(componentMapping, sourcePath);
         copyBasicProperties(src, tabControl, basisWidth, basisHeight, includePosition);
         applyComponentSpecificProperties(src, tabControl, "Tab", sourcePath);
-        applyBindings(src, tabControl, sourcePath, localId, targetId, "Tab");
+        applyBindings(out, src, tabControl, sourcePath, localId, targetId, "Tab");
         bindEvents(tabControl, sourcePath, localId, analysis);
         String tabIndex = sanitizeXml10(src.getAttribute("tabindex"));
         if (tabIndex.length() == 0) tabIndex = sanitizeXml10(src.getAttribute("index"));
@@ -1698,6 +1702,7 @@ public class WebSquareGenerator {
     }
 
     private void applyBindings(
+            Document out,
             Element src,
             Element target,
             String sourcePath,
@@ -1732,11 +1737,81 @@ public class WebSquareGenerator {
                             + jsString(itemset.getCodeColumn()) + "\");");
                     System.out.println("[ITEMSET 변환] " + sourcePath + " -> " + itemset.getDatasetId()
                             + " label=" + itemset.getDataColumn() + " value=" + itemset.getCodeColumn());
+                    if ("Radio".equals(sourceTag)) {
+                        appendStaticChoicesIfLiteralDataset(out, target, itemset, sourcePath);
+                    }
                 }
             } else {
                 System.out.println("[BINDING TODO] innerdataset 지원 대상 아님: " + sourcePath + " tag=" + sourceTag);
             }
         }
+    }
+
+    /**
+     * RADIO_STATIC_CHOICES_POLICY: 실제 devpack 배포 업무 화면(ui/BM,HM,SP/*.xml) 7/7 전수
+     * 조사 결과, xf:select1 appearance="full"(Radio)은 전부 정적 &lt;xf:choices&gt;&lt;xf:item&gt;을
+     * item 개수만큼 가진다(런타임 setNodeSet() 단독 사용 사례 0건) -- 상세:
+     * analysis/radio-rendering-root-cause.md. WebSquare Studio Design-time renderer는 page-load
+     * JS(=setNodeSet)를 실행하지 않으므로, 이 정적 구조가 없으면 item이 0개로 보여 Radio 위젯
+     * 자체가 그려지지 않는다.
+     *
+     * 이 함수는 source XPlatform Dataset이 XFDL 안에 리터럴 &lt;Rows&gt;&lt;Row&gt; 데이터를 이미
+     * 담고 있을 때만(즉 값이 conversion 시점에 이미 100% 확정돼 있을 때만) 그 값을 그대로 읽어
+     * 정적 &lt;xf:choices&gt;를 추가한다. Rows가 비어있거나 없으면(서버 io() 호출로만 채워지는
+     * 진짜 동적 dataset) 아무것도 하지 않는다 -- 존재하지 않는 값을 추측해서 만들어내지 않는다.
+     * 기존 runtime setNodeSet() 호출은 그대로 유지한다(devpack 런타임 코드 실측:
+     * l.prototype.setNodeSet은 this.modelControl.unbindItemset() 후 setItemset()을 호출하는
+     * unbind-then-rebind 구조라, 이미 정적 choices가 있는 상태에서 호출돼도 안전하게 대체된다 --
+     * 상세: analysis/radio-rendering-root-cause.md 5번). 화면명/컴포넌트 id 조건은 전혀 쓰지
+     * 않는다 -- source Dataset의 실제 리터럴 데이터 유무만으로 판단하는 generic 정책이다.
+     */
+    private void appendStaticChoicesIfLiteralDataset(
+            Document out, Element target, ItemsetBinding itemset, String sourcePath) {
+        if (sourceDocument == null) return;
+        Element dataset = findDatasetById(itemset.getDatasetId());
+        if (dataset == null) return;
+        Element rows = findDirectChild(dataset, "Rows");
+        if (rows == null) return;
+        List<Element> sourceRows = directChildren(rows, "Row");
+        if (sourceRows.isEmpty()) return;
+
+        List<Element> items = new ArrayList<Element>();
+        for (Element sourceRow : sourceRows) {
+            String label = null;
+            String value = null;
+            for (Element col : directChildren(sourceRow, "Col")) {
+                String colId = sanitizeXml10(col.getAttribute("id"));
+                if (itemset.getDataColumn().equals(colId)) label = sanitizeXml10(col.getTextContent());
+                else if (itemset.getCodeColumn().equals(colId)) value = sanitizeXml10(col.getTextContent());
+            }
+            if (label == null || value == null) continue;
+            Element item = out.createElementNS(NS_XF, "xf:item");
+            Element labelEl = out.createElementNS(NS_XF, "xf:label");
+            appendCDataSafe(out, labelEl, label);
+            Element valueEl = out.createElementNS(NS_XF, "xf:value");
+            appendCDataSafe(out, valueEl, value);
+            item.appendChild(labelEl);
+            item.appendChild(valueEl);
+            items.add(item);
+        }
+        if (items.isEmpty()) return;
+
+        Element choices = out.createElementNS(NS_XF, "xf:choices");
+        for (Element item : items) choices.appendChild(item);
+        target.appendChild(choices);
+        System.out.println("[ITEMSET 변환] " + sourcePath + " -> 정적 xf:choices " + items.size()
+                + "개 추가(source Dataset 리터럴 Rows 기반, Studio design-time 표현용)");
+    }
+
+    /** itemset.getDatasetId()가 가리키는 source &lt;Dataset&gt;/&lt;DataSet&gt; 원소를 찾는다. */
+    private Element findDatasetById(String datasetId) {
+        if (datasetId == null || datasetId.length() == 0) return null;
+        for (String tagName : new String[] {"Dataset", "DataSet"}) {
+            for (Element ds : findDescendants(sourceDocument.getDocumentElement(), tagName)) {
+                if (datasetId.equals(sanitizeXml10(ds.getAttribute("id")))) return ds;
+            }
+        }
+        return null;
     }
 
     private void finalizePageLoadBinding(Element body) {

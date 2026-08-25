@@ -94,3 +94,35 @@ RADIO_RENDERING = FIX_CANDIDATE (renderType 누락 → 추가, 7/7 devpack
   evidence 기반, generic, QName+appearance 조건, 화면별 예외 없음)
 STUDIO_DESIGN_VERIFIED = 아직 아님(폐쇄망 Studio 재확인 필요)
 ```
+
+## 후속 -- 폐쇄망 Studio 재검증 결과: renderType 단독으로는 불충분 (2026-08-25)
+
+이 문서의 결론(`renderType="radiogroup"` 추가)을 실제로 커밋(`a5403fa`)
+해서 사용자가 폐쇄망 WebSquare Studio에서 재검증했다. 결과:
+
+```
+ALL GATES = PASS(정적 regression)
+RADIO_RENDERING = STUDIO_FAILED
+renderType="radiogroup" = NO_VISIBLE_EFFECT
+```
+
+즉 이 문서가 제시한 evidence(native corpus 7/7이 renderType을 가짐)
+자체는 여전히 유효하지만(그런 값을 실제로 갖고 있다는 관찰은 사실),
+"renderType만 추가하면 Radio가 정상 렌더링된다"는 **가설은 실제
+Studio 재현으로 기각됐다.** 같은 native corpus 7/7 전수조사를 더 깊이
+반복한 결과, renderType 외에 **정적 `<xf:choices><xf:item>` 구조**가
+7/7 전부에 공통으로 있었다는 것을 이번에는 놓쳤다는 것이 확인됐다 --
+당시엔 `appearance`/`renderType` 속성값 비교에만 집중해 자식 요소
+구조까지 비교하지 못했다.
+
+실제 root cause(item 구조 부재)와 후속 fix는
+`analysis/radio-rendering-root-cause.md`에 있다. 이 문서(renderType
+evidence 자체)는 삭제하지 않고 그대로 남긴다 -- renderType이 native
+패턴의 일부라는 사실 자체는 여전히 유효하고 이번 fix에서도 유지했다
+(`RENDERTYPE_RADIOGROUP_POLICY = KEEP_BUT_INSUFFICIENT`).
+
+```
+RADIO_RENDERING(이 문서 최초 결론) = FIX_CANDIDATE -> STUDIO_FAILED로
+  실측 기각됨(2026-08-25) -> 후속 fix 이후 다시 FIX_CANDIDATE로 재판정
+  (analysis/radio-rendering-root-cause.md 12절)
+```
