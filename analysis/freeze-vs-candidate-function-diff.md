@@ -3216,3 +3216,107 @@ class 유출 0건(무변경). `NON_RADIO_UNEXPECTED_DIFF_COUNT = 0`.
 **Status**: `RADIO_ROOT_CAUSE = IDENTIFIED` / `RADIO_RENDERING =
 FIX_CANDIDATE` / `RADIO_REVERIFY_READY = YES` / `STUDIO_DESIGN_VERIFIED
 = NO`(폐쇄망 Studio 재확인 대기).
+
+---
+
+## [BindingAnalyzer] findDirectChildDataset — 신규 함수 (Radio 실제 root cause fix, 실제 STT00001.xfdl evidence)
+
+- CHANGE_TYPE: `NEW_FUNCTION` + `walk()`의 itemset 처리 분기 수정
+- 배경: 사용자가 실제 폐쇄망에서 실패한 `STT00001.xfdl` 파일을
+  직접 제공했다. 실제 `Div01_Radio00`(source `Radio00`) 원본을 보니,
+  이전 두 라운드가 가정했던 `innerdataset="dsXXX"` **attribute
+  참조** 패턴이 아니라, Radio의 **직계 자식 element**로 `<Dataset
+  id="innerdataset">`가 인라인 선언돼 있었다(`innerdataset` attribute
+  자체는 없음). `BindingAnalyzer.walk()`가 `element.getAttribute(
+  "innerdataset")`만 확인하고 자식 element는 전혀 보지 않아 이
+  Radio의 `ItemsetBinding` 자체가 생성되지 않았다 -- dcb7dfe의
+  `appendStaticChoicesIfLiteralDataset`(WebSquareGenerator)에는
+  아예 도달하지 못했다(그 함수/`findDatasetById`는 이미 경로
+  독립적으로 설계돼 있어 손댈 필요가 없었다 -- 문제는 그 이전
+  단계인 `BindingAnalyzer`뿐이었다).
+
+**BEFORE**:
+```java
+} else {
+    String inner = normalizeDataset(element.getAttribute("innerdataset"));
+    String code = element.getAttribute("codecolumn");
+    String data = element.getAttribute("datacolumn");
+    if (id.length() > 0 && inner.length() > 0) {
+        model.addItemset(new ItemsetBinding(currentPath, inner, code, data));
+        ...
+    }
+}
+```
+
+**AFTER**:
+```java
+} else {
+    String inner = normalizeDataset(element.getAttribute("innerdataset"));
+    if (inner.length() == 0) {
+        Element childDataset = findDirectChildDataset(element);
+        if (childDataset != null) inner = normalizeDataset(childDataset.getAttribute("id"));
+    }
+    String code = element.getAttribute("codecolumn");
+    String data = element.getAttribute("datacolumn");
+    if (id.length() > 0 && inner.length() > 0) {
+        model.addItemset(new ItemsetBinding(currentPath, inner, code, data));
+        ...
+    }
+}
+```
+
+**신규 함수**:
+```java
+private Element findDirectChildDataset(Element element) {
+    NodeList children = element.getChildNodes();
+    for (int i = 0; i < children.getLength(); i++) {
+        Node n = children.item(i);
+        if (n.getNodeType() != Node.ELEMENT_NODE) continue;
+        Element child = (Element) n;
+        String tag = localName(child);
+        if ("Dataset".equals(tag) || "DataSet".equals(tag)) return child;
+    }
+    return null;
+}
+```
+
+**Full Unified Diff**: `analysis/git-baseline-vs-candidate-production.diff`
+참고.
+
+**Caller/Callee**: caller `walk()`(itemset 처리 분기, `innerdataset`
+attribute가 비어있을 때만 진입). callee 없음(DOM 자식 순회만).
+`innerdataset` attribute가 있으면(기존 REFERENCED_DATASET 패턴) 이
+신규 경로는 전혀 실행되지 않는다 -- 기존 동작 100% 보존.
+
+**Generated XML BEFORE/AFTER** (실제 `STT00001.xfdl`, fixture 아님):
+```
+BEFORE: <xf:select1 appearance="full" ev:onchange="scwin.Div01_Radio00_onitemchanged"
+    id="Div01_Radio00" renderType="radiogroup" style="..." tabIndex="11" value="0"/>
+AFTER:  <xf:select1 appearance="full" ev:onchange="scwin.Div01_Radio00_onitemchanged"
+    id="Div01_Radio00" renderType="radiogroup" style="..." tabIndex="11" value="0">
+    <xf:choices>
+        <xf:item><xf:label><![CDATA[기업고객(SOHO)]]></xf:label><xf:value><![CDATA[0]]></xf:value></xf:item>
+        <xf:item><xf:label><![CDATA[개인고객(CB)]]></xf:label><xf:value><![CDATA[1]]></xf:value></xf:item>
+    </xf:choices>
+</xf:select1>
+```
+target `<xf:model>`에도 `<w2:dataList id="innerdataset">`가 리터럴
+row 2개와 함께 정상 생성되고, 런타임 `Div01_Radio00.setNodeSet(
+"data:innerdataset", "datacolumn", "codecolumn")` 호출도 이 dataList를
+정확히 가리킴을 실제 생성 결과로 확인했다.
+
+**영향 output 수**: 149-fixture corpus에는 이 패턴(inline child
+Dataset)의 fixture가 없어 corpus 전체 136개 생성 XML은
+byte-identical(diff 0) -- 이 fix의 실제 검증 증거는 corpus가 아니라
+사용자가 제공한 실제 `STT00001.xfdl` fresh conversion 결과다. 기존
+REFERENCED_DATASET 패턴(`Form/DatasetBinding.xml`의 `rdoCode`)도
+fix 전후 byte-identical(무변경 확인).
+
+**Regression**(현재 HEAD 기준 실제 재실행): clean compile PASS,
+149/149 conversion PASS, XML well-formed 136/136, Phase1 SHA PASS,
+btn_cm=12/wq_gvw=3/w2selectbox_disabled=4(전부 무변경), HOLD
+structural class 유출 0건(무변경). `NON_RADIO_UNEXPECTED_DIFF_COUNT
+= 0`.
+
+**Status**: `RADIO_STATIC_CHOICES_FIX = FIX_CANDIDATE` /
+`RADIO_STUDIO_REVERIFY_READY = YES`(폐쇄망 Studio 육안 재확인 대기).
