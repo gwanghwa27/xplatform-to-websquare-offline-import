@@ -23,6 +23,11 @@ output, 사용자 제공)을 기반으로, Studio에서 사용자가 직접 A/B 
 이 diagnostic 파일 이름/내용에만 존재하고, Production Java 코드에는 어디에도
 하드코딩하지 않았다.
 
+**Provenance(repository hygiene policy 적용, 상세: `repository-external-artifact-policy.md`)**:
+이 두 파일은 실제 업무 화면(STT00030) 데이터를 담고 있어 Git 추적 대상에서
+제외했다(`EXTERNAL_ARTIFACT`, `git rm --cached` 적용). local working copy에는
+그대로 남아 있으며, 아래 자동 비교 결과와 결론은 이 문서에 보존한다.
+
 ## 자동 비교 Gate (실행 결과)
 
 두 파일 모두 XML well-formed 확인(Python `xml.dom.minidom`):

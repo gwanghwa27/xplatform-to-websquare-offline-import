@@ -31,3 +31,17 @@ Thumbs.db
 
 # Freeze archives (참조만, 이 저장소 root에는 존재하지 않음 -- 방어적으로 유지)
 work/frozen/*.zip
+
+# External/reconstructed business evidence (actual XFDL, native WebSquare XML,
+# operating CSS copies) is never tracked. Only repository-owned synthetic
+# fixtures and build-required pipeline artifacts are exempted below.
+# 상세: analysis/repository-external-artifact-policy.md
+*.xfdl
+*.xml
+*.css
+
+!sample-phase3-project/**
+!sample-phase3-output/**
+!analysis/evidence-snapshots/**
+!audit/phase1-fixtures/**
+!.idea/*.xml

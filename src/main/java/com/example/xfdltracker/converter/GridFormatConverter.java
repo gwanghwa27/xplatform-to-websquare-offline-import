@@ -675,12 +675,7 @@ public class GridFormatConverter {
         row.appendChild(placeholder);
     }
 
-    /**
-     * GRID_COLUMN_WIDTH candidate(실험적, native evidence 없음 -- 폐쇄망 실검증 목적):
-     * {@code columnPercents}가 있으면(NORMALIZED_TO_CONTAINER) 그 span의 percent 합을
-     * 반환하고, 없으면(PIXEL_FALLBACK/UNRESOLVED) 기존 px 합산 로직을 그대로 사용한다 --
-     * columnPercents가 null인 Grid는 이 함수의 동작이 기존과 완전히 동일하다(무변경 보장).
-     */
+    /** columnPercents가 있으면 해당 span의 percent 합을, 없으면 기존 px 합산을 반환한다. */
     private String calculateCellWidth(
             List<String> widths,
             int startCol,

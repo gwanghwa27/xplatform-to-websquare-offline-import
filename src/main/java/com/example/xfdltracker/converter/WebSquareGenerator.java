@@ -238,13 +238,7 @@ public class WebSquareGenerator {
         for (int i = 0; i < datasets.size(); i++) {
             Element ds = datasets.get(i);
             if (isComponentLocalItemsetDataset(ds)) {
-                // COMPONENT_LOCAL_ITEMSET_DATASET: Radio/Combo/ListBox의 직계 자식으로 인라인
-                // 선언된 Dataset(실제 STT00001.xfdl evidence)은 그 컴포넌트 자신의 item source
-                // 전용이지, 다른 컴포넌트/script/transaction이 공유하는 업무 Dataset이 아니다.
-                // applyBindings가 이 데이터를 정적 xf:choices로 직접 변환하므로(아래), 별도
-                // w2:dataList를 만들지 않는다 -- id 문자열(예: "innerdataset")이 아니라 "부모가
-                // itemset-capable 컴포넌트인가"만으로 판정한다(다른 id를 쓰는 인라인 Dataset도
-                // 동일하게 처리되도록).
+                // Inline itemset Dataset은 applyBindings가 정적 xf:choices로 직접 변환하므로 별도 w2:dataList를 만들지 않는다.
                 System.out.println("[DATA TODO] component-local inline itemset Dataset -> "
                         + "w2:dataList 생성 생략(정적 xf:choices 전용): "
                         + sanitizeXml10(ds.getAttribute("id")));
@@ -418,49 +412,20 @@ public class WebSquareGenerator {
 
         bindFormLifecycle(body, source, analysis);
 
-        // Root container(grp_resultArea/grp_main): STUDIO_DESIGN_VERIFIED, 폐쇄망 실측 완료.
-        // 잔여 gap: V5_RUNTIME_REGRESSION_REQUIRED(xf:group의 getScope() 실제 v5 엔진 지원 여부
-        // 미검증) -- 상세: analysis/root-container-fix-chronology.md, ISSUE.md.
-        // grp_content wrapper는 이번 라운드에 제거(GLOBAL_GRP_CONTENT_XFDL_COUNT=0), 변환된
-        // Div/Layout/Grid 구조가 grp_main 바로 아래 위치. id 예약은 충돌 방지용으로 유지하되
-        // TabRuntimeScriptGenerator/XPlatformProjectConverter/registerFormRootMapping의 관련
-        // literal은 전부 grp_content -> grp_main으로 함께 이동(EXPECTED_SOURCE_TO_TARGET_MAP_DIFF).
-        // 상세: analysis/v6-design-structure-alignment-analysis.md.
-        //
-        // ROOT_PERCENT_CONTAINING_BLOCK_DEFECT fix: grp_content 제거 이후 percentage 자식들의
-        // containing block chain(body -> grp_resultArea -> grp_main -> child%) 어디에도 명시적
-        // width가 없어, 실제 폐쇄망 Studio에서 업무 영역이 좌측 좁은 영역으로 collapse함을
-        // 재현/확인(STUDIO_DESIGN_FAILED/STUDIO_DESIGN_REPRODUCED). grp_resultArea에도
-        // width:100%(구조 상수, 화면별 계산값 아님)를 명시해 체인을 끊지 않는다.
-        //
-        // GRP_RESULT_AREA_HEIGHT_SOURCE_FORM fix: height도 동일한 이유로 명시가 필요하다 --
-        // percentage height 체인이 실제로 resolve되려면 chain 최상단(grp_resultArea)부터
-        // 확정 height(auto 아님)가 있어야 한다. grp_main과 동일하게 source Form의 선언
-        // design height를 그대로 재사용한다(buildMainAreaStyle 재사용, 신규 함수 없음,
-        // 화면별 px 하드코딩 아님). position/overflow는 여전히 emit하지 않는다.
+        // grp_resultArea/grp_main이 root container. width:100%를 명시해 percentage containing block chain을 끊지 않는다.
         Element resultArea = out.createElementNS(NS_XF, "xf:group");
         resultArea.setAttribute("id", "grp_resultArea");
         resultArea.setAttribute("style", layoutConverter.buildMainAreaStyle(source));
         body.appendChild(resultArea);
 
-        // NESTED_PERCENT_HEIGHT_REINTERPRETATION fix: grp_main은 grp_resultArea(Form 선언
-        // height 고정)와 달리 실제 authored content extent를 height로 사용한다(아래
-        // buildMainContentAreaStyle -- VERTICAL_CONTAINER_PERCENT_NESTING = DISALLOWED 원칙).
-        // convertLayoutAsTable의 root Layout basisHeight 산정도 동일 값을 공유하므로(같은
-        // resolveContentExtentHeight 재사용), 여기서 emit하는 height와 그 아래 percentage
-        // 자식들의 분모가 항상 일치한다.
+        // grp_main의 height는 Form 선언값이 아니라 실제 authored content extent를 사용한다(자식 percentage 분모와 일치시키기 위함).
         Element main = out.createElementNS(NS_XF, "xf:group");
         main.setAttribute("id", "grp_main");
         main.setAttribute("style", layoutConverter.buildMainContentAreaStyle(source));
         resultArea.appendChild(main);
         registerFormRootMapping(source);
 
-        // STUDIO_DESIGN_FAILED root cause: source content가 Form 바로 아래(Layouts/Layout
-        // wrapper 없이) 있거나 최상위 Layout에 width/height가 없는 실제 업무 화면이 있다 --
-        // 초기 basis를 -1(unresolved)로 고정하면 그런 화면은 첫 Layout을 만나기 전까지(또는
-        // 영원히) 전부 PIXEL_GEOMETRY_FALLBACK으로 떨어진다. Form 자신의 선언 geometry를
-        // 초기 basis로 사용해(findFormGeometry 재사용, 화면별 하드코딩 없음), 첫 Layout을 만나면
-        // 그 Layout의 basis로 다시 갱신된다(기존 동작 그대로).
+        // 초기 basis는 Form 자신의 declared geometry(첫 Layout을 만나면 그 Layout 값으로 갱신됨).
         double[] formBasis = layoutConverter.resolveFormBasis(source);
         double initialBasisWidth = formBasis == null ? -1.0 : formBasis[0];
         double initialBasisHeight = formBasis == null ? -1.0 : formBasis[1];
@@ -485,19 +450,8 @@ public class WebSquareGenerator {
     }
 
     /**
-     * [WebSquareGenerator] convertChildren -- percent-geometry basis 파라미터 추가(basisWidth/
-     * basisHeight/includePosition). onlyChild가 null이면 sourceParent의 모든 element 자식을
-     * 순회한다. onlyChild가 non-null이면 그 특정 자식 하나만 처리한다 -- Layout -> Table 구조
-     * 변환(convertLayoutAsTable)에서 이미 row/column으로 분류된 셀 하나를 targetParent 계층 안의
-     * 정확한 위치에 배치하기 위해, 이 메서드의 나머지 로직(mapped-component 생성, container 재귀,
-     * pass-through 재귀 등)을 전혀 수정하지 않고 그대로 재사용하는 용도다.
-     *
-     * <p>basisWidth/basisHeight는 {@code PERCENT_GEOMETRY_PARENT = IMMEDIATE_SOURCE_CONTAINER}
-     * 원칙에 따라 항상 "현재 순회 중인 자식들을 감싸는 가장 가까운 XPlatform Layout 자신의
-     * width/height"다. Div/Layouts/FDL/Form 등 pass-through 재귀에서는 이 basis를 그대로
-     * 전달하고(그 경계 자체는 좌표계를 바꾸지 않음), 새 {@code Layout}을 만났을 때만
-     * (convertLayoutAsTable 내부에서) 그 Layout 자신의 geometry로 basis를 갱신한다. 둘 다 <=0
-     * 이면(sentinel -1.0) percent 변환은 시도하지 않고 px로 fallback한다.
+     * onlyChild가 null이면 모든 자식을 순회하고, non-null이면 그 자식 하나만 처리한다.
+     * basisWidth/basisHeight는 항상 가장 가까운 XPlatform Layout의 width/height이며(<=0이면 px fallback).
      */
     private void convertChildren(
             Document out,
@@ -642,17 +596,7 @@ public class WebSquareGenerator {
                                 + " -> " + targetTag + " id=" + targetId);
 
                 if (isContainerComponent(sourceTag)) {
-                    // COMPONENT_CLIPPING fix: Div/GroupBox/PopupDiv/Tab/Tabpage 같은 container의
-                    // 직계 자식이 자기 내부 Layouts/Layout으로 다시 감싸여 있지 않은 경우(예:
-                    // GroupBox가 Edit을 직접 자식으로 가짐), 그 자식들은 이 container 자신의
-                    // width/height를 기준(PERCENT_GEOMETRY_PARENT = SOURCE_IMMEDIATE_CONTAINER)
-                    // 으로 삼아야 한다 -- 이전에는 container를 감싸던 바깥 Layout의 basis를 그대로
-                    // 물려받아, container 자신보다 basis가 커서 자식이 실제보다 작게 계산되고
-                    // (Calendar/Combo 등 native 위젯의 최소 렌더링 크기보다 작아져) clipping으로
-                    // 보이는 문제가 있었다. container에 자기 width/height가 없으면(예: 위치만
-                    // 있고 크기가 없는 특수 케이스) 기존처럼 물려받은 basis를 그대로 쓴다. 자식이
-                    // 실제로 내부 Layout을 갖는 경우(Div의 일반적 구조)는 convertLayoutAsTable이
-                    // 그 Layout 자신의 geometry로 다시 basis를 갱신하므로 이 값과 무관하게 정확하다.
+                    // 내부 Layout 없이 직계 자식을 갖는 container는 자기 자신의 width/height를 자식 percentage basis로 쓴다.
                     double[] ownBasis = layoutConverter.resolveLayoutBasis(src);
                     double childBasisWidth = ownBasis != null ? ownBasis[0] : basisWidth;
                     double childBasisHeight = ownBasis != null ? ownBasis[1] : basisHeight;
@@ -706,70 +650,9 @@ public class WebSquareGenerator {
     }
 
     /**
-     * XPlatform {@code Layout} 직계 자식들이 table topology({@code TABLE_LAYOUT_HIGH_CONFIDENCE})
-     * 로 판정되는 경우 row/column {@code xf:group} 구조를 생성한다. 겹침 등으로 계산이 불가능한
-     * 경우({@code ABSOLUTE_LAYOUT_FALLBACK}/{@code UNRESOLVED_LAYOUT})만 flat pass-through로
-     * 처리한다({@code Layout} 자체는 target element 없이 targetParent 아래 자식들을 직접 배치).
-     * v6 Design Structure + Table + Grid Group + Percentage Geometry Alignment 라운드부터는
-     * 1-row/1-column Layout(검색조건/버튼 바 등)도 table 대상이다(14번 규칙, 이전 라운드의
-     * row&gt;=2/column&gt;=2 요건 제거).
-     *
-     * <p>row/column wrapper는 XPlatform source component가 아니므로 componentIdMap에 새 키를
-     * 추가하지 않는다({@code usedTargetIds} 등록(충돌 방지)만 발생 -- grp_resultArea/grp_main과
-     * 동일한 원칙). 실제 셀 안의 컴포넌트는 원래 sourcePath({@code parentPath} 그대로)를
-     * 유지하며, {@link #convertChildren}의 mapped-component 처리 로직을 완전히 무수정으로
-     * 재사용한다(onlyChild 필터).
-     *
-     * <p>이 Layout 자신의 width/height가 이 Layout 직계 자식 전체(및 fallback 경로의 하위
-     * 재귀)의 percent 기준(basis)이 된다({@code PERCENT_GEOMETRY_PARENT =
-     * IMMEDIATE_SOURCE_CONTAINER}). row wrapper의 height%/cell wrapper의 width%도 동일 basis로
-     * 계산한다(19번 규칙 -- source 비율 실측, 균등분할 금지). row/cell 내부 실제 component는
-     * structural placement로 위치가 이미 결정되므로 left/top/position은 생성하지 않는다
-     * (includePosition=false, 20번 규칙).
-     *
-     * <p>12번 규칙: Table 판단 대상은 Div 내부 Layout이 핵심이며, Form root Layout 전체는 Table
-     * 대상이 아니다({@code parentPath}가 비어 있으면 -- 즉 아직 어떤 Div/container도 거치지 않은
-     * 최상위 Form Layout이면 -- classification과 무관하게 강제로 flat pass-through). 목표
-     * hierarchy(6번 규칙)가 {@code grp_main} 바로 아래 Div Group/Grid Group이 직접 나타나는
-     * 것이기 때문에, root Layout 자체를 1-column table로 감싸면 불필요한 추가 wrapper 계층이
-     * 생겨 이 목표와 어긋난다. Div 내부에서 다시 Layout을 만나면(parentPath가 그 Div의
-     * sourcePath로 비어있지 않음) 정상적으로 Table 판정 대상이 된다.
-     *
-     * <p>NATIVE_LAYOUT_CONTAINER_SEMANTIC fix(Root Percentage Containing Block Width Fix 후속
-     * 라운드): 실제 폐쇄망 v6 정상 화면(BCI01M0000) source 영상 직접 판독 evidence(
-     * {@code analysis/evidence-snapshots/native-layout-container-semantic/v6-video-source-analysis.md})
-     * 에서 {@code tagname="table" class="w2tb_tb"} > {@code tagname="tr"}(class 없음) >
-     * {@code tagname="td" class="w2tb_td"} 구조가 100% 대응으로 관측됐다(th/td 판정용
-     * 신뢰 가능한 source 신호는 없어 th는 적용하지 않음 -- 아래 참고). 이 tagname/class는
-     * WebSquare 렌더러가 실제 HTML {@code <table>/<tr>/<td>}로 렌더링하는 구조적 신호이며
-     * (skin 목적의 CSS class가 아님), 기존에 이미 구현되어 있던 row/column {@code xf:group}
-     * 구조(TABLE_LAYOUT_HIGH_CONFIDENCE)에 그대로 부여 가능하다 -- 아래 3곳(table wrapper 신규
-     * 생성/row/cell)에서만 속성을 추가하며, row/cell의 위치·크기 계산(percentage geometry)
-     * 로직은 전혀 건드리지 않는다. th(header) vs td(data) 구분은 이 corpus의 실제
-     * TABLE_LAYOUT_HIGH_CONFIDENCE 사례 중 label/input 쌍이 아닌 경우(예: 단일 Tab 컴포넌트를
-     * 담은 cell)가 존재해 안전하게 일반화할 수 없으므로(evidence 부족), 모든 cell을 동일하게
-     * {@code td}/{@code w2tb_td}로만 표시한다(th는 미적용, UNRESOLVED로 유지).
-     *
-     * <p>XPLATFORM_VISUAL_PARITY(Quick Fix) 라운드: 실제 폐쇄망 Studio 재현에서 Table 변환이
-     * container child뿐 아니라 leaf-only Layout(Button 2개가 나란한 검색조건 바 등)에도
-     * 적용되면서 균등폭 강제 분할/Calendar·Combo 비노출 등 광범위한 렌더링 실패가 재현됐다
-     * ({@code GENERAL_LAYOUT_TABLE_HEURISTIC = PAUSED_FOR_VISUAL_PARITY}). 이전 라운드의
-     * container-only 예외({@link #hasContainerChild})로는 leaf-only 케이스를 못 막으므로,
-     * 이번 라운드는 root가 아닌 모든 Layout을 일괄적으로 table 미변환(절대좌표 pass-through)
-     * 대상으로 둔다. table 생성 코드 자체는 삭제하지 않고 아래 {@code PAUSED} 상수로만
-     * 우회한다(원복 시 상수만 되돌리면 됨).
-     *
-     * <p>NESTED_VERTICAL_PERCENT_DOUBLE_SCALING fix: 이 Layout 자신에게 width/height가 없으면
-     * (드물지 않은 실제 XFDL 패턴 -- Div가 자식을 감싸는 내부 Layout에 크기를 따로 선언하지
-     * 않는 경우) 예전에는 곧바로 Form 전체 크기로 fallback했다. Div 내부에 중첩된 Layout이면
-     * 이는 "root(Form) 기준" basis를 쓰는 것과 같아, 그 Div 자신은 이미 부모 대비 올바른
-     * 비율(예: 5.3%)로 배치돼 있는데 그 안의 자식은 Div가 아니라 Form 전체를 기준으로 다시
-     * 계산되어(예: 3.8%) 실제 렌더링에서 두 비율이 곱해진 것처럼 극단적으로 축소되는 현상이
-     * 재현됐다. 이제는 Form까지 건너뛰지 않고, 호출자(convertChildren)가 이미 올바르게
-     * 계산해 둔 {@code inheritedBasisWidth}/{@code inheritedBasisHeight}(이 Layout을 실제로
-     * 감싸고 있는 가장 가까운 container의 크기)를 우선 사용한다. 호출자 basis도 없는
-     * 경우(최상위 Form Layout 자신에게도 width/height가 없는 극단적 케이스)에만 Form 자신의
-     * 선언 geometry로 최종 fallback한다.
+     * Table topology 판정 시 row/column {@code xf:group}을 생성하고, 판정 불가/paused 상태면
+     * 절대좌표 flat pass-through로 처리한다. Form root Layout은 판정과 무관하게 항상 pass-through.
+     * percent 기준(basis)은 항상 가장 가까운 감싸는 container의 크기이며 Form 전체로 건너뛰지 않는다.
      */
     private static final boolean GENERAL_LAYOUT_TABLE_HEURISTIC_PAUSED = true;
 
@@ -792,11 +675,7 @@ public class WebSquareGenerator {
             classification = "GENERAL_LAYOUT_TABLE_HEURISTIC_PAUSED_FOR_VISUAL_PARITY";
         } else {
             classification = layoutConverter.classifyLayoutGeometry(children);
-            // XPLATFORM_VISUAL_PARITY 라운드: Div/GroupBox/PopupDiv/Tab/Tabpage처럼 그 자체로
-            // 독립된 좌표계를 가진 container child는 table row/cell 구조(structural placement,
-            // position 제거)로 병합하지 않는다(TABLE_CONVERSION_SEMANTIC_MISMATCH). 현재는
-            // 위 PAUSED 분기가 우선하므로 이 판정은 실행되지 않지만, heuristic을 다시 켜는
-            // 경우를 위해 로직은 보존한다.
+            // 독립된 좌표계를 가진 container child는 table row/cell로 병합하지 않는다(PAUSED 분기가 우선하므로 현재는 미실행).
             if ("TABLE_LAYOUT_HIGH_CONFIDENCE".equals(classification) && hasContainerChild(children)) {
                 classification = "TABLE_CONVERSION_SEMANTIC_MISMATCH";
             }
@@ -816,14 +695,7 @@ public class WebSquareGenerator {
         }
         double basisWidth = basis == null ? -1.0 : basis[0];
         double basisHeight = basis == null ? -1.0 : basis[1];
-        // NESTED_PERCENT_HEIGHT_REINTERPRETATION fix: 최상위 Form Layout은 grp_main의 height를
-        // 더 이상 Form 선언 height 그대로 쓰지 않고 실제 authored content extent(children의
-        // max(top+height))로 산정한다(appendBody의 grp_main style도 동일 값을 사용 --
-        // resolveContentExtentHeight 하나만 공유). children의 percentage basis도 반드시 이
-        // 값과 일치해야 grp_main의 실제 렌더링 height와 percentage 분모가 어긋나지 않는다
-        // (width는 이번 라운드 범위 밖이라 basisWidth는 무변경). content extent가 기존
-        // basisHeight보다 작을 때만 축소 적용한다(더 크게 만들지 않음 -- SOURCE_INTENTIONAL_
-        // OVERFLOW 케이스를 억지로 줄이지 않기 위함).
+        // Root Form Layout의 basisHeight는 authored content extent로 축소 보정한다(더 크게는 만들지 않음), grp_main style과 값을 공유.
         if (isRootFormLayout) {
             double contentExtentHeight = layoutConverter.resolveContentExtentHeight(children);
             if (contentExtentHeight > 0.0 && (basisHeight <= 0.0 || contentExtentHeight < basisHeight)) {
@@ -868,15 +740,7 @@ public class WebSquareGenerator {
             }
             tableWrapper.appendChild(rowGroup);
 
-            // NESTED_PERCENT_DOUBLE_SCALING fix: cell 내부 컴포넌트의 percentage는 원래
-            // Div/Layout basis(basisWidth/basisHeight)가 아니라, 그 컴포넌트를 담기 위해 이미
-            // 그 컴포넌트 자신의 geometry로 계산된 cell/row 자신의 크기(px)를 기준으로 다시
-            // 계산해야 한다 -- 그렇지 않으면 "cell width% (basis 기준) x child width% (같은
-            // basis 기준)"이 이중으로 곱해져 실제 렌더링 폭/높이가 제곱으로 축소된다(실제 폐쇄망
-            // Studio 재현: cell width:6.0345%, child width:6.0345% -> 렌더링 실효 폭 약 0.36%).
-            // resolveRowBasisHeight/resolveCellBasisWidth는 buildTableRowStyle/
-            // buildTableCellStyle과 완전히 동일한 px 계산을 재사용하므로, 계산 불가 시 null을
-            // 반환한 케이스와도 항상 일관된다.
+            // cell 내부 컴포넌트의 percentage basis는 원래 Div/Layout basis가 아니라 cell/row 자신의 px 크기여야 한다(이중 scaling 방지).
             double rowBasisHeightPx = layoutConverter.resolveRowBasisHeight(row);
 
             int colIndex = 0;
@@ -1299,12 +1163,8 @@ public class WebSquareGenerator {
     }
 
     /**
-     * [WebSquareGenerator] copyBasicProperties -- 신규 오버로드. PERCENT_GEOMETRY_PARENT =
-     * IMMEDIATE_SOURCE_CONTAINER 원칙에 따라 basisWidth/basisHeight(둘 다 양수일 때만 유효)가
-     * 있으면 percentage style을 우선 시도하고, 계산 불가(PERCENT_GEOMETRY_UNRESOLVED)면 px로
-     * fallback한다(PIXEL_GEOMETRY_FALLBACK). includePosition=false면 Table 셀 내부처럼 structural
-     * placement가 이미 위치를 결정하는 경우로, percent/px 어느 경로든 position/left/top을 생성하지
-     * 않는다(20번 규칙).
+     * basisWidth/basisHeight가 둘 다 양수면 percentage style을, 아니면 px style을 적용한다.
+     * includePosition=false면 위치가 이미 structural placement로 결정된 것이므로 position/left/top을 생성하지 않는다.
      */
     private void copyBasicProperties(
             Element src, Element target, double basisWidth, double basisHeight, boolean includePosition) {
@@ -1313,19 +1173,14 @@ public class WebSquareGenerator {
             text = sanitizeXml10(src.getAttribute("value"));
         }
         if (text.length() > 0) {
-            // 실제 엔진은 정적 "value"를 xf:trigger에서만 렌더링 -- data 위젯은 전용 속성 필요:
-            // w2:span -> label, xf:input -> initValue. 그 외 태그는 "value" 유지(xf:trigger는
-            // 정상 렌더링, textarea/calendar/progressbar는 static-value 속성 자체가 없어 범위 밖).
+            // 정적 "value"는 xf:trigger에서만 렌더링되므로 data 위젯은 전용 속성으로 옮긴다(w2:span→label, xf:input→initValue).
             String targetTag = target.getTagName();
             if ("w2:span".equals(targetTag)) {
                 target.setAttribute("label", text);
             } else if ("xf:input".equals(targetTag)) {
                 target.setAttribute("initValue", text);
             } else if ("w2:checkbox".equals(targetTag)) {
-                // 실제 w2:checkbox는 정적 value/label 속성을 렌더링하지 않고 빈 shell만 생성 --
-                // 실제 input/label은 addItem(value,label) API 호출로만 생성됨(엔진 실측 확인).
-                // 선언적 XML 대안이 없어 page-init bootstrap(BIND-1 setRowPosition과 동일 채널)
-                // 으로 addItem 호출을 내보낸다. XPlatform "value"->item value, "text"->label.
+                // w2:checkbox는 정적 value/label을 렌더링하지 않으므로 page-init addItem() 호출로 대체한다.
                 String checkboxValue = sanitizeXml10(src.getAttribute("value"));
                 if (checkboxValue.length() == 0) checkboxValue = text;
                 String targetId = target.getAttribute("id");
@@ -1372,21 +1227,14 @@ public class WebSquareGenerator {
         copyAttributeIfPresent(src, target, "displaynulltext", "placeholder");
         copyAttributeIfPresent(src, target, "maxlength", "maxLength");
 
-        // WebSquare AI v6 실제 폐쇄망 정상 화면(BCI01M0000) XML source 영상 직접 판독 evidence
-        // 기반 base class (component type과 1:1 대응, 이번 화면 내 예외 0건 -- 상세:
-        // analysis/v6-video-source-analysis.md). cssclass로 이미 설정된 class(위 줄)와 병합하고
-        // 중복 토큰은 추가하지 않는다. 다른 target QName에는 아무 영향 없음.
+        // Base class는 target component type과 1:1 대응. cssclass로 이미 설정된 class와 병합(중복 토큰 없음).
         String videoBaseClass = resolveVideoEvidenceBaseClass(target.getTagName());
         if (videoBaseClass != null) {
             appendClassTokenIfAbsent(target, videoBaseClass);
         }
     }
 
-    /**
-     * v6 실제 폐쇄망 화면 영상 판독으로 확인된, component type만으로 결정되는 base class.
-     * 다른 QName은 이번 evidence로 확정 근거가 없어 매핑하지 않는다(UNRESOLVED) --
-     * analysis/v6-class-profile.md 참고.
-     */
+    /** Component type만으로 결정되는 고정 base class. 근거 없는 QName은 매핑하지 않는다(null). */
     private String resolveVideoEvidenceBaseClass(String targetTag) {
         if ("xf:trigger".equals(targetTag)) {
             return "btn_cm";
@@ -1398,15 +1246,8 @@ public class WebSquareGenerator {
     }
 
     /**
-     * TARGET_STATE_CLASS_POLICY: v6 실제 폐쇄망 화면 영상 판독으로 확인된, target QName(+구분이
-     * 필요한 경우 appearance 같은 보조 attribute)만으로 결정되는 고정 disabledClass 값
-     * (component-intrinsic 값 -- 개별 인스턴스의 실제 disabled/enable state와 무관하게 항상
-     * 선언됨, {@link #resolveVideoEvidenceBaseClass}와 같은 evidence 출처 및 원칙을 공유하는
-     * 자매 policy 함수). 관측된 xf:select1(appearance=minimal) 3/3 전부 disabledClass=
-     * "w2selectbox_disabled"를 가짐 -- 상세: analysis/v6-video-source-analysis.md. Radio
-     * (appearance=full)는 이번 evidence에 없어 매핑하지 않는다(HOLD_INSUFFICIENT_EVIDENCE, null
-     * 반환). 다른 target QName/appearance 조합도 evidence가 없으면 null(호출부가 attribute를
-     * emit하지 않음).
+     * target QName(+appearance)만으로 결정되는 고정 disabledClass 값(instance state와 무관하게 항상 선언).
+     * 근거 없는 조합은 null(호출부가 attribute를 emit하지 않음).
      */
     private String resolveVideoEvidenceDisabledClass(String targetTag, String appearance) {
         if ("xf:select1".equals(targetTag) && "minimal".equals(appearance)) {
@@ -1431,18 +1272,7 @@ public class WebSquareGenerator {
         target.setAttribute("class", existing + " " + token);
     }
 
-    /**
-     * TARGET_RENDER_TYPE_POLICY: 실제 폐쇄망 devpack에 배포된 업무 화면(websquare-devpack-copy/
-     * tomcat/webapps/ROOT/ui/BM,HM,SP/*.xml, XPlatform 변환물이 아닌 순수 v6 native 화면) 전수
-     * 조사 결과, xf:select1 appearance="full"(Radio 계열)은 7/7(100%) 전부 renderType=
-     * "radiogroup"을 가짐(예외 0건) -- 상세: analysis/radio-rendertype-evidence.md. 이
-     * attribute가 없으면 실제 WebSquare 엔진이 select1을 item 단위 radio-button-group으로
-     * 렌더링하지 않는다(Combo의 dropdown shell과 달리 radio는 각 item이 렌더링 단위라, item이
-     * 없거나 renderType이 없으면 위젯 자체가 그려지지 않는 것으로 추정 -- 실제 Studio
-     * design-time 재현은 폐쇄망에서 사용자가 최종 확인). appearance="minimal"(Combo)은 같은
-     * corpus에서 renderType이 47건 중 3건(6%)만 명시적이고 나머지는 생략돼도 실사용에
-     * 문제없어 보이므로 매핑하지 않는다(evidence 부족, HOLD).
-     */
+    /** xf:select1 appearance="full"(Radio)에만 renderType="radiogroup"을 부여한다. minimal(Combo)은 HOLD. */
     private String resolveTargetRenderType(String targetTag, String appearance) {
         if ("xf:select1".equals(targetTag) && "full".equals(appearance)) {
             return "radiogroup";
@@ -1647,13 +1477,7 @@ public class WebSquareGenerator {
         return found;
     }
 
-    /**
-     * [WebSquareGenerator] registerFormRootMapping -- EXPECTED_SOURCE_TO_TARGET_MAP_DIFF: global
-     * grp_content wrapper 제거에 맞춰 Form root mapping을 grp_content에서 grp_main으로
-     * migration했다(다른 component mapping은 무변경). TabRuntimeScriptGenerator의
-     * component('grp_main').getScope()/w.grp_main도 동일 id로 함께 변경됨(id-string 기반 lookup
-     * 방식 자체는 무변경).
-     */
+    /** Form root를 componentIdMap에서 grp_main으로 등록한다(lifecycle 객체 lookup 호환용). */
     private void registerFormRootMapping(Document source) {
         List<Element> forms = findDescendants(source.getDocumentElement(), "Form");
         if (forms.isEmpty()) return;
@@ -1747,9 +1571,7 @@ public class WebSquareGenerator {
                     Element itemsetDataset = findDatasetById(itemset.getDatasetId());
                     boolean inlineDataset = isComponentLocalItemsetDataset(itemsetDataset);
                     if (!inlineDataset) {
-                        // TYPE B(referenced Dataset): 기존 동작 그대로 -- 다른 컴포넌트/script/
-                        // transaction이 같은 Dataset을 쓸 수 있으므로 w2:dataList/runtime
-                        // setNodeSet()을 그대로 유지한다.
+                        // TYPE B(referenced Dataset): 다른 컴포넌트가 공유할 수 있으므로 w2:dataList/setNodeSet을 유지한다.
                         pageLoadStatements.add(targetId + ".setNodeSet(\"data:"
                                 + jsString(itemset.getDatasetId()) + "\", \""
                                 + jsString(itemset.getDataColumn()) + "\", \""
@@ -1757,19 +1579,12 @@ public class WebSquareGenerator {
                         System.out.println("[ITEMSET 변환] " + sourcePath + " -> " + itemset.getDatasetId()
                                 + " label=" + itemset.getDataColumn() + " value=" + itemset.getCodeColumn());
                     } else {
-                        // TYPE A(component-local inline Dataset): 위 appendDatasets에서 이미
-                        // w2:dataList를 만들지 않으므로, 존재하지 않는 dataList를 가리키는
-                        // setNodeSet() 호출도 만들지 않는다 -- 정적 xf:choices가 유일한 item
-                        // source가 된다(아래).
+                        // TYPE A(inline Dataset): w2:dataList가 없으므로 setNodeSet도 만들지 않는다. 정적 xf:choices가 유일한 item source.
                         System.out.println("[ITEMSET 변환] " + sourcePath + " -> " + itemset.getDatasetId()
                                 + " (component-local inline dataset, 정적 xf:choices만 사용, "
                                 + "런타임 setNodeSet/w2:dataList 생성 안 함)");
                     }
-                    // "Radio".equals(sourceTag): 실제 devpack evidence(7/7)로 확인된 기존 정책
-                    // (REFERENCED Dataset이라도 Radio는 정적 choices가 필요, 아래 함수 Javadoc
-                    // 참고). inlineDataset: TYPE A는 setNodeSet을 만들지 않았으므로 sourceTag와
-                    // 무관하게(Combo/ListBox 포함) 정적 choices가 유일한 item source여야 한다 --
-                    // 그렇지 않으면 item이 완전히 비게 되는 회귀가 생긴다.
+                    // Radio는 항상, TYPE A는 sourceTag와 무관하게 정적 choices가 필요하다(둘 다 없으면 item이 비게 됨).
                     if ("Radio".equals(sourceTag) || inlineDataset) {
                         appendStaticChoicesIfLiteralDataset(out, target, itemsetDataset, itemset, sourcePath);
                     }
@@ -1781,12 +1596,8 @@ public class WebSquareGenerator {
     }
 
     /**
-     * TYPE_A_INLINE_DATASET_POLICY: Dataset의 직계 부모가 itemset-capable 컴포넌트
-     * (Radio/Combo/ListBox)이면 그 컴포넌트 자신만을 위한 인라인 item source(TYPE A)로
-     * 판정한다(실제 STT00001.xfdl evidence: Radio 직계 자식 &lt;Dataset id="innerdataset"&gt;).
-     * Dataset 자신의 id 문자열(예: "innerdataset")은 판정 근거로 쓰지 않는다 -- 다른 id를 쓰는
-     * 인라인 Dataset도 동일하게 처리되어야 하고, 반대로 우연히 id가 "innerdataset"인 Objects
-     * 레벨 참조 Dataset(TYPE B)이 있다면 그것은 부모가 컴포넌트가 아니므로 여기 해당하지 않는다.
+     * Dataset의 직계 부모가 itemset-capable 컴포넌트(Radio/Combo/ListBox)면 TYPE A(inline)로 판정한다.
+     * id 문자열은 판정 근거로 쓰지 않는다 -- 부모 tag만으로 판정한다.
      */
     private boolean isComponentLocalItemsetDataset(Element dataset) {
         if (dataset == null) return false;
@@ -1797,26 +1608,8 @@ public class WebSquareGenerator {
     }
 
     /**
-     * RADIO_STATIC_CHOICES_POLICY: 실제 devpack 배포 업무 화면(ui/BM,HM,SP/*.xml) 7/7 전수
-     * 조사 결과, xf:select1 appearance="full"(Radio)은 전부 정적 &lt;xf:choices&gt;&lt;xf:item&gt;을
-     * item 개수만큼 가진다(런타임 setNodeSet() 단독 사용 사례 0건) -- 상세:
-     * analysis/radio-rendering-root-cause.md. WebSquare Studio Design-time renderer는 page-load
-     * JS(=setNodeSet)를 실행하지 않으므로, 이 정적 구조가 없으면 item이 0개로 보여 Radio 위젯
-     * 자체가 그려지지 않는다.
-     *
-     * 이 함수는 source XPlatform Dataset이 XFDL 안에 리터럴 &lt;Rows&gt;&lt;Row&gt; 데이터를 이미
-     * 담고 있을 때만(즉 값이 conversion 시점에 이미 100% 확정돼 있을 때만) 그 값을 그대로 읽어
-     * 정적 &lt;xf:choices&gt;를 추가한다. Rows가 비어있거나 없으면(서버 io() 호출로만 채워지는
-     * 진짜 동적 dataset) 아무것도 하지 않는다 -- 존재하지 않는 값을 추측해서 만들어내지 않는다.
-     * REFERENCED(TYPE B) Dataset에는 기존 runtime setNodeSet() 호출을 그대로 유지한다(devpack
-     * 런타임 코드 실측: l.prototype.setNodeSet은 this.modelControl.unbindItemset() 후
-     * setItemset()을 호출하는 unbind-then-rebind 구조라, 이미 정적 choices가 있는 상태에서
-     * 호출돼도 안전하게 대체된다 -- 상세: analysis/radio-rendering-root-cause.md 5번).
-     * INLINE(TYPE A) Dataset은 caller(applyBindings)가 이미 setNodeSet()도 w2:dataList도 만들지
-     * 않으므로 이 정적 choices가 유일한 item source다. 화면명/컴포넌트 id 조건은 전혀 쓰지
-     * 않는다 -- source Dataset의 실제 리터럴 데이터 유무만으로 판단하는 generic 정책이다.
-     * dataset은 caller가 이미 findDatasetById로 조회해 넘긴다(TYPE A/B 판정에도 같은 Element가
-     * 필요해 caller가 한 번만 조회하도록 함수를 분리했다).
+     * source Dataset이 리터럴 &lt;Rows&gt;&lt;Row&gt; 데이터를 가질 때만 정적 &lt;xf:choices&gt;를 추가한다(동적 dataset은 건드리지 않음).
+     * Radio는 Studio design-time에 이 구조가 없으면 item이 렌더링되지 않는다.
      */
     private void appendStaticChoicesIfLiteralDataset(
             Document out, Element target, Element dataset, ItemsetBinding itemset, String sourcePath) {

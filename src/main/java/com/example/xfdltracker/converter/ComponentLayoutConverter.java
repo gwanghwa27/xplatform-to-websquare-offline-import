@@ -94,9 +94,7 @@ public class ComponentLayoutConverter {
      */
     public String buildRootStyle(Document source) {
         StringBuilder style = new StringBuilder();
-        // position:relative/overflow:hidden 미emit -- Studio 실측 확정(ISSUE-20260818-001).
-        // 현재 이 메서드의 호출부는 없음(v6 Design Structure 라운드에서 grp_content 제거로 dead
-        // code화, 정리는 NEXT_ROUND_CANDIDATE).
+        // position:relative/overflow:hidden은 emit하지 않는다.
 
         Geometry geometry = findFormGeometry(source);
         if (geometry != null) {
@@ -113,13 +111,7 @@ public class ComponentLayoutConverter {
         return style.toString();
     }
 
-    /**
-     * percentage geometry 값을 소수점 둘째 자리에서 일반 반올림해 소수점 첫째 자리까지
-     * "N.N%" 형태로 포맷한다(XPLATFORM_VISUAL_PARITY 라운드, PERCENT_ROUNDING =
-     * ONE_DECIMAL_PLACE -- 기존 NEAREST_0.5_PERCENT 규칙 폐기). fixture별 예외 없이 모든
-     * Production percentage output에 동일 규칙을 적용한다.
-     * 예: 4.2105% -&gt; 4.2%, 6.27% -&gt; 6.3%, 98.7069% -&gt; 98.7%.
-     */
+    /** percentage 값을 소수점 첫째 자리까지 반올림해 "N.N%"로 포맷한다(예: 4.2105% -&gt; 4.2%). */
     public String formatPercent(double value) {
         return java.math.BigDecimal.valueOf(value)
                 .setScale(1, java.math.RoundingMode.HALF_UP)
@@ -147,16 +139,8 @@ public class ComponentLayoutConverter {
     }
 
     /**
-     * STT00030 계열 실제 업무 화면 Studio 실패(STUDIO_DESIGN_FAILED) root cause fix: XPlatform
-     * source는 component가 {@code Form} 바로 아래(Layouts/Layout wrapper 없이) 있거나, 최상위
-     * {@code Layout} 자신에 width/height가 없는 경우가 실존한다 -- 이 경우 {@link
-     * #resolveLayoutBasis}가 첫 {@code Layout}을 만날 때까지(또는 영원히) basis를 못 얻어
-     * 전체 화면이 PIXEL_GEOMETRY_FALLBACK으로 떨어지며, 그 px 좌표가 grp_content(이번 라운드
-     * 이전까지 존재하던, 폭 자체를 px로 고정해주던 wrapper) 없이 렌더링돼 Design/Preview에서
-     * 좌측 상단 좁은 영역으로 collapse한다({@code SOURCE_PIXEL_GEOMETRY_REMAINS_IN_GENERATED_
-     * STRUCTURE}). {@code findFormGeometry}(기존, {@link #buildMainAreaStyle}이 재사용 중인
-     * Form-우선/Layout-차선 fallback)를 재사용해 Form 전체를 초기/최후 basis로 제공한다 --
-     * 특정 화면의 width/height를 하드코딩하지 않고, Form 자신의 실제 선언값만 사용한다.
+     * Form 바로 아래 Layout wrapper가 없거나 최상위 Layout에 크기가 없을 때의 fallback basis.
+     * Form 자신의 선언 geometry만 사용한다(화면별 하드코딩 없음).
      */
     public double[] resolveFormBasis(Document source) {
         Geometry g = findFormGeometry(source);
@@ -300,21 +284,8 @@ public class ComponentLayoutConverter {
     }
 
     /**
-     * XPlatform {@code Layout} 직계 자식들의 geometry(left/top/width/height)만으로 table topology
-     * 변환 가능 여부를 generic하게 판정한다. Magic pixel tolerance는 사용하지 않는다 -- 정확히
-     * 동일한 top 좌표값을 가진 자식만 같은 row로 묶는다(exact numeric equality).
-     *
-     * <p>v6 Design Structure + Table + Grid Group + Percentage Geometry Alignment 라운드에서
-     * 판정 기준을 완화했다: row 수/column 수가 2 미만이거나(1-row/1-column) row마다 column 수가
-     * 다르더라도(완전한 사각 grid가 아니더라도) 그 자체를 fallback 사유로 쓰지 않는다(row/column
-     * clustering이 곧 table topology이며, {@link #buildTableRows}가 row별로 실제 존재하는 셀만
-     * 배치하므로 임의 span을 만들지 않는다). fallback은 오직: 자식 geometry를 확정적으로 읽을 수
-     * 없을 때({@code UNRESOLVED_LAYOUT}), 자식이 없을 때({@code UNRESOLVED_LAYOUT}), 자식끼리
-     * 실제로 겹칠 때({@code ABSOLUTE_LAYOUT_FALLBACK} -- topology 계산 자체가 불가능/불안전)만
-     * 발생한다.
-     *
-     * <p>반환값은 다음 3개 문자열 중 하나: {@code TABLE_LAYOUT_HIGH_CONFIDENCE},
-     * {@code ABSOLUTE_LAYOUT_FALLBACK}, {@code UNRESOLVED_LAYOUT}.
+     * 자식 geometry만으로 table topology 판정: 동일 top 좌표(exact equality)만 같은 row로 묶는다.
+     * geometry 미확정/자식 없음은 UNRESOLVED_LAYOUT, 겹침은 ABSOLUTE_LAYOUT_FALLBACK, 그 외 TABLE_LAYOUT_HIGH_CONFIDENCE.
      */
     public String classifyLayoutGeometry(List<Element> children) {
         List<CellGeometry> cells = resolveCellGeometries(children);
@@ -426,18 +397,8 @@ public class ComponentLayoutConverter {
     }
 
     /**
-     * WebSquare AI v6 grp_main wrapper(V6_STRUCTURE_PARTIAL_ALIGNMENT)의 style을 생성한다.
-     * buildRootStyle과 동일한 geometry resolution(findFormGeometry)을 재사용하며, 유효한 양수
-     * height를 얻은 경우에만 height를 추가로 반환한다(position/overflow는 절대 emit하지 않음).
-     *
-     * <p>ROOT_PERCENT_CONTAINING_BLOCK_DEFECT fix: 이전까지는 height-only(width 미emit)였다
-     * (단일 real v6 화면 관찰 기반, universal rule로 검증된 적 없다고 자체 명시돼 있었음). 그
-     * 관찰은 global {@code grp_content}(px width/height를 가진 compatibility wrapper)가 아직
-     * 존재하던 시점의 것이다 -- {@code grp_content} 제거 이후에는 {@code grp_main} 직계 자식들이
-     * 전부 percentage width로 바뀌었고, 실제 폐쇄망 Studio 재현(STUDIO_DESIGN_FAILED,
-     * STUDIO_DESIGN_REPRODUCED -- 업무 영역이 좌측 좁은 영역에 collapse)으로 percentage 자식이
-     * 참조할 containing block에 명시적 width가 반드시 필요함이 확인됐다. {@code width:100%;}는
-     * source geometry에서 계산한 값이 아니라 구조적 상수이므로 특정 화면 px 하드코딩이 아니다.
+     * grp_resultArea의 style을 생성한다. width:100%는 percentage 자식의 containing block을 위한 구조적 상수(화면별 계산값 아님).
+     * 유효한 양수 height가 있으면 추가로 반환한다(position/overflow는 emit하지 않음).
      */
     public String buildMainAreaStyle(Document source) {
         StringBuilder style = new StringBuilder();
@@ -457,32 +418,8 @@ public class ComponentLayoutConverter {
     }
 
     /**
-     * grp_main의 style을 생성한다. NESTED_PERCENT_HEIGHT_REINTERPRETATION 라운드: grp_main은
-     * grp_resultArea(Form 선언 height 그대로, {@link #buildMainAreaStyle})와 달리 Form 선언
-     * height를 그대로 물려받지 않고, 실제 authored content extent({@link
-     * #resolveContentExtentHeight(Document)} -- 최상위 Layout 직계 자식들의 max(top+height))를
-     * 우선 사용한다(VERTICAL_CONTAINER_PERCENT_NESTING = DISALLOWED 원칙 -- root 기준 고정값을
-     * 하위로 그대로 반복 적용하지 않는다). content extent를 계산할 수 없으면(최상위 Layout을
-     * 못 찾거나 자식 geometry를 읽을 수 없는 경우) 기존 {@link #buildMainAreaStyle}(Form 선언
-     * height 기반)로 fallback한다(신규 fallback 로직 없이 기존 함수 재사용).
-     *
-     * <p>ACTUAL_CSS_CONTAINING_BLOCK fix: grp_main 직계 자식(top-level absolute percentage
-     * component)의 percentage 분모는 이 함수의 {@code contentHeight}(위 문단)와 항상 일치하도록
-     * 이미 보장돼 있었지만({@code WebSquareGenerator#convertLayoutAsTable} root 분기가 동일
-     * {@code resolveContentExtentHeight}를 재사용), 그 분모가 실제 CSS containing block으로
-     * 성립하는지는 별도 문제였다. 로컬 WebSquare devpack 실측(work/websquare-devpack-copy/
-     * tomcat/webapps/ROOT/websquare/_websquare_/skin/stylesheet.css의 {@code body{...;
-     * position:relative}}, {@code uiplugin/group/group.css}/stylesheet.css의 {@code .w2group}
-     * 규칙 -- position 미선언, static)로 확인: 생성 문서의 {@code <body>}(WebSquareGenerator가
-     * XHTML {@code body} 태그로 직접 생성)는 프레임워크 기본 CSS로 이미 position:relative이고,
-     * xf:group(.w2group 클래스, grp_resultArea/grp_main 포함)은 기본 CSS에 position 규칙이
-     * 없어 static으로 렌더링된다. 즉 grp_main이 스스로 position:relative를 선언하지 않으면,
-     * body -> grp_resultArea(static) -> grp_main(static) -> child(absolute) 체인에서 실제
-     * containing block은 grp_main이 아니라 body가 되어, 위 percentage 분모(contentHeight)와
-     * 실제 렌더링 기준(body의 실제 height, 일반적으로 뷰포트/Design Canvas 전체 -- 736px과
-     * 무관)이 어긋난다. grp_main 자신에게만 position:relative를 추가해 grp_main이 자신의
-     * absolute 자식들의 containing block이 되도록 한다(grp_resultArea는 변경하지 않음 --
-     * buildMainAreaStyle 무수정, 전역 position 변경 아님).
+     * grp_main의 style을 생성한다. height는 Form 선언값이 아니라 실제 authored content extent를 사용하고,
+     * position:relative를 선언해 grp_main 자신이 absolute 자식들의 containing block이 되게 한다.
      */
     public String buildMainContentAreaStyle(Document source) {
         double contentHeight = resolveContentExtentHeight(source);
@@ -830,18 +767,8 @@ public class ComponentLayoutConverter {
     }
 
     /**
-     * XPLATFORM_SOURCE_VISUAL_STYLE_PRESERVATION fix: 위 개별 XPlatform 속성(color/
-     * background/opacity 등)과 별개로, XPlatform source가 자체 {@code style} 속성에 raw CSS
-     * 선언 목록을 직접 담는 경우가 실존한다(실제 STT00030 evidence: {@code Div02 style=
-     * "background:#ffEEEfff;"}, {@code Div03 style="background: #ffffffff;"}). 지금까지 이
-     * 속성 자체를 어디서도 읽지 않아 이런 visual 정의가 변환 과정에서 통째로 소실됐다.
-     * {@link #SAFE_SOURCE_STYLE_PROPERTIES} 화이트리스트에 있는 순수 visual property만
-     * 병합하고, 그 외(특히 geometry/구조 property)는 무시한다 -- 화이트리스트가 position/
-     * left/top/right/bottom/width/height/display/z-index를 배제하므로 기존 geometry
-     * converter의 결과를 절대 덮어쓸 수 없다(19번 규칙과 동일 원칙). 이미 이 함수 앞부분에서
-     * emit된 개별 속성(color/background/opacity 등)과 property가 겹치면 CSS는 같은 style
-     * 문자열 안에서 나중 선언이 우선하므로, source style이 XPlatform 개별 속성보다 더
-     * 구체적인 최신 지정으로 자연스럽게 우선한다.
+     * source의 raw {@code style} 속성 중 {@link #SAFE_SOURCE_STYLE_PROPERTIES} 화이트리스트에
+     * 있는 순수 visual property만 병합한다. geometry/구조 property는 배제해 기존 geometry 결과를 덮어쓰지 않는다.
      */
     private void appendSourceInlineVisualStyle(Element source, StringBuilder style) {
         String raw = trim(source.getAttribute("style"));

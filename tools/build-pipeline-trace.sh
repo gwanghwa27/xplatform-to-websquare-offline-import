@@ -4,8 +4,7 @@
 # NOT part of the Production converter. Run this INSIDE the closed network, where the full
 # pipeline (candidate source -> build -> convert -> transfer -> WebSquare workspace -> Studio
 # save) actually exists. It cannot be run from outside that environment, which is exactly why
-# this script exists: it packages the exact commands so the closed-network operator can run the
-# same trace Claude Code would run if it had access.
+# this script exists: it packages the exact commands for the closed-network operator to run.
 #
 # What it does:
 #   1. Stage A: clean rebuild the candidate Production source, convert the real project fresh

@@ -36,17 +36,7 @@ public class BindingAnalyzer {
         } else {
             String inner = normalizeDataset(element.getAttribute("innerdataset"));
             if (inner.length() == 0) {
-                // INLINE_CHILD_DATASET_SUPPORT: 일부 XPlatform Radio/Combo/ListBox는 innerdataset
-                // attribute로 외부 Dataset을 참조하는 대신, 자기 자신의 직계 자식으로 <Dataset>을
-                // 인라인 선언한다(실제 STT00001.xfdl Radio00 evidence -- <Radio codecolumn=".."
-                // datacolumn=".."><Dataset id="innerdataset">...<Rows>...</Rows></Dataset></Radio>,
-                // innerdataset attribute 자체는 없음). 이 자식 Dataset의 id를 그대로 datasetId로
-                // 쓴다 -- WebSquareGenerator.appendDatasets()/findDatasetById() 둘 다 이미 문서
-                // 전체를 경로 가정 없이 스캔하므로(Objects 하위 여부 무관), 이 id만 정확히
-                // 넘겨주면 기존 로직이 그대로 동작한다. attribute 참조가 있으면(위 inner.length()>0)
-                // 그 값을 그대로 쓰고 이 조회는 하지 않는다(실제 corpus에 두 방식이 동시에 쓰인
-                // 사례가 없어 임의 우선순위를 만들지 않고, attribute를 먼저 확인하는 자연스러운
-                // 순서만 유지한다).
+                // innerdataset attribute가 없으면 직계 자식 <Dataset>을 inline 선언으로 취급한다.
                 Element childDataset = findDirectChildDataset(element);
                 if (childDataset != null) inner = normalizeDataset(childDataset.getAttribute("id"));
             }

@@ -62,25 +62,28 @@ robocopy "C:\work\xplatform-to-websquare-offline-import" "C:\work\xplatform-to-w
   아래 4번 참고)
 - `analysis/*.md`, `analysis/*.diff`(문서, 코드 아님)
 
-## 4. Canonical contents.css에 대해 -- REFERENCE_ONLY, 자동 배포 아님
+## 4. Canonical contents.css에 대해 -- 실제 CSS는 Git 미추적, metadata만 보관
 
-`resources/target-websquare/WebContent/assets/css/contents.css`는 실제
-폐쇄망 WebSquare 프로젝트의 `\WebContent\assets\css\contents.css`를
-그대로 보관한 **참조용 사본**이다. contents.css는 이미
-`websquare/config.xml`의 `<stylesheet earlyImportList="...">` 설정을 통해
-폐쇄망 프로젝트에 전역 로딩되고 있음이 확인됐다(`analysis/
+`resources/target-websquare/WebContent/assets/css/contents-css-metadata.json`에
+실제 운영 contents.css의 SHA-256/선택자 목록/구조 semantic 요약만 보관한다.
+**실제 CSS 파일 전체는 Git에 추적하지 않는다**(외부 실 운영 자산이므로 --
+상세: `analysis/repository-external-artifact-policy.md`). contents.css는
+이미 `websquare/config.xml`의 `<stylesheet earlyImportList="...">` 설정을
+통해 폐쇄망 프로젝트에 전역 로딩되고 있음이 확인됐다(`analysis/
 contents-css-integration-audit.md`). **이 candidate 저장소는 실제 운영
-`WebContent/assets/css/contents.css`를 자동으로 덮어쓰지 않는다** -- 이
-converter는 CSS 파일을 배포하는 코드를 포함하지 않는다. 필요하면 아래
-SHA 비교로 두 파일이 같은지만 확인한다:
+`WebContent/assets/css/contents.css`를 자동으로 배포/덮어쓰지 않는다** --
+이 converter는 CSS 파일을 배포하는 코드를 포함하지 않고, 빌드/회귀도 이
+파일의 존재를 요구하지 않는다(`EXTERNAL_FILE_REQUIRED_FOR_BUILD = NO`).
+필요하면 SHA 비교로 실제 운영 파일과 metadata 기록이 같은지만 확인한다:
 
 ```
 certutil -hashfile "C:\실제프로젝트경로\WebContent\assets\css\contents.css" SHA256
-certutil -hashfile "resources\target-websquare\WebContent\assets\css\contents.css" SHA256
 ```
-두 SHA가 같으면(`9634dbcd506d3eeaf1a238e4157059d6c3c4c2facdd85039ba8b46a30c9bcd62`)
-동일 파일이다. 다르면 실제 운영 파일이 canonical이며, 이 사본은 참조용일
-뿐 실제 파일을 임의로 교체하지 않는다.
+metadata에 기록된 SHA(`9634dbcd506d3eeaf1a238e4157059d6c3c4c2facdd85039ba8b46a30c9bcd62`)와
+같으면 지금까지의 구조 분석(shbox/dfbox/tbbox 등)이 실제 운영 CSS 기준
+그대로 유효하다는 뜻이다. 로컬에 참조용 사본을 직접 두고 싶다면
+`resources/target-websquare/WebContent/assets/css/contents.css`에 두면
+되지만(OPTIONAL_LOCAL_EVIDENCE_CHECK), 이 사본은 Git에 커밋되지 않는다.
 
 ## 5. Build 방법
 

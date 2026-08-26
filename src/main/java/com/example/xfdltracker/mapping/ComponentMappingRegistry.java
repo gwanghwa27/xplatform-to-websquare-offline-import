@@ -23,10 +23,7 @@ public class ComponentMappingRegistry {
         add("Calendar", "w2:inputCalendar", SupportLevel.PARTIAL, false, "date/edit format partially mapped; uiplugin.inputCalendar (edit box + picker), not bare uiplugin.calendar (picker-only) -- see V6_COMPONENT_MAPPING_MISMATCH fix");
         add("Spin", "w2:spinner", SupportLevel.PARTIAL, false, "basic geometry/value only");
         add("Grid", "w2:gridView", SupportLevel.PARTIAL, false, "Formats/head/body/bind and selected input types");
-        // DIV_TARGET_QNAME_MISMATCH fix: 실제 폐쇄망 Studio A/B 실측(analysis/
-        // div-qname-ab-diagnostic.md)에서 XPlatform Div의 target을 xf:group으로 바꾼 쪽이
-        // Design 렌더링을 개선함을 확인(CONTRIBUTING_FACTOR). GroupBox/PopupDiv/Tabpage는 이
-        // 실측 대상이 아니었으므로 함께 바꾸지 않고 기존 w2:group을 유지한다.
+        // Div만 xf:group(Design 렌더링 개선 확인); GroupBox/PopupDiv/Tabpage는 evidence 없어 w2:group 유지.
         add("Div", "xf:group", SupportLevel.SUPPORTED, true, "child coordinate system preserved");
         add("GroupBox", "w2:group", SupportLevel.PARTIAL, true, "group semantics/title require review");
         add("PopupDiv", "w2:group", SupportLevel.PARTIAL, true, "popup runtime behavior requires manual migration");
