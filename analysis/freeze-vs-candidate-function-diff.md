@@ -3320,3 +3320,92 @@ structural class 유출 0건(무변경). `NON_RADIO_UNEXPECTED_DIFF_COUNT
 
 **Status**: `RADIO_STATIC_CHOICES_FIX = FIX_CANDIDATE` /
 `RADIO_STUDIO_REVERIFY_READY = YES`(폐쇄망 Studio 육안 재확인 대기).
+
+---
+
+## [WebSquareGenerator] isComponentLocalItemsetDataset — 신규 함수 (inline innerdataset scope 정책, TYPE A/B 구분)
+
+- CHANGE_TYPE: `NEW_FUNCTION` + `appendDatasets`/`applyBindings` 수정 +
+  `appendStaticChoicesIfLiteralDataset` 시그니처 변경
+- 배경: 폐쇄망에서 label/value literal corruption 현상을 보고했다
+  (`기업고객(SOHO)` → `기업고객_SOHO_`, `0` → `_`). 이 저장소 코드를
+  실제로 다시 fresh conversion(byte-level 확인 포함)해본 결과 corruption이
+  재현되지 않았다 -- `appendStaticChoicesIfLiteralDataset`은
+  `sanitizeXml10`(XML 1.0 무효 문자 제거만 수행)만 쓰고, identifier
+  sanitizer(`sanitizeJsIdentifier`, Tab 이벤트 어댑터 이름 생성 전용,
+  호출부 1곳뿐)는 이 경로에서 전혀 호출되지 않음을 grep+코드 추적으로
+  확인했다. corruption 패턴은 실제로 `sanitizeJsIdentifier`를 그 값들로
+  실행해 정확히 재현했으나(`analysis/radio-label-literal-corruption-and-
+  innerdataset-scope-policy.md` PART 1), 이 저장소 코드 자체에는 그
+  호출이 없어 폐쇄망 source-sync 문제로 재분류했다 -- PART 1에 대한
+  Production 변경은 없음.
+
+  같은 라운드에서 함께 요청된 "component-local inline innerdataset은
+  독립 w2:dataList로 만들지 않는다" 정책(PART 2)은 실제 코드 변경
+  사항이다.
+
+**신규 함수**:
+```java
+private boolean isComponentLocalItemsetDataset(Element dataset) {
+    if (dataset == null) return false;
+    Node parent = dataset.getParentNode();
+    if (!(parent instanceof Element)) return false;
+    String parentTag = getSourceTagName((Element) parent);
+    return "Radio".equals(parentTag) || "Combo".equals(parentTag) || "ListBox".equals(parentTag);
+}
+```
+Dataset의 **부모 컴포넌트 타입**만으로 TYPE A(inline)/TYPE B(referenced)를
+구분한다 -- id 문자열(예: `"innerdataset"`)로 판정하지 않는다(다른 id를
+쓰는 인라인 Dataset도 동일 처리, 우연히 id가 같은 Objects-level
+Dataset을 오판하지 않음).
+
+**`appendDatasets`**: TYPE A Dataset은 `w2:dataList` 생성을 skip.
+**`applyBindings`**: TYPE A면 런타임 `setNodeSet()`도 만들지 않고,
+sourceTag와 무관하게(Radio/Combo/ListBox 전부) 정적 `xf:choices`를
+유일한 item source로 생성(안 그러면 item이 완전히 비는 회귀 발생).
+TYPE B(참조)는 기존 동작(dataList+setNodeSet, Radio만 추가로 정적
+choices) 100% 그대로.
+**`appendStaticChoicesIfLiteralDataset`**: `Element dataset`을
+caller(`applyBindings`)로부터 직접 받도록 시그니처 변경(내부에서
+`findDatasetById`를 다시 호출하지 않음 -- TYPE 판정에 쓴 조회 결과
+재사용, 로직 자체는 무변경).
+
+**Full Unified Diff**: `analysis/git-baseline-vs-candidate-production.diff`
+참고.
+
+**Generated XML BEFORE/AFTER** (실제 `STT00001.xfdl`):
+```
+BEFORE(8082746): <w2:dataList id="innerdataset">...</w2:dataList>가 <xf:model>에 생성되고
+  script에 Div01_Radio00.setNodeSet("data:innerdataset", ...) 존재,
+  동시에 <xf:choices>도 존재(중복).
+AFTER(이번 커밋): <w2:dataList id="innerdataset">/setNodeSet("...innerdataset...") 둘 다 없음
+  (grep -c "innerdataset" 전체 파일 결과 0), <xf:choices>만 유일한 item source로 남음.
+```
+label/value literal은 이번에도 정확히 보존됨(`기업고객(SOHO)`/`0`,
+`개인고객(CB)`/`1`).
+
+**영향 output 수**: 149-fixture corpus에는 TYPE A 패턴이 없어(실제
+`STT00001.xfdl`이 유일한 실제 evidence) 기존 136개 생성 XML은
+byte-identical. TYPE B(참조, `DatasetBinding.xfdl`의 `dsCode`를
+`cboCode`/`rdoCode`가 공유)도 dataList/두 setNodeSet 호출/`rdoCode`
+정적 choices 전부 무변경 확인.
+
+**신규 regression fixture**: `sample-phase3-project/Form/
+RadioInlineChildDatasetLiteral.xfdl`(inline child Dataset, item 3개:
+`기업고객(SOHO)`/`0`, `개인고객(CB)`/`1`, `A&B`/`01` -- 특수문자+
+선행 0 숫자열로 XML escaping과 identifier normalization을 구분).
+corpus가 149→150개로, 기대 생성 XML이 136→137개로 바뀌어
+`BUILD-AND-VERIFY.sh`/`.cmd`/`README-KO.md`의 하드코딩된 카운트를
+전부 갱신하고 실제 `cmd.exe`/`sh`로 재실행해 PASS 확인했다.
+
+**Regression**: clean compile PASS, 150/150 conversion PASS(137 XML),
+XML well-formed 137/137, Phase1 SHA PASS,
+btn_cm=12/wq_gvw=3/w2selectbox_disabled=4(전부 무변경), HOLD
+structural class 유출 0건(무변경). `NON_RADIO_UNEXPECTED_DIFF_COUNT
+= 0`, `SHARED_DATASET_ACCIDENTAL_REMOVAL_COUNT = 0`(STT00001의 다른
+6개 Objects-level Dataset + DatasetBinding.xfdl의 dsCode 전부 정상
+유지 확인).
+
+**Status**: `INLINE_CHILD_DATASET_POLICY` 구현 완료 /
+`RADIO_STUDIO_REVERIFY_READY = YES`(폐쇄망 Studio 육안 재확인 대기,
+label/value corruption은 별도로 source-sync 확인 필요).

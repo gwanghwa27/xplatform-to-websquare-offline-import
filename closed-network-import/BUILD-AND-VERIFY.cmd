@@ -50,18 +50,18 @@ if errorlevel 1 (
 if exist "%SRCLIST%" del /q "%SRCLIST%"
 echo.
 
-echo -- [3/6] 149-fixture conversion --
+echo -- [3/6] 150-fixture conversion --
 if exist "build\sample-output" rmdir /s /q "build\sample-output"
 mkdir "build\sample-output"
 java -Dfile.encoding=UTF-8 -cp "build\classes" com.example.xfdltracker.project.XPlatformProjectConverter "sample-phase3-project" "build\sample-output" UTF-8 > "build\convert.log" 2>&1
 set "XML_COUNT=0"
 for /f %%C in ('dir /s /b "build\sample-output\*.xml" 2^>nul ^| find /c /v ""') do set "XML_COUNT=%%C"
-echo Generated XML count: !XML_COUNT! (expected 136)
-if not "!XML_COUNT!"=="136" (
+echo Generated XML count: !XML_COUNT! (expected 137)
+if not "!XML_COUNT!"=="137" (
   echo [FAIL] XML count mismatch -- see build\convert.log
   set "FAIL=1"
 ) else (
-  echo [PASS] 149/149 conversion.
+  echo [PASS] 150/150 conversion.
 )
 echo.
 

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDL version="1.5"><Form id="RadioInlineChildDatasetLiteral" width="400" height="160">
+<Layouts><Layout width="400" height="160"><Radio id="rdoLiteral" codecolumn="codecolumn" datacolumn="datacolumn" direction="vertical" left="10" top="10" width="280" height="100" value="0">
+<Dataset id="innerdataset"><ColumnInfo><Column id="codecolumn" size="256"/><Column id="datacolumn" size="256"/></ColumnInfo><Rows><Row><Col id="codecolumn">0</Col><Col id="datacolumn">기업고객(SOHO)</Col></Row><Row><Col id="codecolumn">1</Col><Col id="datacolumn">개인고객(CB)</Col></Row><Row><Col id="codecolumn">01</Col><Col id="datacolumn">A&amp;B</Col></Row></Rows></Dataset>
+</Radio></Layout></Layouts>
+</Form></FDL>

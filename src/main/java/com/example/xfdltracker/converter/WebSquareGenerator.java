@@ -237,6 +237,19 @@ public class WebSquareGenerator {
 
         for (int i = 0; i < datasets.size(); i++) {
             Element ds = datasets.get(i);
+            if (isComponentLocalItemsetDataset(ds)) {
+                // COMPONENT_LOCAL_ITEMSET_DATASET: Radio/Combo/ListBox의 직계 자식으로 인라인
+                // 선언된 Dataset(실제 STT00001.xfdl evidence)은 그 컴포넌트 자신의 item source
+                // 전용이지, 다른 컴포넌트/script/transaction이 공유하는 업무 Dataset이 아니다.
+                // applyBindings가 이 데이터를 정적 xf:choices로 직접 변환하므로(아래), 별도
+                // w2:dataList를 만들지 않는다 -- id 문자열(예: "innerdataset")이 아니라 "부모가
+                // itemset-capable 컴포넌트인가"만으로 판정한다(다른 id를 쓰는 인라인 Dataset도
+                // 동일하게 처리되도록).
+                System.out.println("[DATA TODO] component-local inline itemset Dataset -> "
+                        + "w2:dataList 생성 생략(정적 xf:choices 전용): "
+                        + sanitizeXml10(ds.getAttribute("id")));
+                continue;
+            }
             String id = sanitizeXml10(ds.getAttribute("id"));
             if (id.length() == 0) {
                 continue;
@@ -1731,20 +1744,56 @@ public class WebSquareGenerator {
         if (itemset != null) {
             if ("Combo".equals(sourceTag) || "ListBox".equals(sourceTag) || "Radio".equals(sourceTag)) {
                 if (itemset.getCodeColumn().length() > 0 && itemset.getDataColumn().length() > 0) {
-                    pageLoadStatements.add(targetId + ".setNodeSet(\"data:"
-                            + jsString(itemset.getDatasetId()) + "\", \""
-                            + jsString(itemset.getDataColumn()) + "\", \""
-                            + jsString(itemset.getCodeColumn()) + "\");");
-                    System.out.println("[ITEMSET 변환] " + sourcePath + " -> " + itemset.getDatasetId()
-                            + " label=" + itemset.getDataColumn() + " value=" + itemset.getCodeColumn());
-                    if ("Radio".equals(sourceTag)) {
-                        appendStaticChoicesIfLiteralDataset(out, target, itemset, sourcePath);
+                    Element itemsetDataset = findDatasetById(itemset.getDatasetId());
+                    boolean inlineDataset = isComponentLocalItemsetDataset(itemsetDataset);
+                    if (!inlineDataset) {
+                        // TYPE B(referenced Dataset): 기존 동작 그대로 -- 다른 컴포넌트/script/
+                        // transaction이 같은 Dataset을 쓸 수 있으므로 w2:dataList/runtime
+                        // setNodeSet()을 그대로 유지한다.
+                        pageLoadStatements.add(targetId + ".setNodeSet(\"data:"
+                                + jsString(itemset.getDatasetId()) + "\", \""
+                                + jsString(itemset.getDataColumn()) + "\", \""
+                                + jsString(itemset.getCodeColumn()) + "\");");
+                        System.out.println("[ITEMSET 변환] " + sourcePath + " -> " + itemset.getDatasetId()
+                                + " label=" + itemset.getDataColumn() + " value=" + itemset.getCodeColumn());
+                    } else {
+                        // TYPE A(component-local inline Dataset): 위 appendDatasets에서 이미
+                        // w2:dataList를 만들지 않으므로, 존재하지 않는 dataList를 가리키는
+                        // setNodeSet() 호출도 만들지 않는다 -- 정적 xf:choices가 유일한 item
+                        // source가 된다(아래).
+                        System.out.println("[ITEMSET 변환] " + sourcePath + " -> " + itemset.getDatasetId()
+                                + " (component-local inline dataset, 정적 xf:choices만 사용, "
+                                + "런타임 setNodeSet/w2:dataList 생성 안 함)");
+                    }
+                    // "Radio".equals(sourceTag): 실제 devpack evidence(7/7)로 확인된 기존 정책
+                    // (REFERENCED Dataset이라도 Radio는 정적 choices가 필요, 아래 함수 Javadoc
+                    // 참고). inlineDataset: TYPE A는 setNodeSet을 만들지 않았으므로 sourceTag와
+                    // 무관하게(Combo/ListBox 포함) 정적 choices가 유일한 item source여야 한다 --
+                    // 그렇지 않으면 item이 완전히 비게 되는 회귀가 생긴다.
+                    if ("Radio".equals(sourceTag) || inlineDataset) {
+                        appendStaticChoicesIfLiteralDataset(out, target, itemsetDataset, itemset, sourcePath);
                     }
                 }
             } else {
                 System.out.println("[BINDING TODO] innerdataset 지원 대상 아님: " + sourcePath + " tag=" + sourceTag);
             }
         }
+    }
+
+    /**
+     * TYPE_A_INLINE_DATASET_POLICY: Dataset의 직계 부모가 itemset-capable 컴포넌트
+     * (Radio/Combo/ListBox)이면 그 컴포넌트 자신만을 위한 인라인 item source(TYPE A)로
+     * 판정한다(실제 STT00001.xfdl evidence: Radio 직계 자식 &lt;Dataset id="innerdataset"&gt;).
+     * Dataset 자신의 id 문자열(예: "innerdataset")은 판정 근거로 쓰지 않는다 -- 다른 id를 쓰는
+     * 인라인 Dataset도 동일하게 처리되어야 하고, 반대로 우연히 id가 "innerdataset"인 Objects
+     * 레벨 참조 Dataset(TYPE B)이 있다면 그것은 부모가 컴포넌트가 아니므로 여기 해당하지 않는다.
+     */
+    private boolean isComponentLocalItemsetDataset(Element dataset) {
+        if (dataset == null) return false;
+        Node parent = dataset.getParentNode();
+        if (!(parent instanceof Element)) return false;
+        String parentTag = getSourceTagName((Element) parent);
+        return "Radio".equals(parentTag) || "Combo".equals(parentTag) || "ListBox".equals(parentTag);
     }
 
     /**
@@ -1759,16 +1808,18 @@ public class WebSquareGenerator {
      * 담고 있을 때만(즉 값이 conversion 시점에 이미 100% 확정돼 있을 때만) 그 값을 그대로 읽어
      * 정적 &lt;xf:choices&gt;를 추가한다. Rows가 비어있거나 없으면(서버 io() 호출로만 채워지는
      * 진짜 동적 dataset) 아무것도 하지 않는다 -- 존재하지 않는 값을 추측해서 만들어내지 않는다.
-     * 기존 runtime setNodeSet() 호출은 그대로 유지한다(devpack 런타임 코드 실측:
-     * l.prototype.setNodeSet은 this.modelControl.unbindItemset() 후 setItemset()을 호출하는
-     * unbind-then-rebind 구조라, 이미 정적 choices가 있는 상태에서 호출돼도 안전하게 대체된다 --
-     * 상세: analysis/radio-rendering-root-cause.md 5번). 화면명/컴포넌트 id 조건은 전혀 쓰지
+     * REFERENCED(TYPE B) Dataset에는 기존 runtime setNodeSet() 호출을 그대로 유지한다(devpack
+     * 런타임 코드 실측: l.prototype.setNodeSet은 this.modelControl.unbindItemset() 후
+     * setItemset()을 호출하는 unbind-then-rebind 구조라, 이미 정적 choices가 있는 상태에서
+     * 호출돼도 안전하게 대체된다 -- 상세: analysis/radio-rendering-root-cause.md 5번).
+     * INLINE(TYPE A) Dataset은 caller(applyBindings)가 이미 setNodeSet()도 w2:dataList도 만들지
+     * 않으므로 이 정적 choices가 유일한 item source다. 화면명/컴포넌트 id 조건은 전혀 쓰지
      * 않는다 -- source Dataset의 실제 리터럴 데이터 유무만으로 판단하는 generic 정책이다.
+     * dataset은 caller가 이미 findDatasetById로 조회해 넘긴다(TYPE A/B 판정에도 같은 Element가
+     * 필요해 caller가 한 번만 조회하도록 함수를 분리했다).
      */
     private void appendStaticChoicesIfLiteralDataset(
-            Document out, Element target, ItemsetBinding itemset, String sourcePath) {
-        if (sourceDocument == null) return;
-        Element dataset = findDatasetById(itemset.getDatasetId());
+            Document out, Element target, Element dataset, ItemsetBinding itemset, String sourcePath) {
         if (dataset == null) return;
         Element rows = findDirectChild(dataset, "Rows");
         if (rows == null) return;

@@ -40,14 +40,14 @@ fi
 rm -f build/srclist.txt
 echo
 
-echo "-- [3/6] 149-fixture conversion --"
+echo "-- [3/6] 150-fixture conversion --"
 rm -rf build/sample-output
 mkdir -p build/sample-output
 java -Dfile.encoding=UTF-8 -cp build/classes com.example.xfdltracker.project.XPlatformProjectConverter sample-phase3-project build/sample-output UTF-8 > build/convert.log 2>&1
 XML_COUNT=$(find build/sample-output -name '*.xml' | wc -l | tr -d ' ')
-echo "Generated XML count: $XML_COUNT (expected 136)"
-if [ "$XML_COUNT" = "136" ] && grep -q "실패=0" build/convert.log; then
-  echo "[PASS] 149/149 conversion."
+echo "Generated XML count: $XML_COUNT (expected 137)"
+if [ "$XML_COUNT" = "137" ] && grep -q "실패=0" build/convert.log; then
+  echo "[PASS] 150/150 conversion."
 else
   echo "[FAIL] conversion count/result mismatch -- see build/convert.log"
   FAIL=1

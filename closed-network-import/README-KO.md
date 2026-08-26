@@ -98,8 +98,8 @@ build.bat
 ```
 convert-sample.bat
 ```
-`sample-phase3-project` 149개 XFDL을 `build\sample-output`으로 변환한다
-(136개 XML 생성 기대).
+`sample-phase3-project` 150개 XFDL을 `build\sample-output`으로 변환한다
+(137개 XML 생성 기대).
 
 실제 업무 프로젝트를 변환하려면:
 ```
@@ -118,7 +118,7 @@ sh closed-network-import/BUILD-AND-VERIFY.sh
 ```
 (Git Bash/WSL 있는 경우)
 
-한 번 실행으로: MANIFEST.sha256 무결성 → clean compile → 149/149
+한 번 실행으로: MANIFEST.sha256 무결성 → clean compile → 150/150
 conversion → class/state policy invariant(`btn_cm=12`/`wq_gvw=3`/
 `w2selectbox_disabled=4`) → HOLD structural class 미유출 확인 → XML
 well-formed(python 있으면) → Phase1 SHA verifier(python 있으면)까지
